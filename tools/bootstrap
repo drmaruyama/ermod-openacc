@@ -331,7 +331,7 @@ class BSManager:
                 print('Average mesh error is {:.3f} kcal/mol {}'.format(merr_ave, type_str))
             elif merr_ave < float(pfe_d['mesherr']):
                 pass
-            elif pfe_d['clcond'] == 'merge' and merr_ave > fene_err:
+            elif 'merge' in pfe_d['clcond'] and merr_ave > fene_err:
                 print('Warning: average mesh error is {:.3f} kcal/mol {}and is larger than the 95% error of {:.3f} kcal/mol'.format(merr_ave, type_str, fene_err))
             elif float(pfe_d['mesherr']) > 0.0 and merr_ave > float(pfe_d['mesherr']):
                 print('Warning: average mesh error is {:.3f} kcal/mol {}and is larger than the threshold value of {} kcal/mol'.format(merr_ave, type_str, pfe_d['mesherr']))
@@ -387,7 +387,7 @@ class ParmFEManager:
         if 'mesherr' not in d:
             d['mesherr'] = 0.1
         if 'clcond' not in d:
-            d['clcond'] = 'merge'
+            d['clcond'] = '\"merge\"'
 
         # set values
         d['numsln'] = 1
@@ -602,6 +602,9 @@ def generate_averaged_distribution(smpl_lst_dct, work_dir_lst_dct, er_avgr, cmd_
     work_dir = 'average'
     
     for sys_type, smpl_lst in smpl_lst_dct.items():
+        if not smpl_lst:
+            continue
+
         dir_lst = work_dir_lst_dct[sys_type]
         ave_dir = os.path.join(work_dir, sys_type)
         mkdir(ave_dir)

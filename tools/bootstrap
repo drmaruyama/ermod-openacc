@@ -501,8 +501,14 @@ def get_slvfe_output(proc=None, slvfe_file=None):
     with open(slvfe_file, 'r') as f:
         lines = f.read().splitlines()
 
+    # error check
+    lst = [i for i, line in enumerate(lines) if '95% error for solvation free energy' in line]
+    if len(lst) == 0:
+        print('make sure that slvfe works properly')
+        exit(1)
+
     # free energy
-    i_pre_fene = [i for i, line in enumerate(lines) if '95% error for solvation free energy' in line][0]
+    i_pre_fene = lst[0]
     if 'component' in lines[i_pre_fene+1]:
         i_pre_fene += 1
     fenes = list(map(float, lines[i_pre_fene+1].split()[1:]))

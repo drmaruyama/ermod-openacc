@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # popen and others are used only for 2.3 compatibility
 import warnings
@@ -10,29 +10,29 @@ import sys
 import pickle
 import popen2
 import re
-from optparse import OptionParser
+from argparse import ArgumentParser
 
-parser = OptionParser()
+parser = ArgumentParser()
 
 # topology, mandatory
-parser.add_option("-f", "--mdff", dest = "mdff",
+parser.add_argument("-f", "--mdff", dest = "mdff",
                   help = "MODYLAS force field file (*.mdff)",
                   default = None)
 
 # can be specified; otherwise specify interactively
-parser.add_option("-s", "--solute", dest = "solute",
+parser.add_argument("-s", "--solute", dest = "solute",
                   help = "molecule-index of solute molecule (comma separated for multiple choice)",
                   default = None)
 
-parser.add_option("-v", "--verbose", dest = "verbose", action = "store_true",
+parser.add_argument("-v", "--verbose", dest = "verbose", action = "store_true",
                   help = "Increase verbosity (for debug)",
                   default = False)
 
-(options, args) = parser.parse_args()
+options = parser.parse_args()
 
 def log(x):
     if options.verbose:
-        print >> sys.stderr, x
+        print(x, file=sys.stderr)
 
 def warn_or_error(x, col):
     prefix = ""
@@ -40,7 +40,7 @@ def warn_or_error(x, col):
     if os.isatty(sys.stderr.fileno()):
         prefix = "\x1b[" + str(col) + ";1m"
         suffix = "\x1b[0m"
-    print >> sys.stderr, prefix + x + suffix
+    print(prefix + x + suffix, file=sys.stderr)
 
 def warn(x):
     warn_or_error("Warning: " + x, 33)
@@ -60,7 +60,7 @@ if options.mdff == None:
     error("mdff must be specified (try --help)")
 
 if not os.path.exists(options.mdff):
-    print >> sys.stderr, "Error: mdff file does not exist!"
+    print("Error: mdff file does not exist!", file=sys.stderr)
     sys.exit(1)
 
 class union_find:
@@ -231,11 +231,11 @@ def get_topology_info():
         solutes = options.solute.split(',')
     else:
         # interactive input
-        print "Molecule types in topology file:",
+        print("Molecule types in topology file:", end=' ')
         for s in mollist:
-            print s,
-        print
-        l = raw_input("Which molecules are solutes? (For multiple choice please specify as comma-separated list) ").split(',')
+            print(s, end=' ')
+        print()
+        l = input("Which molecules are solutes? (For multiple choice please specify as comma-separated list) ").split(',')
         solutes = [x.strip() for x in l]
 
     if solutes == []:
@@ -322,15 +322,15 @@ def gen(mode):
                 carryover["sltpick"] = i + 1 # 1-origin
 
     # output MDinfo
-    mdifh = file(mode + "/MDinfo", "wt")
-    print >> mdifh, "FRAMES %d" % len(nmols)
+    mdifh = open(mode + "/MDinfo", "wt")
+    print("FRAMES %d" % len(nmols), file=mdifh)
     
     for n in nmols:
-        print >> mdifh, "%d" % n,
-    print >> mdifh
+        print("%d" % n, end=' ', file=mdifh)
+    print(file=mdifh)
     for n in sites:
-        print >> mdifh, "%d" % n,
-    print >> mdifh
+        print("%d" % n, end=' ', file=mdifh)
+    print(file=mdifh)
     mdifh.close()
     
     solvent_cnt = 1
@@ -354,13 +354,13 @@ def gen(mode):
             eps = top.atomtype2epsilon[atype]
             sig = top.atomtype2sigma[atype]
             atom = atomtype_of_mass(float(mass))
-            print >> ofh, ("%d %s %.8g %.8g %.8g" % 
-                           (k, atom, charge, eps, sig))
+            print(("%d %s %.8g %.8g %.8g" % 
+                           (k, atom, charge, eps, sig)), file=ofh)
             k += 1
 
     safe_close(ofh)
     # write carryover
-    ofh = file(mode + "/.extraparam", "wt")
+    ofh = open(mode + "/.extraparam", "wt")
     pickle.dump(carryover, ofh)
     safe_close(ofh)
 

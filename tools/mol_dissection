@@ -1,22 +1,18 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- Python -*-
 
 import os.path
 import sys
 import pickle
 import re
-from optparse import OptionParser
+from argparse import ArgumentParser
 
 ################################################################
 # Common modules, functions
 
-if sys.version_info < (2, 6):
-    from sets import Set
-    set = Set
-
 def log(x):
     if options.verbose:
-        print >> sys.stderr, x
+        print(x, file=sys.stderr)
 
 def warn_or_error(x, col):
     prefix = ""
@@ -24,7 +20,7 @@ def warn_or_error(x, col):
     if os.isatty(sys.stderr.fileno()):
         prefix = "\x1b[" + str(col) + ";1m"
         suffix = "\x1b[0m"
-    print >> sys.stderr, prefix + x + suffix
+    print(prefix + x + suffix, file=sys.stderr)
 
 def warn(x):
     warn_or_error("Warning: " + x, 33)
@@ -44,24 +40,24 @@ def safe_close(fh):
 # End of common components
 ################################################################
 
-parser = OptionParser()
+parser = ArgumentParser()
 
 # topology
-parser.add_option("-p", "--pdb", dest = "pdb",
+parser.add_argument("-p", "--pdb", dest = "pdb",
                   help="Solution PDB (.pdb) file name to give molecular structure")
 
-parser.add_option("-v", "--verbose", dest = "verbose", action="store_true",
+parser.add_argument("-v", "--verbose", dest = "verbose", action="store_true",
                   help = "Be more verbose",
                   default = False)
 
-(options, args) = parser.parse_args()
+options = parser.parse_args()
 
 if options.pdb == None:
     error("Error: PDB file is not specified (try --help)")
 
 picked = 0
 try:
-    ifh = file("soln/.extraparam", "rt")
+    ifh = open("soln/.extraparam", "rt")
     carryover = pickle.load(ifh)
     ifh.close()
     if "sltspec" in carryover:
@@ -79,10 +75,10 @@ if os.path.exists("soln/PermIndex"):
 # read topology from MDinfo
 
 fh = open("soln/MDinfo", "rt")
-mols = int(fh.next().split()[1])
-ms = fh.next().split()
+mols = int(next(fh).split()[1])
+ms = next(fh).split()
 ms = [int(i) for i in ms]
-ns = fh.next().split()
+ns = next(fh).split()
 ns = [int(i) for i in ns]
 
 assert mols == len(ms), "number of molecules does not match to MDinfo's 1st line"
@@ -194,7 +190,7 @@ def name_of(molpos):
         
 while True:
     def show_help():
-        print """commands:
+        print("""commands:
 list         List molecules ("*" represents solute)
 split N R    Split molecule N just BEFORE residue nubmer R
 pick N R     Pick residue R in molecule N and separate from other residues
@@ -204,13 +200,13 @@ group N M    Group Nth and Mth molecule,
 save         Save
 quit         Save and quit
 QUIT         force quit without saving
-"""
+""")
     
     def show_list(handle):
         for i in range(mols):
-            print >> handle, "%2d." % (i + 1),
-            print >> handle, "%5d" % ms[i], "mols", "%5d" % ns[i], "atoms",
-            print >> handle, name_of(i)
+            print("%2d." % (i + 1), end=' ', file=handle)
+            print("%5d" % ms[i], "mols", "%5d" % ns[i], "atoms", end=' ', file=handle)
+            print(name_of(i), file=handle)
 
     def save_mol():
         global mols
@@ -237,7 +233,7 @@ QUIT         force quit without saving
                 solute = i
                 break
 
-        print "New solute position: ", solute + 1
+        print("New solute position: ", solute + 1)
 
         global ms, ns, begins, permindex, permindex_refs, molprm
 
@@ -246,7 +242,7 @@ QUIT         force quit without saving
             if state == "soln":
                 # for refs there are nothing like "solute" ...
                 try:
-                    ifh = file(state + "/.extraparam", "rt")
+                    ifh = open(state + "/.extraparam", "rt")
                     carryover = pickle.load(ifh)
                     ifh.close()
                 except OSError:
@@ -254,7 +250,7 @@ QUIT         force quit without saving
                     carryover = {}
 
                 carryover["sltspec"] = solute + 1
-                ofh = file(state + "/.extraparam", "wt")
+                ofh = open(state + "/.extraparam", "wt")
                 pickle.dump(carryover, ofh)
                 safe_close(ofh)
 
@@ -268,13 +264,13 @@ QUIT         force quit without saving
                 del mstmp[solute]
                 del nstmp[solute]
                 
-            print >> fh, "FRAMES %d" % len(mstmp)
+            print("FRAMES %d" % len(mstmp), file=fh)
             for m in mstmp:
-                print >> fh, m,
-            print >> fh
+                print(m, end=' ', file=fh)
+            print(file=fh)
             for n in nstmp:
-                print >> fh, n,
-            print >> fh
+                print(n, end=' ', file=fh)
+            print(file=fh)
             safe_close(fh)
             molprmid = 1
 
@@ -289,7 +285,7 @@ QUIT         force quit without saving
                         sol = " (solute)"
                     x = permindex_refs[orig]
                     if x != None:
-                        print >> perm, "%6d %6d ! %s %d%s" % (orig + 1, refi + 1, rn, ri, sol)
+                        print("%6d %6d ! %s %d%s" % (orig + 1, refi + 1, rn, ri, sol), file=perm)
                         refi += 1
             else:
                 for i in range(totalatoms):
@@ -298,7 +294,7 @@ QUIT         force quit without saving
                     sol = ""
                     if is_solute:
                         sol = " (solute)"
-                    print >> perm, "%6d %6d ! %s %d%s" % (x + 1, i + 1, rn, ri, sol)
+                    print("%6d %6d ! %s %d%s" % (x + 1, i + 1, rn, ri, sol), file=perm)
             safe_close(perm)
                         
             for i in range(mols):
@@ -311,7 +307,7 @@ QUIT         force quit without saving
                 fh = open(state + "/MolPrm%d" % molprmid, "wt")
                 molprmid += 1
                 for j in range(ns[i]):
-                    print >> fh, molprms[permindex[begins[i] + j]]
+                    print(molprms[permindex[begins[i] + j]], file=fh)
                 safe_close(fh)
             
             # does not touch SltInfo
@@ -351,18 +347,18 @@ QUIT         force quit without saving
     def split_at(n, r):
         global ns, ms, mols
         if n < 0 or n >= mols:
-            print "Invalid molecular index"
+            print("Invalid molecular index")
             return
         if ms[n] != 1:
-            print "Cannot split multiple molecules"
+            print("Cannot split multiple molecules")
             return
         
         group_before = get_number_before(n, r)
         if group_before < 0 or group_before >= ns[n]:
-            print "No such molecule in molecule %d" % n
+            print("No such molecule in molecule %d" % n)
             return
         elif group_before == 0:
-            print "No other molecule before residue %d" % r
+            print("No other molecule before residue %d" % r)
         split_impl(n, group_before)
 
     def merge_update_begins_permindex(n, m):
@@ -379,10 +375,10 @@ QUIT         force quit without saving
     def merge_mol(n, m):
         global ns, ms, mols
         if n < 0 or m < 0 or n >= mols or m >= mols:
-            print "Invalid molecular index"
+            print("Invalid molecular index")
             return
         if n == m:
-            print "Cannot merge the same molecule"
+            print("Cannot merge the same molecule")
             return
         if n > m:
             tmp = m
@@ -399,15 +395,15 @@ QUIT         force quit without saving
     def pick(n, r):
         global ns, ms, mols
         if n < 0 or n >= mols:
-            print "Invalid molecular index"
+            print("Invalid molecular index")
             return
         if ms[n] != 1:
-            print "Cannot pick multiple molecules"
+            print("Cannot pick multiple molecules")
             return
         
         group_before = get_number_before(n, r)
         if group_before < 0 or group_before >= ns[n]:
-            print "No such molecule in molecule", n
+            print("No such molecule in molecule", n)
             return
         split_impl(n, group_before)
         group_after = get_number_after(n + 1, r)
@@ -417,13 +413,13 @@ QUIT         force quit without saving
     def group_mol(n, m):
         global ns, ms, mols
         if n < 0 or m < 0 or n >= mols or m >= mols:
-            print "Invalid molecular index"
+            print("Invalid molecular index")
             return
         if n == m:
-            print "Cannot group the same molecule"
+            print("Cannot group the same molecule")
             return
         if ns[n] != ns[m]:
-            print "Failed to regruop: number of atoms does not match"
+            print("Failed to regruop: number of atoms does not match")
             return
         if n > m:
             tmp = m
@@ -439,7 +435,7 @@ QUIT         force quit without saving
     log("NS: " + repr(ns))
     log("MS: " + repr(ms))
     log("BS: " + repr(begins))
-    l = raw_input("> ").strip().split()
+    l = input("> ").strip().split()
     if l == []:
         show_help()
     elif l[0] == "list" or l[0] == "ls":
@@ -496,7 +492,7 @@ QUIT         force quit without saving
     elif l[0] == "QUIT":
         exit(0)
     else:
-        print "Unknown command:", l[0]
+        print("Unknown command:", l[0])
         show_help()
 
         

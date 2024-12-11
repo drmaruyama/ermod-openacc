@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import os
 import os.path
@@ -6,57 +6,50 @@ import shutil
 import sys
 import re
 import pickle
-from optparse import OptionParser
+from argparse import ArgumentParser
 
-parser = OptionParser()
+parser = ArgumentParser()
 
 # only have to specify one of three:
-parser.add_option("-l", "--log", dest = "log",
+parser.add_argument("-l", "--log", dest = "log",
                   help = "NAMD log file")
 
-parser.add_option("-x", "--dcd", dest = "dcd",
+parser.add_argument("-x", "--dcd", dest = "dcd",
                   help = "Solution or reference trajectory file")
 
-parser.add_option("-p", "--pdb", dest = "pdb",
+parser.add_argument("-p", "--pdb", dest = "pdb",
                   help = "(deprecated) same as --rigid")
-parser.add_option("-r", "--rigid", dest = "pdb",
+parser.add_argument("-r", "--rigid", dest = "pdb",
                   help = "Solute structure PDB file (for rigid insertion)")
 
-parser.add_option("-s", "--flexible", dest = "solute",
+parser.add_argument("-s", "--flexible", dest = "solute",
                   help = "Solute trajectory file (for flexible insertion)")
 
-parser.add_option("-d", "--div", dest = "div", type = "int",
+parser.add_argument("-d", "--div", dest = "div", type=int,
                   help = "Number of divided sections",
                   default = None)
 
-parser.add_option("--minenergy", dest = "minenergy", type = "float",
+parser.add_argument("--minenergy", dest = "minenergy", type=float,
                   help = "Minimum energy in kcal/mol",
                   default = -20.0)
 
-parser.add_option("--maxins", dest = "maxins", type = "int",
+parser.add_argument("--maxins", dest = "maxins", type=int,
                   help = "Number of insertions for refs (default: 1000)",
                   default = 1000)
 
-(options, args) = parser.parse_args()
-
-def safe_close(fh):
-    # asynchronous NFS may miss file creation
-    # esp. combined with delayed allocation (ext4, XFS)
-    fh.flush()
-    os.fsync(fh.fileno())
-    fh.close()
+options = parser.parse_args()
 
 if options.log == None:
-    print >> sys.stderr, "Error: log file is not specified (try --help)"
+    print("Error: log file is not specified (try --help)", file=sys.stderr)
     sys.exit(1)
 
 if options.dcd == None:
-    print >> sys.stderr, "Error: dcd file is not specified (try --help)"
+    print("Error: dcd file is not specified (try --help)", file=sys.stderr)
     sys.exit(1)
 
 def check_exists(f):
     if not os.path.exists(f):
-        print >> sys.stderr, "Error:", f, "file does not exist"
+        print("Error:", f, "file does not exist", file=sys.stderr)
         sys.exit(1)
 
 check_exists("MDinfo")
@@ -69,90 +62,88 @@ if options.solute:
     check_exists(options.solute)
 
 def parse_log():
-    logfh = open(options.log, "rt")
-    temp = 300.0
-    simtype = 1 # nvt
-    is_periodic = 0
-    ljfrcswt = 0 # CHARMM-type potential switch
-    cut = 0.
-    switchlj = 0.
-    coulombtype = 0
-    if options.pdb:
-        mode = 2 # fixed
-    elif options.solute:
-        mode = 3 # flexible
-    else:
-        mode = 1 # solution
-    total = 0
-    freq = 0
-    infopat = re.compile(r"Info: ")
-    runpat = re.compile(r"Running for\s+(\d+)")
-    for l in logfh:
-        # TCL: Running for 500000 steps
-        m = runpat.search(l)
-        if m:
-            total = int(m.group(1))
+    with open(options.log, "rt") as logfh:
+        temp = 300.0
+        simtype = 1 # nvt
+        is_periodic = 0
+        ljfrcswt = 0 # CHARMM-type potential switch
+        cut = 0.
+        switchlj = 0.
+        coulombtype = 0
+        if options.pdb:
+            mode = 2 # fixed
+        elif options.solute:
+            mode = 3 # flexible
+        else:
+            mode = 1 # solution
+        total = 0
+        freq = 0
+        infopat = re.compile(r"Info: ")
+        runpat = re.compile(r"Running for\s+(\d+)")
+        for l in logfh:
+            # TCL: Running for 500000 steps
+            m = runpat.search(l)
+            if m:
+                total = int(m.group(1))
 
-        if infopat.match(l) == None:
-            continue
-        # Info: BERENDSEN PRESSURE COUPLING ACTIVE
-        # Info: LANGEVIN PISTON PRESSURE CONTROL ACTIVE
-        if re.search(r"PRESSURE (COUPLING|CONTROL) ACTIVE", l):
-            simtype = 2 # npt
+            if infopat.match(l) == None:
+                continue
+            # Info: BERENDSEN PRESSURE COUPLING ACTIVE
+            # Info: LANGEVIN PISTON PRESSURE CONTROL ACTIVE
+            if re.search(r"PRESSURE (COUPLING|CONTROL) ACTIVE", l):
+                simtype = 2 # npt
 
-        # Info: LANGEVIN DYNAMICS ACTIVE
-        # Info: LANGEVIN TEMPERATURE   300
-        m = re.search(r"LANGEVIN TEMPERATURE\s+([-+]?(\d+(\.\d*)?|\.\d+)([eE][-+]?\d+)?)", l)
-        if m:
-            temp = float(m.group(1))
-        m = re.search(r"BERENDSEN TEMPERATURE\s+([-+]?(\d+(\.\d*)?|\.\d+)([eE][-+]?\d+)?)", l)
-        if m:
-            temp = float(m.group(1))
-        
-        # Info: SWITCHING ACTIVE
-        # Info: VDW FORCE SWITCHING ACTIVE
-        # Info: SWITCHING ON           9
-        # Info: SWITCHING OFF          10
-        m = re.search(r"VDW FORCE SWITCHING ACTIVE", l)
-        if m:
-            ljfrcswt = 2 # force switching
-        m = re.search(r"SWITCHING OFF\s+([-+]?(\d+(\.\d*)?|\.\d+)([eE][-+]?\d+)?)", l)
-        if m:
-            cut = float(m.group(1))
-        m = re.search(r"SWITCHING ON\s+([-+]?(\d+(\.\d*)?|\.\d+)([eE][-+]?\d+)?)", l)
-        if m:
-            switchlj = float(m.group(1))
-
-        # Info: PERIODIC CELL BASIS 1  64 0 0
-        if re.search(r"PERIODIC CELL BASIS", l):
-            is_periodic = 1
-            coulombtype = 1 # Ewald
+            # Info: LANGEVIN DYNAMICS ACTIVE
+            # Info: LANGEVIN TEMPERATURE   300
+            m = re.search(r"LANGEVIN TEMPERATURE\s+([-+]?(\d+(\.\d*)?|\.\d+)([eE][-+]?\d+)?)", l)
+            if m:
+                temp = float(m.group(1))
+            m = re.search(r"BERENDSEN TEMPERATURE\s+([-+]?(\d+(\.\d*)?|\.\d+)([eE][-+]?\d+)?)", l)
+            if m:
+                temp = float(m.group(1))
             
-        # Info: PARTICLE MESH EWALD (PME) ACTIVE
-        # Info: PME TOLERANCE               1e-06"
-        # Info: PME EWALD COEFFICIENT       0.3"
-        # Info: PME INTERPOLATION ORDER     4"
-        # Info: PME GRID DIMENSIONS         64 64 128"
-        if re.search(r"\(PME\) ACTIVE", l):
-            coulombtype = 2 # PME
-        m = re.search(r"PME EWALD COEFFICIENT\s+([-+]?(\d+(\.\d*)?|\.\d+)([eE][-+]?\d+)?)", l)
-        if m:
-            alpha = float(m.group(1))
-        m = re.search(r"PME INTERPOLATION ORDER\s+(\d+)", l)
-        if m:
-            pme_order = int(m.group(1))
-        m = re.search(r"PME GRID DIMENSIONS\s+(\d+) (\d+) (\d+)", l)
-        if m:
-            box1 = int(m.group(1))
-            box2 = int(m.group(2))
-            box3 = int(m.group(3))
+            # Info: SWITCHING ACTIVE
+            # Info: VDW FORCE SWITCHING ACTIVE
+            # Info: SWITCHING ON           9
+            # Info: SWITCHING OFF          10
+            m = re.search(r"VDW FORCE SWITCHING ACTIVE", l)
+            if m:
+                ljfrcswt = 2 # force switching
+            m = re.search(r"SWITCHING OFF\s+([-+]?(\d+(\.\d*)?|\.\d+)([eE][-+]?\d+)?)", l)
+            if m:
+                cut = float(m.group(1))
+            m = re.search(r"SWITCHING ON\s+([-+]?(\d+(\.\d*)?|\.\d+)([eE][-+]?\d+)?)", l)
+            if m:
+                switchlj = float(m.group(1))
 
-        # Info: DCD FREQUENCY          100
-        m = re.search(r"DCD FREQUENCY\s+(\d+)", l)
-        if m:
-            freq = int(m.group(1))
-            
-    logfh.close()
+            # Info: PERIODIC CELL BASIS 1  64 0 0
+            if re.search(r"PERIODIC CELL BASIS", l):
+                is_periodic = 1
+                coulombtype = 1 # Ewald
+                
+            # Info: PARTICLE MESH EWALD (PME) ACTIVE
+            # Info: PME TOLERANCE               1e-06"
+            # Info: PME EWALD COEFFICIENT       0.3"
+            # Info: PME INTERPOLATION ORDER     4"
+            # Info: PME GRID DIMENSIONS         64 64 128"
+            if re.search(r"\(PME\) ACTIVE", l):
+                coulombtype = 2 # PME
+            m = re.search(r"PME EWALD COEFFICIENT\s+([-+]?(\d+(\.\d*)?|\.\d+)([eE][-+]?\d+)?)", l)
+            if m:
+                alpha = float(m.group(1))
+            m = re.search(r"PME INTERPOLATION ORDER\s+(\d+)", l)
+            if m:
+                pme_order = int(m.group(1))
+            m = re.search(r"PME GRID DIMENSIONS\s+(\d+) (\d+) (\d+)", l)
+            if m:
+                box1 = int(m.group(1))
+                box2 = int(m.group(2))
+                box3 = int(m.group(3))
+
+            # Info: DCD FREQUENCY          100
+            m = re.search(r"DCD FREQUENCY\s+(\d+)", l)
+            if m:
+                freq = int(m.group(1))
 
     params = {
         "slttype": mode,
@@ -168,9 +159,8 @@ def parse_log():
 
     carryover = {}
     try: 
-        ifh = file(".extraparam", "rt")
-        carryover = pickle.load(ifh)
-        ifh.close()
+        with open(".extraparam", "rb") as ifh:
+            carryover = pickle.load(ifh)
         # read ljformat from carryover
         for k in carryover:
             if k != "sltspec": # sltspec is referenced only in soln
@@ -214,42 +204,39 @@ def parse_log():
                  "ms1max", "ms2max", "ms3max",
                  "maxins", "engdiv"]
 
-    ofh = open("parameters_er", "wt")
-    print >> ofh, "&ene_param"
-    for k in output_var:
-        if k in params.keys():
-            v = params[k]
-            if isinstance(v, str):
-                print >> ofh, "        %s = \"%s\"," % (k, v)
-            elif isinstance(v, int):
-                print >> ofh, "        %s = %d," % (k, v)
-            elif isinstance(v, float):
-                print >> ofh, "        %s = %g," % (k, v)
-            else:
-                error("Unknown output type")
+    with open("parameters_er", "wt") as ofh:
+        print("&ene_param", file=ofh)
+        for k in output_var:
+            if k in list(params.keys()):
+                v = params[k]
+                if isinstance(v, str):
+                    print("        %s = \"%s\"," % (k, v), file=ofh)
+                elif isinstance(v, int):
+                    print("        %s = %d," % (k, v), file=ofh)
+                elif isinstance(v, float):
+                    print("        %s = %g," % (k, v), file=ofh)
+                else:
+                    raise RuntimeError("Unknown output type")
 
-    print >> ofh, """/
+        print("""/
 &hist
-      eclbin=5.0e-2, ecfbin=2.0e-3, ec0bin=2.0e-4, finfac=10.0e0,
-      ecdmin=%f, ecfmns=-0.20e0, ecdcen=0.0e0, eccore=20.0e0,
-      ecdmax=1.0e11, pecore=200
+    eclbin=5.0e-2, ecfbin=2.0e-3, ec0bin=2.0e-4, finfac=10.0e0,
+    ecdmin=%f, ecfmns=-0.20e0, ecdcen=0.0e0, eccore=20.0e0,
+    ecdmax=1.0e11, pecore=200
 /
-""" % options.minenergy
-
-    safe_close(ofh)
+""" % options.minenergy, file=ofh)
 
     if options.solute == None and options.pdb == None:
         # solution system
         # update parameter_fe
         feparamf = "../parameters_fe"
-        fh = open(feparamf, "wt")
-        print >> fh, "&fevars"
-        print >> fh, "inptemp=%f" % temp
-        print >> fh, "/"
-        safe_close(fh)
+        with open(feparamf, "wt") as fh:
+            print("&fevars", file=fh)
+            print("inptemp=%f" % temp, file=fh)
+            print("/", file=fh)
 
     if total != 0 and freq != 0:
-        frames = total / freq
+        frames = total // freq
     else:
         frames = None
     return (frames, is_periodic)
@@ -258,14 +245,11 @@ def parse_log():
 
 # update MDinfo
 if frames:
-    ifh = open("MDinfo", "rt")
-    ofh = open("MDinfo.new", "wt")
-    l = ifh.next().split()
-    print >> ofh, frames, l[1]
-    print >> ofh, ifh.next().strip()
-    print >> ofh, ifh.next().strip()
-    ifh.close()
-    safe_close(ofh)
+    with open("MDinfo", "rt") as ifh, open("MDinfo.new", "wt") as ofh:
+        l = next(ifh).split()
+        print(frames, l[1], file=ofh)
+        print(next(ifh).strip(), file=ofh)
+        print(next(ifh).strip(), file=ofh)
     shutil.move("MDinfo", "MDinfo.bak")
     shutil.move("MDinfo.new", "MDinfo")
 
@@ -286,20 +270,18 @@ if options.solute:
     symlink(options.solute, "SltConf")
 elif options.pdb:
     # fixed
-    fh = open(options.pdb, "rt")
     coords = []
-    # overwrite SltInfo with coordinate information
-    for l in fh:
-        if l[0:4] == "ATOM" or l[0:6] == "HETATM":
-            coords.append((float(l[30:38]), float(l[38:46]), float(l[46:54])))
-    fh.close()
-    ifh = open("SltInfo", "rt")
-    ofh = open("SltInfo.new", "wt")
-    pos = 0
-    for l in ifh:
-        print >> ofh, ' '.join((l.split())[0:5]), coords[pos][0], coords[pos][1], coords[pos][2]
-        pos += 1
-    ifh.close()
-    safe_close(ofh)
+    with open(options.pdb, "rt") as fh:
+        # overwrite SltInfo with coordinate information
+        for l in fh:
+            if l[0:4] == "ATOM" or l[0:6] == "HETATM":
+                coords.append((float(l[30:38]), float(l[38:46]), float(l[46:54])))
+
+    with open("SltInfo", "rt") as ifh, open("SltInfo.new", "wt") as ofh:
+        for pos, l in enumerate(ifh):
+            ls = l.split()
+            if len(ls) in [5, 8]:
+                raise RuntimeError("SltInfo format is old, please restart from gen_structure")
+            print(' '.join(ls[0:7]), coords[pos][0], coords[pos][1], coords[pos][2], file=ofh)
     shutil.move("SltInfo", "SltInfo.bak")
     shutil.move("SltInfo.new", "SltInfo")

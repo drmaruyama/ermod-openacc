@@ -1,41 +1,44 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import os.path
 import sys
 import re
 import pickle
 import math
-from optparse import OptionParser
+from argparse import ArgumentParser
 
-parser = OptionParser()
+print("""Note: NAMD tools are not actively maintained (no active users in devs).
+If you find any strange behavior please let us know (on sourcefoge issue, ermod-user mailing list or direct mail to devs).""")
+
+parser = ArgumentParser()
 
 # only have to specify one of three:
-parser.add_option("-p", "--param", dest = "param", action = "append",
+parser.add_argument("-p", "--param", dest = "param", action = "append",
                   help = "CHARMM parameter file name (can be specified multiple-time)",
                   default = [])
-parser.add_option("-c", "--conf", dest = "conf",
+parser.add_argument("-c", "--conf", dest = "conf",
                   help = "NAMD configuration file (only used to find CHARMM paramter files)")
-parser.add_option("-l", "--log", dest = "log",
+parser.add_argument("-l", "--log", dest = "log",
                   help = "NAMD log file (only used to find CHARMM paramter files)")
 
 # PSF, mandatory
-parser.add_option("-t", "--psf", dest = "topology",
+parser.add_argument("-t", "--psf", dest = "topology",
                   help="PSF file name")
 
 # can be specified; otherwise specify interactively
-parser.add_option("-s", "--solute", dest = "solute",
+parser.add_argument("-s", "--solute", dest = "solute",
                   help = "Segment name of solute molecule",
                   default = None)
 
-parser.add_option("-v", "--verbose", dest = "verbose", action="store_true",
+parser.add_argument("-v", "--verbose", dest = "verbose", action="store_true",
                   help = "Be more verbose",
                   default = False)
 
-(options, args) = parser.parse_args()
+options = parser.parse_args()
 
 def log(x):
     if options.verbose:
-        print >> sys.stderr, x
+        print(x, file=sys.stderr)
 
 def warn_or_error(x, col):
     prefix = ""
@@ -43,7 +46,7 @@ def warn_or_error(x, col):
     if os.isatty(sys.stderr.fileno()):
         prefix = "\x1b[" + str(col) + ";1m"
         suffix = "\x1b[0m"
-    print >> sys.stderr, prefix + x + suffix
+    print(prefix + x + suffix, file=sys.stderr)
 
 def warn(x):
     warn_or_error("Warning: " + x, 33)
@@ -52,31 +55,24 @@ def error(x):
     warn_or_error("Error: " + x, 31)
     sys.exit(1)
 
-def safe_close(fh):
-    # asynchronous NFS may miss file creation
-    # esp. combined with delayed allocation (ext4, XFS)
-    fh.flush()
-    os.fsync(fh.fileno())
-    fh.close()
-
 if options.param == [] and options.conf == None and options.log == None:
-    print >> sys.stderr, "Error: CHARMM parameter file is not specified (specify one of: --param, --log, --conf)"
+    print("Error: CHARMM parameter file is not specified (specify one of: --param, --log, --conf)", file=sys.stderr)
     sys.exit(1)
 
 if options.topology == None:
-    print >> sys.stderr, "Error: PSF file is not specified (try --help)"
+    print("Error: PSF file is not specified (try --help)", file=sys.stderr)
     sys.exit(1)
 
 def get_params():
     if options.param:
         for f in options.param:
             if not os.path.exists(f):
-                print >> sys.stderr, "Error: parameter file \"%s\" does not exist!" % f
+                print("Error: parameter file \"%s\" does not exist!" % f, file=sys.stderr)
                 sys.exit(1)
         return options.param
     def mine_from_file(fname, kind, pattern, groupno):
         if not os.path.exists(fname):
-            print >> sys.stderr, "Error: %s file \"%s\" does not exist!" % (kind, fname)
+            print("Error: %s file \"%s\" does not exist!" % (kind, fname), file=sys.stderr)
             sys.exit(1)
         fh = open(fname, "rt")
         p = re.compile(pattern)
@@ -88,7 +84,7 @@ def get_params():
             pass
         fh.close()
         if lst == []:
-            print >> sys.stderr, "Error: could not find paramter line in %s file. Did you specify correct file (\"%s\")?" % (kind, fname)
+            print("Error: could not find paramter line in %s file. Did you specify correct file (\"%s\")?" % (kind, fname), file=sys.stderr)
             sys.exit(1)
         return lst
     if options.conf:
@@ -99,7 +95,7 @@ def get_params():
 parfs = get_params()
 
 if not os.path.exists(options.topology):
-    print >> sys.stderr, "Error: psf file does not exist!"
+    print("Error: psf file does not exist!", file=sys.stderr)
     sys.exit(1)
 
 # read LJ interaction parameters from topology file
@@ -113,7 +109,7 @@ for parfile in parfs:
         if len(l) == 0:
             continue
         while l[-1] == '-':
-            l = l + fh.next()
+            l = l + next(fh)
             l = l.strip()
         # skip '!' and after
         line = l.split("!")[0]
@@ -142,37 +138,6 @@ for parfile in parfs:
             fixtable[(atom1, atom2)] = (eps, rmin)
             fixtable[(atom2, atom1)] = (eps, rmin)
     fh.close()
-
-mass_table = {
-  1: 'H',
-  2: 'D',
-  4: 'He',
-  6: 'Li',
-  7: 'Li',
-  11: 'B',
-  12: 'C',
-  14: 'N',
-  16: 'O',
-  19: 'F',
-  23: 'Na',
-  28: 'Si',
-  31: 'P',
-  32: 'S',
-  35: 'Cl',
-  36: 'Cl',
-  39: 'K',
-  40: 'Ca',
-  56: 'Fe',
-  63: 'Cu',
-  64: 'Cu',
-  65: 'Zn',
-  80: 'Br',
-  127: 'I' }
-def atomtype_of_mass(mass):
-    imass = int(round(mass))
-    if imass not in mass_table:
-        return "M" # dummy atom
-    return mass_table[imass]
 
 class union_find:
     """Tarjan's famous disjoint-set data structure.
@@ -207,16 +172,16 @@ class union_find:
 
 def read_psf(fname):
     fh = open(fname, "rt")
-    l = fh.next()
+    l = next(fh)
     if l[0:3] != "PSF":
-        print >> sys.stderr, "Error: Topology file is not PSF file"
+        print("Error: Topology file is not PSF file", file=sys.stderr)
         sys.exit(1)
-    l = fh.next() # dummy
+    l = next(fh) # dummy
     uft = None
     atoms = None
     try:
         while True:
-            section = fh.next().split()
+            section = next(fh).split()
             if section == []:
                 continue
             if len(section) <= 1:
@@ -225,38 +190,38 @@ def read_psf(fname):
             if section[1] == "!NTITLE":
                 title_lines = int(section[0].strip())
                 for i in range(title_lines):
-                    l = fh.next()
-                l = fh.next()
+                    l = next(fh)
+                l = next(fh)
                 if options.verbose:
-                    print >> sys.stderr, "Finished reading title section"
+                    print("Finished reading title section", file=sys.stderr)
             elif section[1] == "!NATOM":
                 natoms = int(section[0].strip())
                 atoms = [None] * natoms
 
                 for i in range(natoms):
-                    l = fh.next().split()
+                    l = next(fh).split()
                     #         serial     segname resid    resname aname atype charge mass
                     atom = (int(l[0]), l[1], int(l[2]), l[3], l[4], l[5], float(l[6]), float(l[7]))
                     atoms[i] = atom
                 uft = union_find(natoms)
-                l = fh.next() # single dummy line after each block
+                l = next(fh) # single dummy line after each block
                 if options.verbose:
-                    print >> sys.stderr, "Finished reading atoms section"
+                    print("Finished reading atoms section", file=sys.stderr)
             elif section[1] == "!NBOND":
                 nbs = int(section[0].strip())
                 while True:
-                    l = fh.next()
+                    l = next(fh)
                     if l.strip() == "":
                         break
                     elms = [int(e) - 1 for e in l.split()] # 1-origin to 0-origin
                     m = len(elms)
-                    for i in range(m/2):
+                    for i in range(m//2):
                         uft.union(elms[i * 2], elms[i * 2 + 1])
                 if options.verbose:
-                    print >> sys.stderr, "Finished reading bonds section"
+                    print("Finished reading bonds section", file=sys.stderr)
             else:
                 while True:
-                    l = fh.next()
+                    l = next(fh)
                     if l.strip() == "":
                         break
     except StopIteration:
@@ -278,19 +243,19 @@ def get_topology_info():
             segname_set[segname] = 0
 
     if options.verbose:
-        print >> sys.stderr, "\n"\
+        print("\n"\
         "If the number of solute molecules in the solution system of interest\n"\
-        "  is more than unity, user needs to modify MDinfo, MolPrmX, and SltInfo manually"
+        "  is more than unity, user needs to modify MDinfo, MolPrmX, and SltInfo manually", file=sys.stderr)
 
     if options.solute:
         solutes = options.solute.split(',')
     else:
         # interactive input
-        print "Segment names in psf files:",
+        print("Segment names in psf files:", end=' ')
         for s in segnames:
-            print s,
-        print
-        l = raw_input("Which segments are solutes? "\
+            print(s, end=' ')
+        print()
+        l = input("Which segments are solutes? "\
           "(More than a single species can be chosen \n" \
           "  as comma-separated entries when they are listed contiguously)   ").split(',')
         solutes = [x.strip() for x in l]
@@ -373,7 +338,7 @@ def get_topology_info():
             solvent.append((rb, rl, n + 1))
 
     if options.verbose:
-        print >> sys.stderr, "(0-origin start atom, #atom/mol, #mol): ", solvent 
+        print("(0-origin start atom, #atom/mol, #mol): ", solvent, file=sys.stderr) 
 
     # output
     solupos = None
@@ -434,27 +399,27 @@ if use_ljtable:
         except ValueError:
             # one of pairs not used
             continue
-        sig = sgm_from_rmin2 * rmin
-        sigtable[i][j] = sgm
+        sig = sgm_from_rmin2 * rmin / 2 # rmin (not rmin/2) is stored in fixtable
+        sigtable[i][j] = sig
         epstable[i][j] = eps
 
 def gen(mode):
     if not os.path.exists(mode):
         os.mkdir(mode)
-    mdifh = file(mode + "/MDinfo", "wt")
-    ntypes = len(solvent)
-    if mode == "refs":
-        ntypes -= 1 # removing solute
-    print >> mdifh, "FRAMES %d" % ntypes
-    for i in range(len(solvent)):
-        if mode == "soln" or i != slupos:
-            print >> mdifh, "%d" % solvent[i][2],
-    print >> mdifh
-    for i in range(len(solvent)):
-        if mode == "soln" or i != slupos:
-            print >> mdifh, "%d" % solvent[i][1],
-    print >> mdifh
-    safe_close(mdifh)
+    with open(mode + "/MDinfo", "wt") as mdifh:
+        ntypes = len(solvent)
+        if mode == "refs":
+            ntypes -= 1 # removing solute
+        print("FRAMES %d" % ntypes, file=mdifh)
+        for i in range(len(solvent)):
+            if mode == "soln" or i != slupos:
+                print("%d" % solvent[i][2], end=' ', file=mdifh)
+        print(file=mdifh)
+        for i in range(len(solvent)):
+            if mode == "soln" or i != slupos:
+                print("%d" % solvent[i][1], end=' ', file=mdifh)
+        print(file=mdifh)
+
     
     solvent_cnt = 1
     iatom = 0
@@ -464,18 +429,17 @@ def gen(mode):
         else:
             fn = "MolPrm%d" % solvent_cnt
             solvent_cnt += 1
-        ofh = open(mode + "/" + fn, "wt")
-        (rb, rl, n) = solvent[i]
-        for j in range(rl):
-            (_aid, _seg, _resi, resname, _atomname, atomtype, charge, mass) = atoms[rb + j]
-            (eps, rmin) = atomtable[atomtype]
-            atom = atomtype_of_mass(float(mass))
-            if use_ljtable:
-                eps = atomtypes_used.index(atomtype) + 1
-                rmin = 0.
-            print >> ofh, ("%d %s %.5f %.5f %.5f" % 
-                           (j + 1, atom, float(charge), eps, rmin))
-        safe_close(ofh)
+        with open(mode + "/" + fn, "wt") as ofh:
+            (rb, rl, n) = solvent[i]
+            for j in range(rl):
+                (_aid, _seg, _resi, _resname, atomname, atomtype, charge, mass) = atoms[rb + j]
+                mass = float(mass)
+                (eps, rmin) = atomtable[atomtype]
+                if use_ljtable:
+                    eps = atomtypes_used.index(atomtype) + 1
+                    rmin = 0.
+                print(("%6d %10.5f %12s %8s %.5f %.5f %.5f" %
+                            (j + 1, mass, atomtype, atomname, float(charge), eps, rmin)), file=ofh)
 
     carryover = {}
     if mode == "soln":
@@ -487,23 +451,21 @@ def gen(mode):
         carryover["ljformat"] = 1
 
     # write carryover
-    ofh = file(mode + "/.extraparam", "wt")
-    pickle.dump(carryover, ofh)
-    safe_close(ofh)
+    with open(mode + "/.extraparam", "wb") as ofh:
+        pickle.dump(carryover, ofh)
 
     if use_ljtable:
-        ofh = file(mode + "/LJTable", "wt")
-        ntypes = len(atomtypes_used)
-        print >> ofh, ntypes
-        for i in range(ntypes):
-            for j in range(ntypes):
-                print >> ofh, "%+.6e" % sigtable[i][j], 
-            print >> ofh
-        for i in range(ntypes):
-            for j in range(ntypes):
-                print >> ofh, "%+.6e" % epstable[i][j],
-            print >> ofh
-        safe_close(ofh)
+        with open(mode + "/LJTable", "wt") as ofh:
+            ntypes = len(atomtypes_used)
+            print(ntypes, file=ofh)
+            for i in range(ntypes):
+                for j in range(ntypes):
+                    print("%+.6e" % sigtable[i][j], end=' ', file=ofh)
+                print(file=ofh)
+            for i in range(ntypes):
+                for j in range(ntypes):
+                    print("%+.6e" % epstable[i][j], end=' ', file=ofh)
+                print(file=ofh)
 
 gen("soln")
 gen("refs")

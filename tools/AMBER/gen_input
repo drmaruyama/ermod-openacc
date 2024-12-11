@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import os
 import os.path
@@ -6,22 +6,14 @@ import shutil
 import sys
 import re
 import pickle
-from optparse import OptionParser
-
-# Some routines are used for 2.3 compatibility
-import warnings
-warnings.simplefilter("ignore", DeprecationWarning)
+from argparse import ArgumentParser
 
 ################################################################
 # Common modules, functions
 
-if sys.version_info < (2, 6):
-    from sets import Set
-    set = Set
-
 def log(x):
     if options.verbose:
-        print >> sys.stderr, x
+        print(x, file=sys.stderr)
 
 def warn_or_error(x, col):
     prefix = ""
@@ -29,7 +21,7 @@ def warn_or_error(x, col):
     if os.isatty(sys.stderr.fileno()):
         prefix = "\x1b[" + str(col) + ";1m"
         suffix = "\x1b[0m"
-    print >> sys.stderr, prefix + x + suffix
+    print(prefix + x + suffix, file=sys.stderr)
 
 def warn(x):
     warn_or_error("Warning: " + x, 33)
@@ -38,51 +30,43 @@ def error(x):
     warn_or_error("Error: " + x, 31)
     sys.exit(1)
 
-def safe_close(fh):
-    # asynchronous NFS may miss file creation
-    # esp. combined with delayed allocation (ext4, XFS)
-    # The open-to-close consistency is preserved only when 
-    fh.flush()
-    os.fsync(fh.fileno())
-    fh.close()
-
 # End of common components
 ################################################################
 
 
 
-parser = OptionParser()
+parser = ArgumentParser()
 
 # only have to specify one of three:
-parser.add_option("-l", "--log", dest = "log",
+parser.add_argument("-l", "--log", dest = "log",
                   help = "AMBER log (mdout) file")
 
-parser.add_option("-x", "--traj", dest = "traj",
+parser.add_argument("-x", "--traj", dest = "traj",
                   help = "Solution or reference trajectory file (netcdf)")
 
-parser.add_option("-r", "--rigid", dest = "rigid",
+parser.add_argument("-r", "--rigid", dest = "rigid",
                   help = "Solute structure (PDB file)")
 
-parser.add_option("-s", "--flexible", dest = "flexible",
+parser.add_argument("-s", "--flexible", dest = "flexible",
                   help = "Solute trajectory file (netcdf)")
 
-parser.add_option("-d", "--div", dest = "div", type = "int",
+parser.add_argument("-d", "--div", dest = "div", type=int,
                   help = "Number of divided sections",
                   default = None)
 
-parser.add_option("--minenergy", dest = "minenergy", type = "float",
+parser.add_argument("--minenergy", dest = "minenergy", type=float,
                   help = "Minimum energy in kcal/mol",
                   default = -20.0)
 
-parser.add_option("--maxins", dest = "maxins", type = "int",
+parser.add_argument("--maxins", dest = "maxins", type=int,
                   help = "Number of insertions for refs (default: 1000)",
                   default = 1000)
 
-parser.add_option("-v", "--verbose", dest = "verbose", action="store_true",
+parser.add_argument("-v", "--verbose", dest = "verbose", action="store_true",
                   help = "Be more verbose",
                   default = False)
 
-(options, args) = parser.parse_args()
+options = parser.parse_args()
 
 if options.log == None:
     error("log file is not specified (try --help)")
@@ -125,11 +109,10 @@ directory_check()
 
 def save_parameters_fe(temp):
     feparamf = "../parameters_fe"
-    fh = open(feparamf, "wt")
-    print >> fh, "&fevars"
-    print >> fh, "inptemp=%f" % temp
-    print >> fh, "/"
-    safe_close(fh)
+    with open(feparamf, "wt") as fh:
+        print("&fevars", file=fh)
+        print("inptemp=%f" % temp, file=fh)
+        print("/", file=fh)
 
 def parse_log():
     logfh = open(options.log, "rt")
@@ -222,7 +205,7 @@ def parse_log():
         params["maxins"] = options.maxins
 
     try:
-        ifh = file(".extraparam", "rt")
+        ifh = open(".extraparam", "rb")
         carryover = pickle.load(ifh)
         ifh.close()
 
@@ -241,44 +224,41 @@ def parse_log():
                  "maxins", "engdiv"]
 
     ofh = open("parameters_er", "wt")
-    print >> ofh, "&ene_param"
+    print("&ene_param", file=ofh)
     for k in output_var:
-        if k in params.keys():
+        if k in list(params.keys()):
             v = params[k]
             if isinstance(v, str):
-                print >> ofh, "        %s = \"%s\"," % (k, v)
+                print("        %s = \"%s\"," % (k, v), file=ofh)
             elif isinstance(v, int):
-                print >> ofh, "        %s = %d," % (k, v)
+                print("        %s = %d," % (k, v), file=ofh)
             elif isinstance(v, float):
-                print >> ofh, "        %s = %g," % (k, v)
+                print("        %s = %g," % (k, v), file=ofh)
             else:
                 error("Unknown output type")
     
-    print >> ofh, """/
+    print("""/
 &hist
       eclbin=5.0e-2, ecfbin=2.0e-3, ec0bin=2.0e-4, finfac=10.0e0,
       ecdmin=%f, ecfmns=-0.20e0, ecdcen=0.0e0, eccore=20.0e0,
       ecdmax=1.0e11, pecore=200
 /
-""" % options.minenergy
+""" % options.minenergy, file=ofh)
 
     steps = int(control["nstlim"])
     steps_per_output = int(control["ntwx"])
-    frames = steps / steps_per_output
+    frames = steps // steps_per_output
     return frames
 
 frames = parse_log()
 
 # update MDinfo
 if frames:
-    ifh = open("MDinfo", "rt")
-    ofh = open("MDinfo.new", "wt")
-    l = ifh.next().split()
-    print >> ofh, frames, l[1]
-    print >> ofh, ifh.next().strip()
-    print >> ofh, ifh.next().strip()
-    ifh.close()
-    safe_close(ofh)
+    with open("MDinfo", "rt") as ifh, open("MDinfo.new", "wt") as ofh:
+        l = next(ifh).split()
+        print(frames, l[1], file=ofh)
+        print(next(ifh).strip(), file=ofh)
+        print(next(ifh).strip(), file=ofh)
     shutil.move("MDinfo", "MDinfo.bak")
     shutil.move("MDinfo.new", "MDinfo")
 
@@ -317,15 +297,13 @@ elif options.rigid:
     else:
         error("Unknown rigid file extension")
     
-    ifh = open("SltInfo", "rt")
-    ofh = open("SltInfo.new", "wt")
-    pos = 0
-    for l in ifh:
-        print >> ofh, ' '.join((l.split())[0:5]), coords[pos][0], coords[pos][1], coords[pos][2]
-        pos += 1
+    with open("SltInfo", "rt") as ifh, open("SltInfo.new", "wt") as ofh:
+        for pos, l in enumerate(ifh):
+            ls = l.split()
+            if len(ls) in [5, 8]:
+                raise RuntimeError("SltInfo format is old, please restart from gen_structure")
+            print(' '.join((l.split())[0:7]), coords[pos][0], coords[pos][1], coords[pos][2], file=ofh)
 
-    ifh.close()
-    safe_close(ofh)
     shutil.move("SltInfo", "SltInfo.bak")
     shutil.move("SltInfo.new", "SltInfo")
 

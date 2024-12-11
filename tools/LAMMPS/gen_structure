@@ -1,37 +1,32 @@
-#!/usr/bin/env python
-
-# popen and others are used only for 2.3 compatibility
-import warnings
-warnings.simplefilter("ignore", DeprecationWarning)
+#!/usr/bin/env python3
 
 import os
 import os.path
 import sys
 import pickle
-import popen2
-from optparse import OptionParser
+from argparse import ArgumentParser
 
-parser = OptionParser()
+parser = ArgumentParser()
 
 # topology, mandatory
-parser.add_option("-d", "--data", dest = "topology",
+parser.add_argument("-d", "--data", dest = "topology",
                   help = "LAMMPS data file (*.data)",
                   default = None)
 
 # can be specified; otherwise specify interactively
-parser.add_option("-s", "--solute", dest = "solute",
+parser.add_argument("-s", "--solute", dest = "solute",
                   help = "molecule-tag of solute molecule (comma separated for multiple choice)",
                   default = None)
 
-parser.add_option("-v", "--verbose", dest = "verbose", action = "store_true",
+parser.add_argument("-v", "--verbose", dest = "verbose", action = "store_true",
                   help = "Increase verbosity (for debug)",
                   default = False)
 
-(options, args) = parser.parse_args()
+options = parser.parse_args()
 
 def log(x):
     if options.verbose:
-        print >> sys.stderr, x
+        print(x, file=sys.stderr)
 
 def warn_or_error(x, col):
     prefix = ""
@@ -39,7 +34,7 @@ def warn_or_error(x, col):
     if os.isatty(sys.stderr.fileno()):
         prefix = "\x1b[" + str(col) + ";1m"
         suffix = "\x1b[0m"
-    print >> sys.stderr, prefix + x + suffix
+    print(prefix + x + suffix, file=sys.stderr)
 
 def warn(x):
     warn_or_error("Warning: " + x, 33)
@@ -155,7 +150,7 @@ def atomtypes2molname(atomtypes):
                 atoms[atomtype] += 1
     stmp = ''
     for a in atom_order:
-        if a in atoms.keys():
+        if a in list(atoms.keys()):
             if atoms[a] == 1:
                 stmp += a
             else:
@@ -332,18 +327,18 @@ class topology:
         moltype2composition={}
         moltype2charges={}
         moltype2types={}
-        for root, atoms in sorted(root2atoms.items(), key=lambda x:x[0]):
+        for root, atoms in sorted(list(root2atoms.items()), key=lambda x:x[0]):
             charges = [self.atom2charge[str(a)] for a in atoms]
             types   = [self.atom2type  [str(a)] for a in atoms]
             composition = atomtypes2molname([atomtype_of_mass(self.atomtype2mass[self.atom2type[str(a)]]) for a in atoms])
             addmoltype = False
-            if not composition in composition_count.keys():
+            if not composition in list(composition_count.keys()):
                 addmoltype = True
                 composition_count[composition] = 1
                 moltype = composition
             else:
                 found = False
-                for moltype0 in moltype2composition.keys():
+                for moltype0 in list(moltype2composition.keys()):
                     if moltype2composition[moltype0] == composition:
                         if moltype2charges[moltype0] == charges and moltype2types[moltype0] == types:
                             moltype = moltype0
@@ -373,8 +368,8 @@ class topology:
             if composition_count[moltype2composition[moltype]] > 1:
                 if not isomer:
                     isomer = True
-                    print 'The first atom indices of the following molecules are:'
-                print '  ' + moltype + ': ' + str(atoms1st[moltype][0])
+                    print('The first atom indices of the following molecules are:')
+                print('  ' + moltype + ': ' + str(atoms1st[moltype][0]))
 
         # self.moleculetypes
         self.moleculetypes = {}
@@ -398,7 +393,7 @@ class topology:
                 self.molecules[molno].append( [atype, atom, charge, mass] )
 
 if not os.path.exists(options.topology):
-    print >> sys.stderr, "Error: data file does not exist!"
+    print("Error: data file does not exist!", file=sys.stderr)
     sys.exit(1)
 
 top = topology()
@@ -414,11 +409,11 @@ def get_topology_info():
         solutes = options.solute.split(',')
     else:
         # interactive input
-        print "Molecule types in topology file:",
+        print("Molecule types in topology file:", end=' ')
         for s in mollist:
-            print s,
-        print
-        l = raw_input("Which molecules are solutes? (For multiple choice please specify as comma-separated list) ").split(',')
+            print(s, end=' ')
+        print()
+        l = input("Which molecules are solutes? (For multiple choice please specify as comma-separated list) ").split(',')
         solutes = [x.strip() for x in l]
 
     if solutes == []:
@@ -505,17 +500,17 @@ def gen(mode):
                 carryover["sltpick"] = i + 1 # 1-origin
 
     # output MDinfo
-    mdifh = file(mode + "/MDinfo", "wt")
-    print >> mdifh, "FRAMES %d" % len(nmols)
-    
-    for n in nmols:
-        print >> mdifh, "%d" % n,
-    print >> mdifh
-    for n in sites:
-        print >> mdifh, "%d" % n,
-    print >> mdifh
-    mdifh.close()
-    
+    with open(f"{mode}/MDinfo", "wt") as mdifh:
+        print(f"FRAMES {len(nmols)}", file=mdifh)
+
+        for n in nmols:
+            print(n, end=' ', file=mdifh)
+        print(file=mdifh)
+
+        for n in sites:
+            print(n, end=' ', file=mdifh)
+        print(file=mdifh)
+
     solvent_cnt = 1
     ofh = None
     for (s, n, is_solute, atoms) in curmols:
@@ -533,19 +528,18 @@ def gen(mode):
             safe_close(ofh)
         ofh = open(mode + "/" + fn, "wt")
 
-        for (atype, _atom, charge, mass) in atoms:
+        for (atype, atom, charge, mass) in atoms:
             eps = top.atomtype2epsilon[atype]
             sig = top.atomtype2sigma[atype]
-            atom = atomtype_of_mass(float(mass))
-            print >> ofh, ("%d %s %.8g %.8g %.8g" % 
-                           (k, atom, charge, eps, sig))
+            mass = float(mass)
+            print(("%d %10.5f %12s %5s %.8g %.8g %.8g" %
+                           (k, mass, atype, atom, charge, eps, sig)), file=ofh)
             k += 1
 
     safe_close(ofh)
     # write carryover
-    ofh = file(mode + "/.extraparam", "wt")
-    pickle.dump(carryover, ofh)
-    safe_close(ofh)
+    with open(f"{mode}/.extraparam", "wb") as ofh:
+        pickle.dump(carryover, ofh)
 
 gen("soln")
 gen("refs")

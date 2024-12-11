@@ -16,6 +16,7 @@ import json
 import random
 import shutil
 import subprocess as sp
+import glob
 try:
     import numpy as np
     from scipy.io import FortranFile
@@ -25,8 +26,31 @@ except ModuleNotFoundError:
 
 
 class ERmodDataAverage:
-    def __init__(self):
+    def __init__(self, flag_info):
         self.short_name_dct = {'soln': 'sln', 'refs': 'ref'}
+        self.ver = ''
+        self.flag_info = flag_info
+        self.add_files_d = {'soln': [], 'refs': []}
+
+    def __set_additional_file(self):
+        def __register(sys_type, add_files):
+            for add_file in add_files:
+                if add_file not in self.add_files_d[sys_type]:
+                    self.add_files_d[sys_type].append(add_file)
+            return
+
+        if self.ver == '10':
+            add_files = ['parameters_er']
+            __register('soln', add_files)
+            __register('refs', add_files)
+
+        if self.flag_info['do_ljlrc']:
+            if self.ver == '10':
+                add_files = ['parameters_er', 'SltInfo', 'MolPrm*']
+            else:
+                add_files = ['parameters_er', 'SltInfo', 'MolPrm*', 'LJTable']
+            __register('refs', add_files)
+        return
 
     def make_sample_list(self, dir_lst, sys_type):
         smpl_lst = []
@@ -50,6 +74,10 @@ class ERmodDataAverage:
         if self.__is_end():
             return False
 
+        if not self.ver:
+            self.__identify_version()
+            self.__set_additional_file()
+
         ws = self.__get_weight()
 
         self.__average_weight(ws)
@@ -58,6 +86,8 @@ class ERmodDataAverage:
             self.__average_aveuv(ws)
         elif sys_type == 'refs':
             self.__average_cor(ws)
+
+        self.__copy_additional_files(self.add_files_d[sys_type])
         return True
 
     def __is_end(self):
@@ -72,33 +102,44 @@ class ERmodDataAverage:
                 return True
         return False
 
+    def __identify_version(self):
+        file_stem = 'eng{}'.format(self.short_name_dct[self.sys_type])
+
+        if True:
+            dir_path = self.dir_lst[0]
+            blk_id = 1
+
+            file_path = self.__get_engcor_filepath(dir_path, blk_id, file_stem)
+            with open(file_path, 'r') as f:
+                line = f.read()
+                if line.startswith('#'):
+                    self.ver = '10'
+                else:
+                    self.ver = '03'
+        return
+
+    def __copy_additional_files(self, add_files):
+        for add_file in add_files:
+            if '*' not in add_file:
+                work_add_files = [add_file]
+            else:
+                lst = glob.glob('{}/{}'.format(self.dir_lst[0], add_file))
+                work_add_files = [temp.split('/')[-1] for temp in lst]
+
+            for work_add_file in work_add_files:
+                src = '{}/{}'.format(self.dir_lst[0], work_add_file)
+                dst = '{}/{}'.format(self.dst_dir, work_add_file)
+                shutil.copyfile(src, dst)
+        return
+
     def __average_cor(self, ws):
 
-        def get_dist_info():
-            file_stem = 'eng{}'.format(self.short_name_dct[self.sys_type])
-            file_path = self.__get_engcor_filepath(self.dir_lst[0], 1, file_stem)
-
-            with open(file_path, 'r') as f:
-                lines = f.readlines()
-
-            n_bin = 0
-            for line in lines:
-                items = line.split()
-                i_mol = int(items[1])
-                if i_mol != 1:
-                    break
-                n_bin += 1
-
-            n_mol_spec = int(lines[-1].split()[1])
-
-            return n_bin, n_mol_spec
-
-        def read_cor(file_path, n_bin, n_mol_spec, corr):
+        def read_cor(file_path, corr):
             with FortranFile(file_path, 'r') as f:
                 if corr is None:
-                    corr = f.read_reals().reshape((n_mol_spec*n_mol_spec, n_bin, n_bin))
+                    corr = f.read_reals()
                 else:
-                    corr[:,:,:] = f.read_reals().reshape((n_mol_spec*n_mol_spec, n_bin, n_bin))
+                    corr[:] = f.read_reals()
             return corr
 
         def write_cor(file_path, corr):
@@ -107,7 +148,6 @@ class ERmodDataAverage:
             return
 
 
-        n_bin, n_mol_spec = get_dist_info()
         file_stem = 'cor{}'.format(self.short_name_dct[self.sys_type])
 
         # read data
@@ -118,7 +158,7 @@ class ERmodDataAverage:
             blk_id = sel_id[1] + 1
             file_path = self.__get_engcor_filepath(dir_path, blk_id, file_stem)
 
-            corr = read_cor(file_path, n_bin, n_mol_spec, corr)
+            corr = read_cor(file_path, corr)
             if sum_corr is None:
                 sum_corr = np.zeros_like(corr)
             sum_corr += corr * ws[i]
@@ -139,7 +179,7 @@ class ERmodDataAverage:
             with open(file_path, 'r') as f:
                 with open(file_path, 'r') as f:
                     lines = f.readlines()
-                vals = lines[sel_id[1]][5:].split()
+                vals = lines[sel_id[1]].split()[1:]
             
                 if not vals_lst:
                     vals_lst = [[float(val)] for val in vals]
@@ -169,22 +209,40 @@ class ERmodDataAverage:
 
             file_path = self.__get_engcor_filepath(dir_path, blk_id, file_stem)
             with open(file_path, 'r') as f:
+                if self.ver == '10':
+                    _ = f.readline()
                 lines = f.read().splitlines()
             
             if vals_lst is None:
                 vals_lst = np.zeros((len(self.sel_ids), len(lines)), dtype=np.float64)
+                if self.ver == '10':
+                    val2s_lst = np.zeros((len(self.sel_ids), len(lines)), dtype=np.float64)
 
-            vals = [float(line.split()[2]) for line in lines]
-            vals_lst[i_smpl, :] = vals[:]
+            if self.ver == '03':
+                vals = [float(line.split()[2]) for line in lines]
+                vals_lst[i_smpl, :] = vals[:]
+            elif self.ver == '10':
+                vals = [float(line.split()[3]) for line in lines]
+                vals_lst[i_smpl, :] = vals[:]
+                vals = [float(line.split()[4]) for line in lines]
+                val2s_lst[i_smpl, :] = vals[:]
 
         # output
         src = self.__get_engcor_filepath(self.dir_lst[0], 1, file_stem)
         dst = self.__get_engcor_filepath(self.dst_dir, 1, file_stem, is_input=False)
         ws_sum = np.sum(ws)
         with open(src, 'r') as fs, open(dst, 'w') as fd:
-            for i, line in enumerate(fs):
-                ave = np.sum(vals_lst[:, i] * ws[:]) / ws_sum
-                fd.write('{}{:>24.15E}\n'.format(line[:21], ave))
+            if self.ver == '03':
+                for i, line in enumerate(fs):
+                    ave = np.sum(vals_lst[:, i] * ws[:]) / ws_sum
+                    fd.write('{}{:>24.15E}\n'.format(line[:21], ave))
+            elif self.ver == '10':
+                fd.write(fs.readline())
+                for i, line in enumerate(fs):
+                    ave1 = np.sum(vals_lst[:, i] * ws[:]) / ws_sum
+                    ave2 = np.sum(val2s_lst[:, i] * ws[:]) / ws_sum
+                    fd.write('{} {:>24.15E} {:>24.15E}\n'.format(line[:35], ave1, ave2))
+
         return
 
     def __get_engcor_filepath(self, dir_path, blk_id, file_stem, is_input=True):
@@ -235,16 +293,20 @@ class ERmodDataAverage:
 
 
 class BSManager:
-    def __init__(self, intr_file, n_bs, mode):
+    def __init__(self, intr_file, n_bs, mode, list_files):
         self.intr_file = intr_file 
         self.n_bs = n_bs
+        do_initialize = True
         if os.path.exists(intr_file):
             self.bs_info = read_json(intr_file)
             self.__check_condition(mode)
-        else:
+            do_initialize = self.__check_whether_list_updated(list_files)
+
+        if do_initialize:
             self.bs_info = {}
-            self.bs_info['cnd'] = {'mode': mode}
+            self.bs_info['cnd'] = {'mode': mode, 'tss': []}
             self.bs_info['bs_lst'] = []
+            self.__get_timestamp_of_list_files(list_files)
         self.bs_info['bs_lst'] = self.__initialize_bs_data_list(self.bs_info['bs_lst'], n_bs)
 
     def __initialize_bs_data_list(self, lst, n_bs):
@@ -266,6 +328,31 @@ class BSManager:
             print('Remove the intermediate data file if the mode argument is changed.')
             exit(1)
         return
+
+    def __get_timestamp_of_list_files(self, list_files):
+        for list_file in list_files:
+            if list_file:
+                ts = os.path.getmtime(list_file)
+                self.bs_info['cnd']['tss'].append(ts)
+            else:
+                self.bs_info['cnd']['tss'].append(0.0)
+        return
+
+    def __check_whether_list_updated(self, list_files):
+        do_initialize = False
+        for i, list_file in enumerate(list_files):
+            if list_file:
+                ts = os.path.getmtime(list_file)
+            else:
+                ts = 0.0
+            if ts != self.bs_info['cnd']['tss'][i]:
+                do_initialize = True
+
+        if do_initialize:
+            print('Update of file of soln or refs directory listhas been detected.')
+            print('So all intermediate data from {} is erased and re-calculated.'.format(self.intr_file))
+            print()
+        return do_initialize
 
     def get_n_bs(self):
         return self.n_bs
@@ -370,12 +457,20 @@ class ParmFEManager:
         return
 
     def __make_parm_dict(self, pfe_file):
+
+        def __clean_val(str_in):
+            temp = str_in
+            temp = temp.split(',')[0]
+            temp = temp.split('!')[0]
+            return temp.strip()
+
+
         d = {}
         with open(pfe_file, 'r') as f:
             for line in f:
                 if '=' in line:
                     items = line.strip().split('=')
-                    d[items[0]] = items[1]
+                    d[items[0].strip()] = __clean_val(items[1])
 
         # set default values
         if 'solndirec' not in d:
@@ -388,6 +483,10 @@ class ParmFEManager:
             d['mesherr'] = 0.1
         if 'clcond' not in d:
             d['clcond'] = '\"merge\"'
+
+        # changed values
+        if 'infchk' in d:
+            d['infchk'] = '\"not\" ! changed'
 
         # set values
         d['numsln'] = 1
@@ -410,6 +509,14 @@ class ParmFEManager:
                 f.write('{} = {},\n'.format(key, val))
             f.write('/\n')
         return
+
+    def make_flag_info(self):
+        d = {}
+        if 'ljlrc' in self.parm_d and 'yes' in self.parm_d['ljlrc']:
+            d['do_ljlrc'] = 1
+        else:
+            d['do_ljlrc'] = 0
+        return d
 
 
 def make_directory_list(soln_dir_list_file, refs_dir_list_file, pfe_mngr):
@@ -504,7 +611,10 @@ def get_slvfe_output(proc=None, slvfe_file=None):
     # error check
     lst = [i for i, line in enumerate(lines) if '95% error for solvation free energy' in line]
     if len(lst) == 0:
-        print('make sure that slvfe works properly')
+        print()
+        print('- make sure that slvfe works properly')
+        print('- stderr is')
+        print(stderr.decode())
         exit(1)
 
     # free energy
@@ -532,7 +642,7 @@ def get_slvfe_output(proc=None, slvfe_file=None):
     return fenes, merrs
 
 
-def perform_bootstrap_sampling(smpl_lst_dct, work_dir_lst_dct, bs_mngr, pfe_mngr, er_avgr, n_sp, cmd_slvfe, notify_freq, leave_intr_file):
+def perform_bootstrap_sampling(smpl_lst_dct, work_dir_lst_dct, bs_mngr, pfe_mngr, er_avgr, n_sp, cmd_slvfe, notify_freq, keep_intr_file):
     n_bs = bs_mngr.get_n_bs()
 
     slvfe_fname = 'slvfe.out'
@@ -591,7 +701,7 @@ def perform_bootstrap_sampling(smpl_lst_dct, work_dir_lst_dct, bs_mngr, pfe_mngr
             for i in range(len(bs_ids)):
                 fenes, merrs = get_slvfe_output(proc=procs[i], slvfe_file=slvfe_files[i])
                 bs_mngr.store_slvfe_output(bs_ids[i], fenes, merrs)
-                if not leave_intr_file:
+                if not keep_intr_file:
                     shutil.rmtree(work_dirs[i])
                 
             bs_mngr.save_data()
@@ -619,10 +729,11 @@ def generate_averaged_distribution(smpl_lst_dct, work_dir_lst_dct, er_avgr, cmd_
     return
 
 
-def work(mode, soln_dir_list_file, refs_dir_list_file, n_bs, pfe_file, n_sp, intr_file, bs_file, cmd_slvfe, notify_freq, gen_ave_dist, leave_intr_file):
-    bs_mngr = BSManager(intr_file, n_bs, mode)
+def work(mode, soln_dir_list_file, refs_dir_list_file, n_bs, pfe_file, n_sp, intr_file, bs_file, cmd_slvfe, notify_freq, gen_ave_dist, keep_intr_file):
+    list_files = [soln_dir_list_file, refs_dir_list_file]
+    bs_mngr = BSManager(intr_file, n_bs, mode, list_files)
     pfe_mngr = ParmFEManager(pfe_file)
-    er_avgr = ERmodDataAverage()
+    er_avgr = ERmodDataAverage(pfe_mngr.make_flag_info())
 
     # make list of directories where original files are located
     orig_dir_lst_dct = make_directory_list(soln_dir_list_file, refs_dir_list_file, pfe_mngr)
@@ -640,7 +751,7 @@ def work(mode, soln_dir_list_file, refs_dir_list_file, n_bs, pfe_file, n_sp, int
     if not gen_ave_dist:
         # run bootstrap sampling
         print('bootstrap sampling')
-        perform_bootstrap_sampling(smpl_lst_dct, work_dir_lst_dct, bs_mngr, pfe_mngr, er_avgr, n_sp, cmd_slvfe, notify_freq, leave_intr_file)
+        perform_bootstrap_sampling(smpl_lst_dct, work_dir_lst_dct, bs_mngr, pfe_mngr, er_avgr, n_sp, cmd_slvfe, notify_freq, keep_intr_file)
 
         # result
         bs_mngr.show_statistics(pfe_mngr.get_parm_dict())
@@ -655,8 +766,18 @@ def work(mode, soln_dir_list_file, refs_dir_list_file, n_bs, pfe_file, n_sp, int
 def main():
     args = get_args()
     cmd_slvfe_work, notify_freq = check_condition(args.cmd_slvfe, args.notify_freq)
+    print_message(args.intr_file)
     work(args.mode, args.soln_dir_list_file, args.refs_dir_list_file, args.n_bs, args.pfe_file, \
-         args.n_sp, args.intr_file, args.bs_file, cmd_slvfe_work, notify_freq, args.gen_ave_dist, args.leave_intr_file)
+         args.n_sp, args.intr_file, args.bs_file, cmd_slvfe_work, notify_freq, args.gen_ave_dist, args.keep_intr_file)
+    return
+
+
+def print_message(intr_file):
+    if os.path.exists(intr_file):
+        print('data of bootstrap samples is obtained from {}'.format(intr_file))
+    else:
+        print('data of bootstrap samples is stored in {}'.format(intr_file))
+    print()
     return
 
 
@@ -687,7 +808,7 @@ def get_args():
     message = ''
     parser = argparse.ArgumentParser(description=message, formatter_class=argparse.RawTextHelpFormatter)
 
-    parser.add_argument('-nb', '--n_bs', type=int, default=200,
+    parser.add_argument('-nb', '--n_bs', type=int, default=100,
                         help='number of bootstrap samples')
     parser.add_argument('-m', '--mode', type=str, default='block',
                         choices=['block', 'traj'],
@@ -712,7 +833,7 @@ def get_args():
 
     parser.add_argument('-gad', '--gen_ave_dist', action='store_true',
                         help='If this argument is enabled, the bootstrap calculations are not performed and the averages of the input distribution functions are stored in the ./average directory.')
-    parser.add_argument('-lif', '--leave_intr_file', action='store_true',
+    parser.add_argument('-kif', '--keep_intr_file', action='store_true',
                         help='If this argument is enabled, the intermediate files are not deleted and are kept in the ./tmp.bs.spN directories.')
 
     parser.add_argument('-cs', '--cmd_slvfe', type=str, default='',

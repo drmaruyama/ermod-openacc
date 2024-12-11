@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import os
 import os.path
@@ -6,44 +6,44 @@ import shutil
 import sys
 import re
 import pickle
-from optparse import OptionParser
+from argparse import ArgumentParser
 
-parser = OptionParser()
+parser = ArgumentParser()
 
 # only have to specify one of three:
-parser.add_option("-l", "--log", dest = "log",
+parser.add_argument("-l", "--log", dest = "log",
                   help = "CHARMM log file")
 
-parser.add_option("-x", "--dcd", dest = "dcd",
+parser.add_argument("-x", "--dcd", dest = "dcd",
                   help = "Solution or reference trajectory file")
 
-parser.add_option("-r", "--rigid", dest = "pdb",
+parser.add_argument("-r", "--rigid", dest = "pdb",
                   help = "Solute structure PDB file (for rigid insertion)")
 
-parser.add_option("-s", "--flexible", dest = "solute",
+parser.add_argument("-s", "--flexible", dest = "solute",
                   help = "Solute trajectory file (for flexible insertion)")
 
-parser.add_option("-d", "--div", dest = "div", type = "int",
+parser.add_argument("-d", "--div", dest = "div", type=int,
                   help = "Number of divided sections",
                   default = None)
 
-parser.add_option("--minenergy", dest = "minenergy", type = "float",
+parser.add_argument("--minenergy", dest = "minenergy", type=float,
                   help = "Minimum energy in kcal/mol",
                   default = -20.0)
 
-parser.add_option("--maxins", dest = "maxins", type = "int",
+parser.add_argument("--maxins", dest = "maxins", type=int,
                   help = "Number of insertions for refs (default: 1000)",
                   default = 1000)
 
-parser.add_option("-v", "--verbose", dest = "verbose", action = "store_true",
+parser.add_argument("-v", "--verbose", dest = "verbose", action = "store_true",
                                     help = "Increase verbosity (for debug)",
                                     default = False)
 
-(options, args) = parser.parse_args()
+options = parser.parse_args()
 
 def log(x):
     if options.verbose:
-        print >> sys.stderr, x
+        print(x, file=sys.stderr)
                 
 def warn_or_error(x, col):
     prefix = ""
@@ -51,7 +51,7 @@ def warn_or_error(x, col):
     if os.isatty(sys.stderr.fileno()):
         prefix = "\x1b[" + str(col) + ";1m"
         suffix = "\x1b[0m"
-    print >> sys.stderr, prefix + x + suffix
+    print(prefix + x + suffix, file=sys.stderr)
         
 def warn(x):
     warn_or_error("Warning: " + x, 33)
@@ -229,7 +229,7 @@ def parse_log():
     carryover = {}
     try:
         log("reading .extraparam...")
-        ifh = file(".extraparam", "rt")
+        ifh = open(".extraparam", "rt")
         carryover = pickle.load(ifh)
         ifh.close()
         # read ljformat from carryover
@@ -280,26 +280,26 @@ def parse_log():
                  "maxins", "engdiv"]
 
     ofh = open("parameters_er", "wt")
-    print >> ofh, "&ene_param"
+    print("&ene_param", file=ofh)
     for k in output_var:
-        if k in params.keys():
+        if k in list(params.keys()):
             v = params[k]
             if isinstance(v, str):
-                print >> ofh, "        %s = \"%s\"," % (k, v)
+                print("        %s = \"%s\"," % (k, v), file=ofh)
             elif isinstance(v, int):
-                print >> ofh, "        %s = %d," % (k, v)
+                print("        %s = %d," % (k, v), file=ofh)
             elif isinstance(v, float):
-                print >> ofh, "        %s = %g," % (k, v)
+                print("        %s = %g," % (k, v), file=ofh)
             else:
                 error("Unknown output type")
 
-    print >> ofh, """/
+    print("""/
 &hist
       eclbin=5.0e-2, ecfbin=2.0e-3, ec0bin=2.0e-4, finfac=10.0e0,
       ecdmin=%f, ecfmns=-0.20e0, ecdcen=0.0e0, eccore=20.0e0,
       ecdmax=1.0e11, pecore=200
 /
-""" % options.minenergy
+""" % options.minenergy, file=ofh)
 
     safe_close(ofh)
 
@@ -308,9 +308,9 @@ def parse_log():
         # update parameter_fe
         feparamf = "../parameters_fe"
         fh = open(feparamf, "wt")
-        print >> fh, "&fevars"
-        print >> fh, "inptemp=%f" % temp
-        print >> fh, "/"
+        print("&fevars", file=fh)
+        print("inptemp=%f" % temp, file=fh)
+        print("/", file=fh)
         safe_close(fh)
 
     if total != 0 and freq != 0:
@@ -325,10 +325,10 @@ def parse_log():
 if frames:
     ifh = open("MDinfo", "rt")
     ofh = open("MDinfo.new", "wt")
-    l = ifh.next().split()
-    print >> ofh, frames, l[1]
-    print >> ofh, ifh.next().strip()
-    print >> ofh, ifh.next().strip()
+    l = next(ifh).split()
+    print(frames, l[1], file=ofh)
+    print(next(ifh).strip(), file=ofh)
+    print(next(ifh).strip(), file=ofh)
     ifh.close()
     safe_close(ofh)
     shutil.move("MDinfo", "MDinfo.bak")
@@ -362,7 +362,10 @@ elif options.pdb:
     ofh = open("SltInfo.new", "wt")
     pos = 0
     for l in ifh:
-        print >> ofh, ' '.join((l.split())[0:5]), coords[pos][0], coords[pos][1], coords[pos][2]
+        ls = l.split()
+        if len(ls) in [5, 8]:
+            raise RuntimeError("SltInfo format is old, please restart from gen_structure")
+        print(' '.join(ls[0:7]), coords[pos][0], coords[pos][1], coords[pos][2], file=ofh)
         pos += 1
     ifh.close()
     safe_close(ofh)

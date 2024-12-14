@@ -1,6 +1,6 @@
 ACLOCAL_AMFLAGS = -I m4
 
-bin_PROGRAMS = ermod slvfe
+bin_PROGRAMS = erdst slvfe
 nobase_pkgdata_SCRIPTS = \
 	tools/AMBER/gen_structure tools/AMBER/gen_input \
 	tools/GROMACS/gen_structure tools/GROMACS/gen_input \
@@ -41,69 +41,69 @@ if USE_MKL
 FFTFLAGS = -DMKL
 endif
 
-ermod_SOURCES = $(ersources)
-ermod_CFLAGS = -DINSTALL_PLUGIN_PATH=\"$(pkglibexecdir)\"
-ermod_FCFLAGS = $(VMDPLUGINFLAGS) $(FFTFLAGS)
-ermod_LDADD = $(LAPACK_LIBS) $(BLAS_LIBS) $(FFTLIBS) $(MPILIBS) -ldl -lm 
+erdst_SOURCES = $(ersources)
+erdst_CFLAGS = -DINSTALL_PLUGIN_PATH=\"$(pkglibexecdir)\"
+erdst_FCFLAGS = $(VMDPLUGINFLAGS) $(FFTFLAGS)
+erdst_LDADD = $(LAPACK_LIBS) $(BLAS_LIBS) $(FFTLIBS) $(MPILIBS) -ldl -lm
 
 if USE_VMDPLUGIN
-ermod_SOURCES += vmdfio.c
+erdst_SOURCES += vmdfio.c
 endif
 
 if USE_TRANSFER
-ermod_FCFLAGS += -DHAVE_TRANSFER
+erdst_FCFLAGS += -DHAVE_TRANSFER
 else
-ermod_SOURCES += hash_real.c
+erdst_SOURCES += hash_real.c
 endif
 
 if USE_FLUSH
-ermod_FCFLAGS += -DHAVE_FLUSH
+erdst_FCFLAGS += -DHAVE_FLUSH
 endif
 
 extra_flags = 
 
 # module dependencies
-$(top_builddir)/ermod-enganal.$(OBJEXT): $(top_srcdir)/enganal.F90 \
-    $(top_builddir)/ermod-engproc.$(OBJEXT) \
-    $(top_builddir)/ermod-setconf.$(OBJEXT) \
-    $(top_builddir)/ermod-insertion.$(OBJEXT) \
-    $(top_builddir)/ermod-trajectory.$(OBJEXT) \
-    $(top_builddir)/ermod-mpiproc.$(OBJEXT) \
-    $(top_builddir)/ermod-engmain.$(OBJEXT)
-$(top_builddir)/ermod-engproc.$(OBJEXT): $(top_srcdir)/engproc.F90 \
-    $(top_builddir)/ermod-insertion.$(OBJEXT) \
-    $(top_builddir)/ermod-realcal.$(OBJEXT) \
-    $(top_builddir)/ermod-recpcal.$(OBJEXT) \
-    $(top_builddir)/ermod-bestfit.$(OBJEXT) \
-    $(top_builddir)/ermod-utility.$(OBJEXT) \
-    $(top_builddir)/ermod-mpiproc.$(OBJEXT) \
-    $(top_builddir)/ermod-engmain.$(OBJEXT)
-$(top_builddir)/ermod-realcal.$(OBJEXT): $(top_srcdir)/realcal.F90 \
-    $(top_builddir)/ermod-engmain.$(OBJEXT)
-$(top_builddir)/ermod-recpcal.$(OBJEXT): $(top_srcdir)/recpcal.F90 \
-    $(top_builddir)/ermod-spline.$(OBJEXT) \
-    $(top_builddir)/ermod-fft_iface.$(OBJEXT) \
-    $(top_builddir)/ermod-mpiproc.$(OBJEXT) \
-    $(top_builddir)/ermod-engmain.$(OBJEXT)
-$(top_builddir)/ermod-insertion.$(OBJEXT): $(top_srcdir)/insertion.F90 \
-    $(top_builddir)/ermod-setconf.$(OBJEXT) \
-    $(top_builddir)/ermod-bestfit.$(OBJEXT) \
-    $(top_builddir)/ermod-trajectory.$(OBJEXT) \
-    $(top_builddir)/ermod-mpiproc.$(OBJEXT) \
-    $(top_builddir)/ermod-engmain.$(OBJEXT)
-$(top_builddir)/ermod-setconf.$(OBJEXT): $(top_srcdir)/setconf.F90 \
-    $(top_builddir)/ermod-utility.$(OBJEXT) \
-    $(top_builddir)/ermod-trajectory.$(OBJEXT) \
-    $(top_builddir)/ermod-mpiproc.$(OBJEXT) \
-    $(top_builddir)/ermod-engmain.$(OBJEXT)
-$(top_builddir)/ermod-bestfit.$(OBJEXT): $(top_srcdir)/bestfit.F90 \
-    $(top_builddir)/ermod-mpiproc.$(OBJEXT)
-$(top_builddir)/ermod-trajectory.$(OBJEXT): $(top_srcdir)/trajectory.F90 \
-    $(top_builddir)/ermod-utility.$(OBJEXT)
-$(top_builddir)/ermod-utility.$(OBJEXT): $(top_srcdir)/utility.F90 \
-    $(top_builddir)/ermod-engmain.$(OBJEXT)
-$(top_builddir)/ermod-mpiproc.$(OBJEXT): $(top_srcdir)/mpiproc.F90 \
-    $(top_builddir)/ermod-engmain.$(OBJEXT)
+$(top_builddir)/erdst-enganal.$(OBJEXT): $(top_srcdir)/enganal.F90 \
+    $(top_builddir)/erdst-engproc.$(OBJEXT) \
+    $(top_builddir)/erdst-setconf.$(OBJEXT) \
+    $(top_builddir)/erdst-insertion.$(OBJEXT) \
+    $(top_builddir)/erdst-trajectory.$(OBJEXT) \
+    $(top_builddir)/erdst-mpiproc.$(OBJEXT) \
+    $(top_builddir)/erdst-engmain.$(OBJEXT)
+$(top_builddir)/erdst-engproc.$(OBJEXT): $(top_srcdir)/engproc.F90 \
+    $(top_builddir)/erdst-insertion.$(OBJEXT) \
+    $(top_builddir)/erdst-realcal.$(OBJEXT) \
+    $(top_builddir)/erdst-recpcal.$(OBJEXT) \
+    $(top_builddir)/erdst-bestfit.$(OBJEXT) \
+    $(top_builddir)/erdst-utility.$(OBJEXT) \
+    $(top_builddir)/erdst-mpiproc.$(OBJEXT) \
+    $(top_builddir)/erdst-engmain.$(OBJEXT)
+$(top_builddir)/erdst-realcal.$(OBJEXT): $(top_srcdir)/realcal.F90 \
+    $(top_builddir)/erdst-engmain.$(OBJEXT)
+$(top_builddir)/erdst-recpcal.$(OBJEXT): $(top_srcdir)/recpcal.F90 \
+    $(top_builddir)/erdst-spline.$(OBJEXT) \
+    $(top_builddir)/erdst-fft_iface.$(OBJEXT) \
+    $(top_builddir)/erdst-mpiproc.$(OBJEXT) \
+    $(top_builddir)/erdst-engmain.$(OBJEXT)
+$(top_builddir)/erdst-insertion.$(OBJEXT): $(top_srcdir)/insertion.F90 \
+    $(top_builddir)/erdst-setconf.$(OBJEXT) \
+    $(top_builddir)/erdst-bestfit.$(OBJEXT) \
+    $(top_builddir)/erdst-trajectory.$(OBJEXT) \
+    $(top_builddir)/erdst-mpiproc.$(OBJEXT) \
+    $(top_builddir)/erdst-engmain.$(OBJEXT)
+$(top_builddir)/erdst-setconf.$(OBJEXT): $(top_srcdir)/setconf.F90 \
+    $(top_builddir)/erdst-utility.$(OBJEXT) \
+    $(top_builddir)/erdst-trajectory.$(OBJEXT) \
+    $(top_builddir)/erdst-mpiproc.$(OBJEXT) \
+    $(top_builddir)/erdst-engmain.$(OBJEXT)
+$(top_builddir)/erdst-bestfit.$(OBJEXT): $(top_srcdir)/bestfit.F90 \
+    $(top_builddir)/erdst-mpiproc.$(OBJEXT)
+$(top_builddir)/erdst-trajectory.$(OBJEXT): $(top_srcdir)/trajectory.F90 \
+    $(top_builddir)/erdst-utility.$(OBJEXT)
+$(top_builddir)/erdst-utility.$(OBJEXT): $(top_srcdir)/utility.F90 \
+    $(top_builddir)/erdst-engmain.$(OBJEXT)
+$(top_builddir)/erdst-mpiproc.$(OBJEXT): $(top_srcdir)/mpiproc.F90 \
+    $(top_builddir)/erdst-engmain.$(OBJEXT)
 
 # slvfe part
 slvfe_SOURCES = slvfe.F90 sfemain.F90 sfecorrect.F90

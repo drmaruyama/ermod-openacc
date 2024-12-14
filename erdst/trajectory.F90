@@ -73,13 +73,21 @@ contains
     logical, intent(in) :: is_periodic
     real, intent(out) :: crd(3, natom)
     real, intent(out) :: cell(3, 3)
+#ifdef DP
+    real(kind=4) :: crd_tmp(3, natom)
+    real(kind=4) :: cell_tmp(3, 3)
+#endif
     integer, intent(out) :: status
    
     external vmdfio_read_traj_step
 
-    if(kind(crd) /= 8) stop "vmdfio: write interfacing wrapper"
-
-    call vmdfio_read_traj_step(htraj%vmdhandle, crd, cell, natom, status)
+#ifdef DP
+      call vmdfio_read_traj_step(htraj%vmdhandle, crd_tmp, cell_tmp, natom, status)
+      crd = real(crd_tmp, kind=8)
+      cell = real(cell_tmp, kind=8)
+#else
+      call vmdfio_read_traj_step(htraj%vmdhandle, crd, cell, natom, status)
+#endif
   end subroutine read_trajectory
 
 end module trajectory

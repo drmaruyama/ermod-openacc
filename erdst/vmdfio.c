@@ -133,7 +133,6 @@ static char* find_plugin_paths()
 void vmdfio_init_traj_(void)
 {
   char* plugindir;
-  char* buf;
   
   if((plugindir = find_plugin_paths()) == NULL){
     fprintf(stderr, "Error: cannot find plugin paths, please set ERMOD_PLUGINS environment variable\n");
@@ -203,7 +202,6 @@ void vmdfio_open_traj_(void **handle, char *fname, int *fnamelen, int *status)
   char* buf;
   size_t buflen = 8192;
   ssize_t r;
-  int fp;
   char* ext;
   int i;
 
@@ -316,7 +314,7 @@ void vmdfio_open_traj_(void **handle, char *fname, int *fnamelen, int *status)
   return;
 }
 
-void vmdfio_read_traj_step_(void **handle, double* xout, double* box, int *natoms_aux, int *status)
+void vmdfio_read_traj_step_(void **handle, float* xout, float* box, int *natoms_aux, int *status)
 {
   vmdpluginio *p = *handle;
   molfile_plugin_t *plugin = p -> plugin;

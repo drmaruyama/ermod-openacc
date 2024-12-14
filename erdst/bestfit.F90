@@ -111,10 +111,10 @@ contains
     real, intent(in) :: refPt(3, n), movedPt(3, n), masses(n)
     real, intent(out) :: rotation(0:3)
     real :: inner_prod(3, 3)
-    real :: matmax(4, 4)
-    real :: eigenvalue(4)
+    real(kind=8) :: matmax(4, 4)
+    real(kind=8) :: eigenvalue(4)
     integer, parameter :: lwork = 256
-    real :: work(lwork)
+    real(kind=8) :: work(lwork)
     integer :: i, j, k
 
     do i = 1, 3

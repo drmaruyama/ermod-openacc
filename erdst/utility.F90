@@ -97,10 +97,10 @@ contains
   subroutine angles_to_cell_vector(cell_len, angles, out_cell_vectors)
     use engmain, only: PI
     implicit none
-    real, intent(in) :: cell_len(3)
-    real, intent(in) :: angles(3)
-    real, intent(out) :: out_cell_vectors(3, 3)
-    real :: alpha, beta, gamma, x, y, u, v, w
+    real(kind=8), intent(in) :: cell_len(3)
+    real(kind=8), intent(in) :: angles(3)
+    real(kind=8), intent(out) :: out_cell_vectors(3, 3)
+    real(kind=8) :: alpha, beta, gamma, x, y, u, v, w
 
     alpha = angles(1) * PI / 180.0 ! for b-c axes
     beta  = angles(2) * PI / 180.0 ! for a-c axes

@@ -38,21 +38,6 @@ module mpiproc
   integer, parameter :: tag_sltcrd = 22, tag_sltwgt = 23
   integer :: mpi_comm_activeprocs
 
-  ! for performance counter
-  integer :: prev_state_num
-  real(8) :: prev_time
-  real(8) :: times(9)
-  character(len=8), parameter :: timer_names(9) = (/&
-       "RealBlck", &
-       "RealSelf", &
-       "RecpChrg", &
-       "RecpFFT ", &
-       "RecpU-V ", &
-       "RecpSelf", &
-       "RecpGren", &
-       "RecpPrep", &
-       "RealPrep" /)
-
 contains
   subroutine mpi_setup(type)
     implicit none
@@ -63,24 +48,9 @@ contains
     real(8), save :: walltime
     if(type == 'init') then
        call mpi_init(ierror)
-#ifdef PERF
-       walltime = MPI_WTIME()
-#endif
        call mpi_rank_size_info
-       times(:) = 0.0
     endif
     if(type == 'stop') then
-#ifdef PERF
-       call CPU_TIME(cputime)
-       print *, "rank = ", myrank, ", CPUtime = ", cputime
-       if(myrank == 0) then
-          print *, "Wall-clock time: ", MPI_WTIME() - walltime
-          print *, "Timing breakdown: "
-          do i = 1, size(times, 1)
-             print *, timer_names(i), times(i)
-          end do
-       endif
-#endif
        call mpi_finalize(ierror)
     endif
 #else
@@ -148,6 +118,21 @@ contains
 #endif
   end subroutine mympi_reduce_real_array
 
+  subroutine mympi_reduce_real8_array(data, data_size, operation, rootrank)
+    implicit none
+    integer, intent(in) :: data_size, operation, rootrank
+    real(kind=8), intent(inout) :: data(data_size)
+    real(kind=8), allocatable :: buf(:)
+    integer :: mympi_realkind
+#ifdef MPI
+    allocate( buf(data_size) )
+    call get_mympi_realkind(kind(data), mympi_realkind)
+    call mpi_reduce(data, buf, data_size, mympi_realkind, operation, rootrank, mpi_comm_world, ierror)
+    data(:) = buf(:)
+    deallocate(buf)
+#endif
+  end subroutine mympi_reduce_real8_array
+
   subroutine mympi_reduce_real_scalar(data, operation, rootrank)
     implicit none
     integer, intent(in) :: operation, rootrank
@@ -177,47 +162,6 @@ contains
 #endif
   end subroutine get_mympi_realkind
 
-
-  subroutine perf_time(state)
-    implicit none
-    character(len=4), intent(in), optional :: state
-    real(8) :: wall_time
-
-#ifdef MPI
-#ifdef PERF
-    wall_time = MPI_WTIME()
-    if(prev_state_num /= 0) then
-       times(prev_state_num) = times(prev_state_num) + (wall_time - prev_time)
-    endif
-    prev_time = wall_time
-
-    prev_state_num = 0
-    if(present(state)) then
-       select case(state)
-       case("rblk")
-          prev_state_num = 1
-       case("rslf")
-          prev_state_num = 2
-       case("kchg")
-          prev_state_num = 3
-       case("kfft")
-          prev_state_num = 4
-       case("kuve")
-          prev_state_num = 5
-       case("kslf")
-          prev_state_num = 6
-       case("kgrn")
-          prev_state_num = 7
-       case("kpre")
-          prev_state_num = 8
-       case("rpre")
-          prev_state_num = 9
-       end select
-    end if
-#endif
-#endif
-  end subroutine perf_time
-  
 
   ! Stop calculation with error message
   subroutine halt_with_error(errtype)

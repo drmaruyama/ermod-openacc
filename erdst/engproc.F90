@@ -47,8 +47,8 @@ contains
          ermax_limit
     use mpiproc, only: halt_with_error, warning, myrank
     implicit none
-    real :: ecdmin, ecfmns, ecmns0, ecdcen, ecpls0, ecfpls, eccore, ecdmax
-    real :: eclbin, ecfbin, ec0bin, finfac, ectmvl
+    real(kind=8) :: ecdmin, ecfmns, ecmns0, ecdcen, ecpls0, ecfpls, eccore, ecdmax
+    real(kind=8) :: eclbin, ecfbin, ec0bin, finfac, ectmvl
     integer :: pecore
     ! pemax :  number of discretization of the solute-solvent energy
     ! pesoft : number of discretization in the soft interaction region
@@ -58,11 +58,11 @@ contains
     !
     real, parameter :: infty = 1.0e50      ! essentially equal to infinity
     integer, parameter :: rglmax = 5, large = 10000
-    real :: factor, incre, cdrgvl(0:rglmax+1), ecpmrd(large)
+    real(kind=8) :: factor, incre, cdrgvl(0:rglmax+1), ecpmrd(large)
     integer :: solute_moltype
     integer :: iduv, i, q, pti, regn, minrg, maxrg, uprgcd(0:rglmax+1), dummy
     integer, dimension(:), allocatable :: tplst
-    real, dimension(:,:), allocatable  :: ercrd
+    real(kind=8), dimension(:,:), allocatable  :: ercrd
     !
     integer :: param_err
     logical :: check_ok, start_line
@@ -406,7 +406,6 @@ contains
           
           ! check whether cell size changes
           ! recpcal is called only when cell size differ
-          call perf_time("kgrn")
           if((.not. pme_initialized) .or. &
              (any(prevcl(:,:) /= cell(:,:)))) then
              if (cltype == EL_PME) then
@@ -415,18 +414,15 @@ contains
                 call recpcal_pppm_greenfunc()
              endif
           end if
-          call perf_time()
           prevcl(:,:) = cell(:,:)
           
           pme_initialized = .true.
 
-          call perf_time("kpre")
           !$omp parallel do schedule(dynamic) private(k, i)
           do k = 1, slvmax
              i = tagpt(k)
              call recpcal_prepare_solvent(i)
           enddo
-          call perf_time()
        endif
 
        ! cntdst is the pick-up no. of solute molecule from plural solutes (soln)
@@ -516,7 +512,8 @@ contains
     integer, parameter :: eng_io = 51, cor_io = 52, slf_io = 53
     integer, parameter :: ave_io = 54, wgt_io = 55, uvr_io = 56
     real :: voffset_local, voffset_scale
-    real :: factor, invwt, leftbin, middlebin
+    real :: factor
+    real(kind=8) :: invwt, leftbin, middlebin    
     call mpi_rank_size_info                                          ! MPI
 
     ! synchronize voffset
@@ -560,7 +557,7 @@ contains
     if(selfcal == YES) call mympi_reduce_real_array(eself, esmax, mpi_sum, 0)
     if(slttype == SLT_SOLN) call mympi_reduce_real_array(slnuv, numslv, mpi_sum, 0)
     call mympi_reduce_real_array(edens, ermax, mpi_sum, 0)
-    if(corrcal == YES) call mympi_reduce_real_array(ecorr, (ermax * ermax), mpi_sum, 0)
+    if(corrcal == YES) call mympi_reduce_real8_array(ecorr, (ermax * ermax), mpi_sum, 0)
 #endif
 
 
@@ -734,12 +731,8 @@ contains
     ! Calculate system-wide values
     if(cltype == EL_PME .or. cltype == EL_PPPM) then
        call recpcal_prepare_solute(tagslt)
-       call perf_time("rblk")
        call realcal_proc(tagslt, tagpt, slvmax, uvengy)
-       call perf_time()
-       call perf_time("kslf")
        call recpcal_self_energy(uvengy(0))
-       call perf_time()
     endif
 
     ! solute-solute self energy
@@ -753,9 +746,7 @@ contains
        ! though the self energy will not change.
        pairep = usreal ! reuse
     else
-       call perf_time("rslf")
        call realcal_self(tagslt, pairep) ! calculate self-interaction
-       call perf_time()
        usreal = pairep
     endif
     solute_hash = current_solute_hash
@@ -954,7 +945,7 @@ contains
   ! v > coord(n)  ==>  ret = n (infinite)
   subroutine binsearch(coord, n, v, ret)
     implicit none 
-    real, intent(in) :: coord(n)
+    real(kind=8), intent(in) :: coord(n)
     integer, intent(in) :: n
     real, intent(in) :: v
     integer, intent(out) :: ret
@@ -1225,7 +1216,7 @@ contains
     use mpiproc, only: halt_with_error
     implicit none
     integer, intent(in) :: iduv
-    real, intent(out) :: engleft, engmiddle, enginvwidth
+    real(kind=8), intent(out) :: engleft, engmiddle, enginvwidth
     integer, intent(out) :: solvent_spec
     integer :: idpt, cnt, idmin, idmax, idsoft
     idmin = 0

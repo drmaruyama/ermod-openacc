@@ -335,9 +335,11 @@ module engmain
   
   integer :: ermax, numslv, esmax, maxins
   integer, dimension(:), allocatable :: uvmax, uvsoft, uvspec
-  real, dimension(:),    allocatable :: uvcrd, edens
-  real, dimension(:,:),  allocatable :: ecorr
-  real, dimension(:),    allocatable :: escrd, eself
+  real(kind=8), dimension(:),    allocatable :: uvcrd
+  real, dimension(:),    allocatable :: edens
+  real(kind=8), dimension(:,:),  allocatable :: ecorr
+  real(kind=8), dimension(:),    allocatable :: escrd
+  real, dimension(:),    allocatable :: eself
   real, dimension(:,:),  allocatable :: aveuv
   real, dimension(:),    allocatable :: slnuv
   real, dimension(:,:),  allocatable :: avediv

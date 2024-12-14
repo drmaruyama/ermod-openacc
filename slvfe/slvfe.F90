@@ -35,7 +35,8 @@ contains
          inptemp, temp, kT, &
          ermax_limit, tiny, large, &
          rduvmax, rduvcore, &
-         chmpt, svgrp, svinf
+         chmpt, svgrp, svinf, &
+         get_suffix, suffix_of_engsln_is_tt
     implicit none
     logical :: file_exist
     integer :: group, inft, prmcnt, iduv, i, k, pti, ioerr
@@ -77,16 +78,17 @@ contains
     end select
     !
     if(clcond == 'merge') then
-       opnfile = trim(solndirec) // '/' // trim(slndnspf) // '.01'
+       opnfile = trim(solndirec) // '/' // trim(slndnspf) // '.' // get_suffix(1, suffix_of_engsln_is_tt)
     else
        opnfile = engfile(1)
     endif
     open(unit = 71, file = opnfile, status = 'old')
+    read(71, *) ! skip header line
     ermax = 0
     numslv = 0
     k = 0
     do iduv = 1, large
-       read(71, *, end = 781) factor, pti, factor
+       read(71, *, end = 781) factor, factor, pti ! only read species
        if(pti /= k) then
           numslv = numslv + 1
           k = pti
@@ -111,9 +113,10 @@ contains
     !
     ! opnfile is still engfile(1) or soln/engsln.01
     open(unit = 71, file = opnfile, status = 'old')
+    read(71, *) ! skip header
     k = 0
     do iduv = 1, ermax
-       read(71, *) crdnow, pti, factor
+       read(71, *) factor, crdnow, pti, factor
        if(pti /= k) then
           rduvmax(pti) = 1
           rduvcore(pti) = 0
@@ -288,14 +291,16 @@ contains
 
   subroutine datread(cntrun)
     use sysvars, only: refmerge, tiny, numbers, &
-                 solndirec, refsdirec, slndnspf, slncorpf, refdnspf, refcorpf
+         solndirec, refsdirec, slndnspf, slncorpf, refdnspf, refcorpf, &
+         get_suffix, suffix_of_engsln_is_tt, suffix_of_engref_is_tt
     implicit none
     integer, intent(in) :: cntrun
     integer :: slnini, slnfin, refini, reffin, ecmin, ecmax
     integer :: iduv, iduvp, i, k, m, pti, cnt
-    real :: factor, ampl
-    logical :: num_different
-    real, allocatable :: cormat_temp(:, :)
+    real :: factor, ampl, leftbin
+    real, allocatable :: bin_consistency_check(:)
+    logical :: num_different, suffix_is_tt
+    real(kind=8), allocatable :: cormat_temp(:, :)
     character(len=1024) :: opnfile
     character(len=3) :: suffnum
 
@@ -335,6 +340,9 @@ contains
        rddns(:) = 0.0
        rdcor(:,:) = 0.0
     endif
+
+    allocate(bin_consistency_check(ermax))
+    bin_consistency_check(:) = 0.0
     
     ! FIXME: this part is kinda spaghetti and should be rewritten WITHOUT looping by cnt!
     do cnt = 1, 4
@@ -346,12 +354,14 @@ contains
           ecmax = slnfin
           factor = sum( wgtsln(ecmin:ecmax) )
           wgtsln(ecmin:ecmax) = wgtsln(ecmin:ecmax) / factor
+          suffix_is_tt = suffix_of_engsln_is_tt
        endif
        if(cnt >= 3) then                         ! reference solvent
           ecmin = refini
           ecmax = reffin
           factor = sum( wgtref(ecmin:ecmax) )
           wgtref(ecmin:ecmax) = wgtref(ecmin:ecmax) / factor
+          suffix_is_tt = suffix_of_engsln_is_tt
        endif
        
        do i = ecmin, ecmax
@@ -359,9 +369,7 @@ contains
           case('basic', 'range')
              opnfile = engfile(cnt)
           case('merge')
-             m = i / 10
-             k = mod(i ,10)
-             suffnum = '.' // numbers(m+1:m+1) // numbers(k+1:k+1)
+             suffnum = '.' // get_suffix(i, suffix_is_tt)
              if(cnt == 1) opnfile = trim(solndirec) // '/' // trim(slndnspf)
              if(cnt == 2) opnfile = trim(solndirec) // '/' // trim(slncorpf)
              if(cnt == 3) opnfile = trim(refsdirec) // '/' // trim(refdnspf)
@@ -370,10 +378,18 @@ contains
           end select
           if((cnt == 1) .or. (cnt == 3)) then    ! 1-D distribution
              open(unit = 71, file = opnfile, status = 'old')
+             read(71, *) ! skip header
              k = 0
              m = 0
              do iduv = 1, ermax
-                read(71, *) rdcrd(iduv), pti, factor
+                read(71, *) leftbin, rdcrd(iduv), pti, factor
+                if(cnt == 1) then
+                   bin_consistency_check(iduv) = leftbin
+                elseif(cnt == 3) then
+                   if(bin_consistency_check(iduv) /= leftbin) then
+                      stop "Solution and reference system energy coordinates are inconsitent"
+                   endif
+                end if
                 if(pti /= k) then
                    k = pti
                    m = m + 1
@@ -433,9 +449,9 @@ end module sysread
 
 module sfecalc
   use sysvars, only: zerosft, wgtfnform, slncor, &
-                     numslv, ermax, nummol, kT, itrmax, zero, error, tiny, &
-                     rduvmax, rduvcore, &
-                     rdcrd, rddst, rddns, rdslc, rdcor, rdspec
+       numslv, ermax, nummol, kT, itrmax, zero, error, tiny, &
+       rduvmax, rduvcore, &
+       rdcrd, rddst, rddns, rdslc, rdcor, rdspec
   implicit none
   integer, dimension(:), allocatable :: idrduv, uvmax
   real, dimension(:),    allocatable :: uvcrd, edist, edens
@@ -510,11 +526,12 @@ contains
 
   subroutine chmpot(prmcnt, cntrun)
     use sysvars, only: uvread, slfslt, ljlrc, normalize, showdst, wrtzrsft, &
-                       slfeng, chmpt, aveuv, svgrp, svinf, &
-                       numrun, pickgr, &
-                       minthres_soln, minthres_refs, &
-                       cumuint, cumuintfl, &
-                       numbers
+         slfeng, chmpt, aveuv, svgrp, svinf, &
+         numrun, pickgr, &
+         minthres_soln, minthres_refs, &
+         cumuint, cumuintfl, &
+         get_suffix, &
+         numbers
     use uvcorrect, only: ljcorrect
     implicit none
     integer, intent(in) :: prmcnt, cntrun
@@ -610,7 +627,7 @@ contains
           if(cnt == 1) edist(k) = edist(k) + rddst(iduv)
           if(cnt == 2) edens(k) = edens(k) + rddns(iduv)
        end do
-       if((cnt == 1) .and. (slncor /= 'yes')) goto 1115
+       if((cnt == 1) .and. (slncor /= 'yes')) cycle
        do iduv = 1, ermax
           do iduvp = 1, ermax
              k = idrduv(iduv)
@@ -619,7 +636,6 @@ contains
              if(cnt == 2) ecorr(m,k) = ecorr(m,k) + rdcor(iduvp, iduv)
           end do
        end do
-1115   continue
     end do
     !
     if(normalize == 'yes') call distnorm
@@ -711,9 +727,7 @@ contains
           if(cntdiv == 0) then                ! averaged cumsfe
              opnfile = trim(cumuintfl)
           else                                ! cumsfe in each block
-             j = cntdiv / 10
-             m = mod(cntdiv, 10)
-             opnfile = trim(cumuintfl) // numbers(j+1:j+1) // numbers(m+1:m+1)
+             opnfile = trim(cumuintfl) // get_suffix(cntdiv)
           endif
           open(unit = cumu_io, file = opnfile, status = 'replace')
           if(numslv == 1) then
@@ -744,7 +758,8 @@ contains
                 allocate( cumu_write(numslv) )
                 do iduv = 1, ge_perslv
                    do j = 1, numslv
-                      cumu_write(j) = cumsfe(iduv + (j - 1) * ge_perslv, cntdiv)
+                      cumu_write(j) = cumsfe(iduv + (j - 1) * ge_perslv, &
+                           cntdiv)
                    enddo
                    factor = sum( cumu_write(1:numslv) )
                    write(cumu_io, '(g15.5, 999f12.5)') &

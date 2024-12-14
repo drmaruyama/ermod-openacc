@@ -49,9 +49,11 @@ module sysvars
   integer :: extthres_soln = 1, extthres_refs = 1
   integer :: minthres_soln = 0, minthres_refs = 0
   real, parameter :: zero = 0.0
-  real :: error = 1.0e-8, tiny = 1.0e-8
+!  real :: error = 1.0e-8, tiny = 1.0e-8
+  real :: error = 1.0e-8, tiny = 1.0e-4
   integer :: ermax_limit = 15000
   integer :: large = 500000, itrmax = 100
+  integer :: digits_of_suffix = 2
   
   character(len=1024) :: solndirec = 'soln'
   character(len=1024) :: refsdirec = 'refs'
@@ -76,7 +78,10 @@ module sysvars
   real, dimension(:,:),   allocatable :: uvene, blockuv
   integer, dimension(:),  allocatable :: svgrp, svinf
   real, dimension(:),     allocatable :: wgtsln, wgtref
-  
+
+  logical :: force_calculation = .false., strict_ewald_parameters = .false.
+  logical :: suffix_of_engsln_is_tt = .false., suffix_of_engref_is_tt = .false.
+
   namelist /fevars/ clcond, numprm, numsln, numref, numdiv, &
        uvread, slfslt, infchk, meshread, zerosft, wgtfnform, &
        refmerge, extsln, extthres_soln, extthres_refs, &
@@ -107,26 +112,8 @@ contains
 99  continue
 
     if(clcond == 'merge') then
-       do srcnt = 1, 2
-          do count_suf = 1, sufmax
-             i = count_suf / 10
-             j = mod(count_suf, 10)
-             file_suf = '.' // numbers(i+1:i+1) // numbers(j+1:j+1)
-             select case(srcnt)
-             case(1)
-                opnfile = trim(solndirec) // '/' // trim(slndnspf) // file_suf
-             case(2)
-                opnfile = trim(refsdirec) // '/' // trim(refdnspf) // file_suf
-             end select
-             inquire(file = opnfile, exist = file_exist)
-             if( file_exist ) then
-                if(srcnt == 1) count_soln = count_suf
-                if(srcnt == 2) count_refs = count_suf
-             else
-                exit
-             endif
-          enddo
-       enddo
+       call check_tt_or_numeric_files(solndirec, slndnspf, suffix_of_engsln_is_tt, count_soln)
+       call check_tt_or_numeric_files(refsdirec, refdnspf, suffix_of_engref_is_tt, count_refs)
 
        open(unit = iounit, file = parmfname, action = 'read', status = 'old', iostat = ioerr)
        if(ioerr /= 0) goto 91
@@ -166,5 +153,94 @@ contains
     if(pickgr > msemax) stop " Incorrect setting: pickgr > msemax not allowed"
     if(pickgr > numprm) stop " Incorrect setting: pickgr > numprm not allowed"
 
+  contains
+
+  ! To set default values for suffix_of_eng*_is_tt, we check and count number of files
+    subroutine check_tt_or_numeric_files(dirname, trunk, use_tt, nfiles)
+      implicit none
+      character(len=*), intent(in) :: dirname, trunk
+      logical, intent(out) :: use_tt
+      integer, intent(out) :: nfiles
+      integer, parameter :: sufmax = 99
+      character(len=3) :: file_suf
+      character(len=1024) :: opnfile
+      integer :: count_suf
+      logical :: file_exist
+
+      ! First check tt file exists
+      opnfile = trim(dirname) // '/' // trim(trunk) // "." // get_suffix(1, .true.)
+      inquire(file = opnfile, exist = file_exist)
+      if (file_exist) then
+         ! .tt files exists. In this case .01-.99 files shall NOT exist
+         do count_suf = 1, sufmax
+            opnfile = trim(dirname) // '/' // trim(trunk) // "." // get_suffix(count_suf)
+            inquire(file = opnfile, exist = file_exist)
+            if (file_exist) then
+               stop (trim(trunk) // ".tt is not supposed to coexist with " // trim(trunk) // ".01, " // trim(trunk) // ".02, ...")
+            end if
+         end do
+         nfiles = 1
+         use_tt = .true.
+         return
+      end if
+
+      nfiles = 0
+      use_tt = .false.
+      ! .tt file does not exist. In this case return number of existing files with numeric suffixes
+      do count_suf = 1, sufmax
+         opnfile = trim(dirname) // '/' // trim(trunk) // '.' // get_suffix(count_suf)
+         inquire(file = opnfile, exist = file_exist)
+         if( file_exist ) then
+            nfiles = count_suf
+         else
+            if (count_suf == 1) then
+               stop ("Neither " // trim(trunk) // ".01 nor " // trim(trunk) // ".tt exists. Perhaps " &
+                    // trim(dirname) // " part is not calculated yet?")
+            endif
+            exit ! exit from loop with the number of existing files
+         endif
+      enddo
+    end subroutine check_tt_or_numeric_files
+
   end subroutine init_sysvars
+
+  function get_suffix(n, suffix_is_tt) result(res)
+    implicit none
+    integer, intent(in) :: n
+    logical, intent(in), optional :: suffix_is_tt
+    logical :: suffix_is_tt_work
+    integer :: i
+    character(len=digits_of_suffix) :: res
+
+    if (present(suffix_is_tt)) then
+       suffix_is_tt_work = suffix_is_tt
+    else
+       suffix_is_tt_work = .false.
+    endif
+
+    if (.not. suffix_is_tt_work) then
+       res = zero_padded_str(n, digits_of_suffix)
+    else
+       res = repeat('t', digits_of_suffix)
+    endif
+
+    return
+  end function get_suffix
+
+  ! TODO (shun): upon next major release move this to utility or
+  !              utility_file module
+  ! Returns zero-padded string of [n]
+  function zero_padded_str(n, digits) result(res)
+    implicit none
+    integer, intent(in) :: n, digits
+    character(len=digits) :: res
+    character(len=25) :: formatbuf ! max (I0.x) len is assumed to be ceil(log10(2^64+1)) + 5
+
+    if(digits <= 0) stop "Invalid args to zero_padded_str()"
+
+    write (formatbuf, "(A4,I0,A1)") "(I0.", digits, ")"
+    write (res, trim(formatbuf)) n
+    return
+  end function zero_padded_str
+
 end module sysvars

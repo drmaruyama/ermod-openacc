@@ -7,10 +7,11 @@ AC_CONFIG_MACRO_DIR(m4)
 AM_INIT_AUTOMAKE
 
 AC_ARG_ENABLE([debug-symbol],
-	AS_HELP_STRING([--disable-debug-symbol],
-		[Disable debug symbol]))
+              [AS_HELP_STRING([--enable-debug-symbol],
+                        [Enable debug symbols (-g)])],
+              [enable_debug=yes], [enable_debug=no])
 
-AS_IF([test x$enable_debug_symbol = xno],
+AS_IF([test x$enable_debug = xno],
       [ac_cv_prog_cc_g=no
        ac_cv_prog_fc_g=no])
 

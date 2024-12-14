@@ -4,15 +4,16 @@
 AC_PREREQ([2.65])
 #AC_INIT(ermod, 0.3.%rev%, Matubayasi Laboratory)
 AC_INIT(ermod, 0.6.0, Matubayasi Laboratory)
-AC_CONFIG_MACRO_DIR(../m4)
+AC_CONFIG_MACRO_DIR(m4)
 AC_CONFIG_SRCDIR([slvfe.F90])
 AM_INIT_AUTOMAKE
 
 AC_ARG_ENABLE([debug-symbol],
-	AS_HELP_STRING([--disable-debug-symbol],
-		[Disable debug symbol]))
+              [AS_HELP_STRING([--enable-debug-symbol],
+                        [Enable debug symbols (-g)])],
+              [enable_debug=yes], [enable_debug=no])
 
-AS_IF([test x$enable_debug_symbol = xno],
+AS_IF([test x$enable_debug = xno],
       [ac_cv_prog_cc_g=no
        ac_cv_prog_fc_g=no])
 
@@ -35,9 +36,6 @@ AS_IF([test x$FC = xifort],
 
 # modified MPI detector (searches mpiifort first)
 AC_LANG(Fortran)
-ACX_MPI_MY
-AC_LANG(Fortran)
-ACX_MPI_MY([use_mpi=yes], [use_mpi=no])
 
 : ${enable_openmp=no}
 AC_ARG_ENABLE([openmp],
@@ -48,10 +46,6 @@ AC_OPENMP
 AS_IF([test "x$FC" = "x"],
       [AC_MSG_ERROR("Failed to find Fortran Compiler (Fortran 90). Set environment variable FC to work around")]
       [])
-
-AC_ARG_ENABLE([vmdplugin],
-	AS_HELP_STRING([--disable-vmdplugin],
-		[disable VMD plugin]))
 
 AC_DEFUN([MY_CHECK_BLAS], [
   AC_MSG_CHECKING([whether $1 is available])
@@ -193,14 +187,6 @@ AM_CONDITIONAL([USE_FLUSH], [test "x$my_check_have_flush" = "xyes"])
 # set to f90 as default
 AC_FC_SRCEXT(f90)
 
-AC_ARG_ENABLE([mpi],
-	AS_HELP_STRING([--disable-mpi],
-		[disable MPI even if exists]),
-	AS_IF([test x$enable_mpi = xno],
-		     [use_mpi=no]),
-	[])
-
-
 # Checks for libraries.
 
 # Checks for header files.
@@ -218,25 +204,6 @@ AC_ARG_ENABLE([defaults],
 AS_IF([test x$enable_defaults != xno],
 CFLAGS="$CFLAGS"
 FCFLAGS="$FCFLAGS")
-
-AC_ARG_ENABLE([perf],
-	AS_HELP_STRING([--enable-perf],
-		[(internal use only)]),
-	AS_IF([test x$enable_perf = xyes],
-		     [FCFLAGS="$FCFLAGS -fno-omit-frame-pointer -DPERF"
-                      CFLAGS="$CFLAGS -fno-omit-frame-pointer"
-                      LDFLAGS="$LDFLAGS -lprofiler"]))
-
-AM_CONDITIONAL(USE_MPI, [test "x$use_mpi" = "xyes"])
-
-AS_IF([test "x$use_mpi" = "xyes"],
-	    [mpi_result="enabled"
-	     FC_CANONICAL="$FC"
-	     FC="$MPIFC"
-             FCFLAGS="-DMPI $FCFLAGS"],
-	    [mpi_result="disabled"
-	     FC_CANONICAL="$FC"])
-AC_SUBST([FC_CANONICAL])
 
 # optimization flags
 AC_DEFUN([MY_FC_OPT_ACCEPT_NATIVE],[
@@ -307,7 +274,6 @@ LAPACK: $lapack_result
 MPI: $mpi_result
 OpenMP: $enable_openmp
 FC(for ermod)=$FC
-FC_CANONICAL(for slvfe)=$FC_CANONICAL
 FCFLAGS=$FCFLAGS
 
 Configuration complete; type \"make\" to start compiling])

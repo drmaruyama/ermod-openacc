@@ -42,7 +42,7 @@
 
 #include <dlfcn.h>
 
-#include "vmdplugins/molfile_plugin.h"
+#include "../vmdplugins/molfile_plugin.h"
 
 /*
   Declaration of plugin access points.

@@ -516,7 +516,7 @@ contains
     integer, parameter :: eng_io = 51, cor_io = 52, slf_io = 53
     integer, parameter :: ave_io = 54, wgt_io = 55, uvr_io = 56
     real :: voffset_local, voffset_scale
-    real :: factor
+    real :: factor, invwt, leftbin, middlebin
     call mpi_rank_size_info                                          ! MPI
 
     ! synchronize voffset
@@ -649,9 +649,12 @@ contains
        engfile = 'engref' // suffeng
     end select
     open(unit = eng_io, file = engfile, form = "FORMATTED", action = 'write')
+    write(eng_io, '(A2,A13,A15,A5,A25,A25)') "# ", &
+         "bin_left", "bin_middle", "spec", "ratio", "dens"
     do iduv = 1, ermax
-       call repval('intn', iduv, factor, pti)
-       write(eng_io, '(g15.7,i5,g25.15)') factor, pti, edens(iduv)
+       call representative_bin_info(iduv, leftbin, middlebin, invwt, pti)
+       write(eng_io, '(g15.7,g15.7,i5,g25.15,g25.15)') &
+            leftbin, middlebin, pti, edens(iduv), edens(iduv) * invwt
     enddo
     endfile(eng_io)
     close(eng_io)
@@ -675,7 +678,7 @@ contains
        engfile = 'slfeng' // suffeng
        open(unit = slf_io, file = engfile, form = "FORMATTED", action = 'write')
        do iduv = 1, esmax
-          call repval('self', iduv, factor)
+          factor = representative_bin_selfenergy(iduv)
           write(slf_io, '(g15.7,g25.15)') factor, eself(iduv)
        enddo
        endfile(slf_io)
@@ -1206,44 +1209,48 @@ contains
     get_solute_hash = hash(sitepos(1:3, mol_begin_index(tagslt):(mol_begin_index(tagslt+1) - 1)), numsite(tagslt) * 3)
   end function get_solute_hash
 
-  
-  subroutine repval(uvtype, iduv, engcoord, spec)
+  function representative_bin_selfenergy(iduv) result(engcoord)
+    use engmain, only: esmax, escrd
+    use mpiproc, only: halt_with_error
+    implicit none
+    integer, intent(in) :: iduv
+    real :: engcoord
+    if(iduv <  esmax) engcoord = (escrd(iduv) + escrd(iduv+1)) / 2.0
+    if(iduv == esmax) engcoord = escrd(esmax)
+    if(iduv >  esmax) call halt_with_error('eng_ecd')
+  end function representative_bin_selfenergy
+
+  subroutine representative_bin_info(iduv, engleft, engmiddle, enginvwidth, solvent_spec)
     use engmain, only: numslv, uvmax, uvsoft, uvcrd, esmax, escrd
     use mpiproc, only: halt_with_error
     implicit none
-    character(len=4), intent(in) :: uvtype
     integer, intent(in) :: iduv
-    real, intent(out) :: engcoord
-    integer, intent(out), optional :: spec
+    real, intent(out) :: engleft, engmiddle, enginvwidth
+    integer, intent(out) :: solvent_spec
     integer :: idpt, cnt, idmin, idmax, idsoft
-    select case(uvtype)
-    case('self')
-       if(present(spec)) call halt_with_error('eng_bug')
-       if(iduv <  esmax) engcoord = (escrd(iduv) + escrd(iduv+1)) / 2.0
-       if(iduv == esmax) engcoord = escrd(esmax)
-       if(iduv >  esmax) call halt_with_error('eng_ecd')
-    case('intn')
-       if(.not. present(spec)) call halt_with_error('eng_bug')
-       idmin = 0
-       do cnt = 1, numslv
-          idpt = idmin + uvmax(cnt)
-          if(iduv <= idpt) exit
-          idmin = idpt
-       enddo
-       spec = cnt
-       idsoft = uvsoft(spec)
-       idmax = uvmax(spec)
-       idpt = iduv - idmin
-       if((idpt < 1) .or. (idpt > idmax)) call halt_with_error('eng_ecd')
-       if(idpt <= idsoft) then   ! linear graduation
-          engcoord = (uvcrd(iduv) + uvcrd(iduv+1)) / 2.0
-       else                      ! logarithmic graduation
-          if(idpt <  idmax) engcoord = sqrt(uvcrd(iduv) * uvcrd(iduv+1))
-          if(idpt == idmax) engcoord = uvcrd(iduv)
-       endif
-    case default
-       stop "Unknown uvtype in repval"
-    end select
-    return
-  end subroutine repval
+    idmin = 0
+    do cnt = 1, numslv
+       idpt = idmin + uvmax(cnt)
+       if(iduv <= idpt) exit
+       idmin = idpt
+    enddo
+    solvent_spec = cnt
+    idsoft = uvsoft(solvent_spec)
+    idmax = uvmax(solvent_spec)
+    idpt = iduv - idmin
+    if((idpt < 1) .or. (idpt > idmax)) call halt_with_error('eng_ecd')
+    engleft = uvcrd(iduv)
+    if(idpt <= idsoft) then   ! linear graduation
+       engmiddle = (uvcrd(iduv) + uvcrd(iduv+1)) / 2.0
+       enginvwidth = 1. / (uvcrd(iduv + 1) - uvcrd(iduv))
+    else                      ! logarithmic graduation
+       if(idpt <  idmax) then
+          engmiddle = sqrt(uvcrd(iduv) * uvcrd(iduv+1))
+          enginvwidth = 1. / (uvcrd(iduv + 1) - uvcrd(iduv))
+       elseif(idpt == idmax) then
+          engmiddle = uvcrd(iduv)
+          enginvwidth = 0.
+       end if
+    endif
+  end subroutine representative_bin_info
 end module engproc

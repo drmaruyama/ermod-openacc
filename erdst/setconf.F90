@@ -170,7 +170,7 @@ contains
     use mpiproc, only: halt_with_error                               ! MPI
     implicit none
     real, parameter :: tiny = 1.0e-20
-    real :: real_seed
+    real(kind=8) :: real_seed
 
     intprm=1                                     ! trajectory reading
     select case(intprm)

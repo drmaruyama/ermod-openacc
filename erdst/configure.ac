@@ -133,6 +133,18 @@ AS_IF([test "x$with_fftw" != "x"],
    FCFLAGS="$FCFLAGS -I$FFTWROOT/include"
    LDFLAGS="$LDFLAGS -L$FFTWROOT/lib -L$FFTWROOT/lib64"])
 
+AC_ARG_WITH([openblas],
+  AS_HELP_STRING([--with-openblas[=DIR]],
+                 [Use OpenBLAS at DIR (default is to try system-wide)]),
+  [if test "x$with_openblas" = "xno"; then
+     with_openblas=yes
+  fi])
+
+# Check for OpenBLAS libraries (prioritize OpenBLAS)
+AS_IF([test "x$with_openblas" != "xno"],
+  [LIBS="$LIBS -lopenblas"])
+
+
 ACX_BLAS
 ACX_LAPACK([lapack_exist=yes],
            [lapack_exist=no])

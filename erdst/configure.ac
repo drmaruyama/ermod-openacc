@@ -151,6 +151,12 @@ ACX_LAPACK([lapack_exist=yes],
 
 ################################
 
+AC_ARG_ENABLE([double],
+    [AS_HELP_STRING([--enable-double],
+        [Enable conversion of single precision real to double precision (real(8))])],
+    [enable_double=yes],
+    [enable_double=no])
+
 AC_DEFUN([MY_FC_REAL_DOUBLE],[
 AC_CACHE_CHECK([how to read real as real(8) as default],
 my_fc_real_double_cv_flag,
@@ -184,7 +190,9 @@ fi
 AC_LANG_POP(Fortran)
 ])])
 
-MY_FC_REAL_DOUBLE
+AS_IF([test "x$enable_double" = "xyes"],
+      [MY_FC_REAL_DOUBLE
+       FCFLAGS="$FCFLAGS -DDP"])
 
 ################################
 

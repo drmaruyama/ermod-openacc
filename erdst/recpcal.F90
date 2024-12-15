@@ -441,24 +441,26 @@ contains
     pairep = solute_self_energy
   end subroutine recpcal_self_energy
 
-  subroutine recpcal_energy(tagslt, i, pairep)
+  subroutine recpcal_energy(tagslt, tagpt, slvmax, uvengy)
     use engmain, only: ms1max, ms2max, ms3max, splodr, numsite, specatm, sluvid, charge
     use mpiproc, only: halt_with_error
     implicit none
-    integer, intent(in) :: tagslt, i
-    real, intent(inout) :: pairep
-    integer :: cg1, cg2, cg3, k
+    integer, intent(in) :: tagslt, tagpt(:), slvmax
+    real, intent(inout) :: uvengy(0:slvmax)
+
+    real :: pairep
+    integer :: cg1, cg2, cg3, i, k
     integer :: rc1, rc2, rc3, ptrnk, sid, ati, svi, stmax
     real :: fac1, fac2, fac3, chr
     integer :: grid1
     complex :: rcpt
 
-    pairep = 0.0
-    k = sluvid(tagslt)
-    if(k == 0) call halt_with_error('rcp_fst')
-    if(tagslt == i) then              ! solute self-energy
-       call recpcal_self_energy(pairep)
-    else                              ! solute-solvent pair interaction
+    do k = 1, slvmax
+       i = tagpt(k)
+       if(i == tagslt) cycle
+
+       pairep = 0.0
+       if(sluvid(tagslt) == 0) call halt_with_error('rcp_fst')
        svi = slvtag(i)
        if(svi <= 0) call halt_with_error('rcp_cns')
        stmax = numsite(i)
@@ -489,7 +491,8 @@ contains
              end do
           end do
        end do
-    endif
+       uvengy(k) = uvengy(k) + pairep
+    end do
   end subroutine recpcal_energy
 
 end module reciprocal

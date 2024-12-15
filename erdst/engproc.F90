@@ -732,6 +732,7 @@ contains
     if(cltype == EL_PME .or. cltype == EL_PPPM) then
        call recpcal_prepare_solute(tagslt)
        call realcal_proc(tagslt, tagpt, slvmax, uvengy)
+       call recpcal_energy(tagslt, tagpt, slvmax, uvengy)
        call residual_ene(tagslt, tagpt, slvmax, uvengy)
        call recpcal_self_energy(uvengy(0))
     else
@@ -766,7 +767,7 @@ contains
        factor = 0
        if(cltype == EL_PME .or. cltype == EL_PPPM) then
           ! called only when PME or PPPM, non-self interaction
-          call recpcal_energy(tagslt, i, factor)
+!          call recpcal_energy(tagslt, i, factor)
           pairep = pairep + factor
        endif
        !$omp atomic

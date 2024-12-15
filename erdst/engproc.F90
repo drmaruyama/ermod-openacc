@@ -733,6 +733,8 @@ contains
        call recpcal_prepare_solute(tagslt)
        call realcal_proc(tagslt, tagpt, slvmax, uvengy)
        call recpcal_self_energy(uvengy(0))
+    else
+       call realcal_bare(tagslt, tagpt, slvmax, uvengy)
     endif
 
     ! solute-solute self energy
@@ -766,8 +768,6 @@ contains
           call residual_ene(tagslt, i, pairep)
           call recpcal_energy(tagslt, i, factor)
           pairep = pairep + factor
-       else                      ! Bare coulomb solute-solvent interaction
-          call realcal_bare(tagslt, i, pairep)
        endif
        !$omp atomic
        uvengy(k) = uvengy(k) + pairep

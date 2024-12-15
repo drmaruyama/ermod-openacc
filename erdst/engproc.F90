@@ -732,6 +732,7 @@ contains
     if(cltype == EL_PME .or. cltype == EL_PPPM) then
        call recpcal_prepare_solute(tagslt)
        call realcal_proc(tagslt, tagpt, slvmax, uvengy)
+       call residual_ene(tagslt, tagpt, slvmax, uvengy)
        call recpcal_self_energy(uvengy(0))
     else
        call realcal_bare(tagslt, tagpt, slvmax, uvengy)
@@ -752,7 +753,7 @@ contains
        usreal = pairep
     endif
     solute_hash = current_solute_hash
-    call residual_ene(tagslt, tagslt, residual)
+    call residual_self_ene(tagslt, residual)
     uvengy(0) = uvengy(0) + pairep + residual
 
     ! solute-solvent pair
@@ -765,7 +766,6 @@ contains
        factor = 0
        if(cltype == EL_PME .or. cltype == EL_PPPM) then
           ! called only when PME or PPPM, non-self interaction
-          call residual_ene(tagslt, i, pairep)
           call recpcal_energy(tagslt, i, factor)
           pairep = pairep + factor
        endif
@@ -875,16 +875,36 @@ contains
   end subroutine update_histogram
 
   !
-  subroutine residual_ene(i, j, pairep)
+  subroutine residual_self_ene(i, pairep)
     use engmain, only: screen, volume, mol_charge, cltype, EL_COULOMB, PI
     implicit none
-    integer, intent(in) :: i, j
+    integer, intent(in) :: i
     real, intent(inout) :: pairep
     real :: epcl
     if(cltype == EL_COULOMB) return
-    epcl = PI * mol_charge(i) * mol_charge(j) / screen / screen / volume
-    if(i == j) epcl = epcl / 2.0   ! self-interaction
+    epcl = PI * mol_charge(i) * mol_charge(i) / screen / screen / volume
+    epcl = epcl / 2.0   ! self-interaction
     pairep = pairep - epcl
+  end subroutine residual_self_ene
+  !
+  subroutine residual_ene(tagslt, tagpt, slvmax, uvengy)
+    use engmain, only: screen, volume, mol_charge, cltype, EL_COULOMB, PI
+    implicit none
+    integer, intent(in) :: tagslt, tagpt(:), slvmax
+    real, intent(inout) :: uvengy(0:slvmax)
+
+    integer :: i, k
+    real :: epcl
+
+    ! called only when PME or PPPM, non-self interaction
+    do k = 1, slvmax
+       i = tagpt(k)
+       if(i == tagslt) cycle
+
+       epcl = PI * mol_charge(tagslt) * mol_charge(i) &
+            / screen / screen / volume
+       uvengy(k) = uvengy(k) - epcl
+    end do
   end subroutine residual_ene
   !
   subroutine volcorrect(weight)

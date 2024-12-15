@@ -2,7 +2,7 @@
 
 # autoconf <= 2.64 has a bug in AC_OPENMP
 AC_PREREQ([2.65])
-AC_INIT(ermod, 0.6.0, Matubayasi Laboratory)
+AC_INIT(slvfe, 0.6.0, Matubayasi Laboratory)
 AC_CONFIG_MACRO_DIR(m4)
 AC_CONFIG_SRCDIR([slvfe.F90])
 AM_INIT_AUTOMAKE
@@ -21,7 +21,7 @@ AC_PROG_CPP
 AC_PROG_CC([icc fcc gcc cc])
 AC_PROG_CC_C_O
 AM_PROG_CC_C_O
-AC_PROG_FC([ifort xlf90 xlf f95 f90 frt gfortran g95])
+AC_PROG_FC([ifort xlf90 xlf f95 f90 frt gfortran g95 nvfortran])
 
 # Check for buggy variant of ifort.
 AS_IF([test x$FC = xifort],

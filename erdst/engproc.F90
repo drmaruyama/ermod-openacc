@@ -56,7 +56,7 @@ contains
     integer pemax, pesoft
     integer :: ecprread, meshread, peread
     !
-    real, parameter :: infty = 1.0e50      ! essentially equal to infinity
+    real, parameter :: infty = huge(infty)      ! essentially equal to infinity
     integer, parameter :: rglmax = 5, large = 10000
     real(kind=8) :: factor, incre, cdrgvl(0:rglmax+1), ecpmrd(large)
     integer :: solute_moltype

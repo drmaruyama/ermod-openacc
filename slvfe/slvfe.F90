@@ -463,64 +463,54 @@ module sfecalc
 contains
   ! TODO: write the cases for (kind(real) /= 8).
   subroutine syevr_wrap(n, mat, eigval, info)
+    use cuBlas_v2
+    use cuSolverDn
     implicit none
     integer, intent(in) :: n
     real, intent(inout) :: mat(n, n)
     real, intent(out) :: eigval(n)
     integer, intent(out) :: info
-    real, allocatable :: z(:, :)
-    real, allocatable :: work(:)
-    real :: worksize
-    integer :: lwork, liwork
-    integer, allocatable :: iwork(:)
-    integer, allocatable :: isuppz(:)
-    real :: dummyr, abstol
-    integer :: dummyi
+    type(cuSolverDnHandle) :: h
+    integer :: istat
+    real(kind=8), allocatable :: work(:)
+    integer :: lwork
 
-    allocate(isuppz(2 * n))
-    allocate(z(n, n))
+    istat = cuSolverDnCreate(h)
 
-    abstol = 0.0
     lwork = -1
-    liwork = 10 * n
-    allocate(iwork(liwork))
-    select case(kind(mat))
-    case(8)
-       call DSYEVR('V', 'A', 'U', n, mat, n, dummyr, dummyr, &
-                   dummyi, dummyi, abstol, dummyi, eigval, &
-                   z, n, isuppz, worksize, lwork, iwork, liwork, info)
-    case(4)
-       call SSYEVR('V', 'A', 'U', n, mat, n, dummyr, dummyr, &
-                   dummyi, dummyi, abstol, dummyi, eigval, &
-                   z, n, isuppz, worksize, lwork, iwork, liwork, info)
-    case default
-       stop "The libraries are used only at real or double precision"
-    end select
+    !$acc data copyin(mat, eigval)
+    !$acc host_data use_device(mat, eigval)
+#ifdef DP
+    istat = cusolverDnDsyevd_bufferSize(h, CUSOLVER_EIG_MODE_VECTOR, &
+         CUBLAS_FILL_MODE_UPPER, n, mat, n, eigval, lwork)
+#else
+    istat = cusolverDnSsyevd_bufferSize(h, CUSOLVER_EIG_MODE_VECTOR, &
+         CUBLAS_FILL_MODE_UPPER, n, mat, n, eigval, lwork)
+#endif
+    !$acc end host_data
+    !$acc end data
+
     if (info /= 0) then
-       deallocate(isuppz)
-       deallocate(z)
-       deallocate(iwork)
        return
     endif
 
-    lwork = worksize
     allocate(work(lwork))
-    select case(kind(mat))
-    case(8)
-       call DSYEVR('V', 'A', 'U', n, mat, n, dummyr, dummyr, &
-                   dummyi, dummyi, abstol, dummyi, eigval, &
-                   z, n, isuppz, work, lwork, iwork, liwork, info)
-    case(4)
-       call SSYEVR('V', 'A', 'U', n, mat, n, dummyr, dummyr, &
-                   dummyi, dummyi, abstol, dummyi, eigval, &
-                   z, n, isuppz, work, lwork, iwork, liwork, info)
-    end select
+    !$acc enter data create(work)
+    !$acc data copy(mat) copyout(eigval, info)
+    !$acc host_data use_device(mat, eigval, work, info)
+#ifdef DP
+    istat = cusolverDnDsyevd(h, CUSOLVER_EIG_MODE_VECTOR, &
+         CUBLAS_FILL_MODE_UPPER, n, mat, n, &
+         eigval, work, lwork, info)
+#else
+    istat = cusolverDnSsyevd(h, CUSOLVER_EIG_MODE_VECTOR, &
+         CUBLAS_FILL_MODE_UPPER, n, mat, n, &
+         eigval, work, lwork, info)
+#endif
+    !$acc end host_data
+    !$acc end data
 
-    mat(:, :) = z(:, :)
-
-    deallocate(isuppz)
-    deallocate(z)
-    deallocate(iwork)
+    !$acc exit data delete(work)
     deallocate(work)
   end subroutine syevr_wrap
 

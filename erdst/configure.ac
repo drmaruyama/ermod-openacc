@@ -2,7 +2,7 @@
 
 # autoconf <= 2.64 has a bug in AC_OPENMP
 AC_PREREQ([2.65])
-AC_INIT(erdst, 0.6.0, Matubayasi Laboratory)
+AC_INIT(erdst-openacc, 0.6.0, Matubayasi Laboratory)
 AC_CONFIG_MACRO_DIR(m4)
 AM_INIT_AUTOMAKE
 
@@ -17,20 +17,11 @@ AS_IF([test x$enable_debug = xno],
 
 # Checks for programs.
 AC_PROG_CPP
-AC_PROG_CC([icc fcc gcc cc])
+AC_PROG_CC([nvc gcc cc])
 AC_PROG_CC_C_O
 AM_PROG_CC_C_O
-AC_PROG_FC([ifort xlf90 xlf f95 f90 frt gfortran g95 nvfortran])
-
-# Check for buggy variant of ifort.
-AS_IF([test x$FC = xifort],
-      [version=`$FC --version`
-       case "x$version" in # (
-       *12.1.*):
-         AC_MSG_ERROR([This program does not run correctly with Intel Compiler 12.1.x])
-       ;;
-       esac
-       ])
+AC_PROG_FC([nvfortran])
+AC_PROG_LN_S
 
 # modified MPI detector (searches mpiifort first)
 AC_LANG(Fortran)
@@ -103,29 +94,6 @@ AS_IF([test "x$with_mkl" != "x"],
          FCFLAGS="-I$mklroot/include $FCFLAGS"
         ])
 ])
-
-AC_ARG_WITH([fftw],
-  AS_HELP_STRING([--with-fftw[[=(fftw root, default to /usr)]]],
-    [Set fftw root directory]))
-
-case x$with_fftw in # (
-  xyes) :
-  with_fftw=/usr
-  ;; # (
-  xno) :
-  with_fftw=
-  ;; # (
-  *) :
-  # do nothing
-  ;;
-esac
-
-# FIXME: AC_SUBST should be used
-AS_IF([test "x$with_fftw" != "x"],
-  [FFTWROOT=$with_fftw
-   CFLAGS="$CFLAGS -I$FFTWROOT/include"
-   FCFLAGS="$FCFLAGS -I$FFTWROOT/include"
-   LDFLAGS="$LDFLAGS -L$FFTWROOT/lib -L$FFTWROOT/lib64"])
 
 AC_ARG_WITH([openblas],
   AS_HELP_STRING([--with-openblas[=DIR]],
@@ -229,50 +197,6 @@ AM_CONDITIONAL([USE_FLUSH], [test "x$my_check_have_flush" = "xyes"])
 # set to f90 as default
 AC_FC_SRCEXT(f90)
 
-# select FFT library
-AC_ARG_WITH([fft],
-	AS_HELP_STRING([--with-fft=(fftw|mkl)],
-		[specify which FFT library to be used]),
-	[],
-	[with_fft=no]
-)
-
-# Search for fftw3 - libfftw3.a
-FFTWLIBS=
-AC_CHECK_LIB([fftw3], [dfftw_execute], [have_fftw3=yes;FFTWLIBS=-lfftw3], [have_fftw3=no], [-lm])
-have_fftw3_mp=no
-AS_IF([test "$enable_openmp" != no],
-  [AC_CHECK_LIB([fftw3_threads], [dfftw_init_threads], [have_fftw3_mp=yes;fftw3_mp=-lfftw3_threads], [], [-lfftw3 -lm])
-   AC_CHECK_LIB([fftw3_omp], [dfftw_init_threads], [have_fftw3_mp=yes;fftw3_mp=-lfftw3_omp], [], [-lfftw3 -lm])]
-   FFTWLIBS="$fftw3_mp $FFTWLIBS")
-AC_SUBST([FFTWLIBS])
-
-AS_IF([test "x$with_fft" == xfftw], 
-            [AS_IF([test "x$have_fftw3" == xno],
-                         [AC_MSG_FAILURE(
-                                 [--with-fft=fftw is specified, but could not find fftw3])])])
-
-AS_IF([test "x$with_fft" == xno],
-	    [AS_IF([test "x$have_fftw3" == xyes],
-	    		 [with_fft=fftw])
-             AS_IF([test "x$with_mkl" != "x"],
-                         [with_fft=mkl])])
-
-AS_IF([test "x$with_fft" != xfftw && test "x$with_fft" != xmkl],
-	    [AC_MSG_FAILURE(
-		[invalid --with-fft=<fft-type> specification, please check with --help])])
-
-# check whether mkl_dfti.f90 is accesible
-# FIXME: This may fail to detect with gfortran 4.4.0-4.4.3
-AS_IF([test "x$with_fft" = xmkl], [dnl
-  AC_FC_SRCEXT(F90)
-  AC_MSG_CHECKING([mkl_dfti.f90 is accessible])
-  AC_COMPILE_IFELSE([#include "mkl_dfti.f90"
-program main 
-end program], [echo yes], [echo no
-  AC_MSG_FAILURE([could not find mkl_dfti.f90 in include path])])
-  AC_FC_SRCEXT(f90)])
-
 AC_ARG_ENABLE([mpi],
 	AS_HELP_STRING([--disable-mpi],
 		[disable MPI even if exists]),
@@ -311,6 +235,7 @@ AS_IF([test "x$use_mpi" = "xyes"],
 AC_SUBST([FC_CANONICAL])
 
 # optimization flags
+FCFLAGS="$FCFLAGS -fast -Minfo=accel -acc -cudalib=cufft"
 AC_DEFUN([MY_FC_OPT_ACCEPT_NATIVE],[
 AC_CACHE_CHECK([fortran compiler accepts -march=native],
 my_fc_opt_accept_native_cv_flag,
@@ -347,8 +272,6 @@ AS_IF([test x$enable_opt = xyes || test x$enable_opt = x],
    FCFLAGS="$FCFLAGS $optflag"])
 
 # AM_CONDITIONAL([MPI], [test x$use_mpi = xyes])
-AM_CONDITIONAL([USE_FFTW], [test x$with_fft = xfftw])
-AM_CONDITIONAL([USE_MKL], [test x$with_fft = xmkl])
 AM_CONDITIONAL([USE_VMDPLUGIN], [test x$enable_vmdplugin = xyes || test x$enable_vmdplugin = x])
 
 AS_IF([test "x$lapack_exist" != xyes],
@@ -371,10 +294,10 @@ It is recommended to recompile FFTW library with --enable-omp or --enable-thread
 
 AC_MSG_RESULT([dnl
 LAPACK: $lapack_result
-FFT: $with_fft
 MPI: $mpi_result
 FC(for ermod)=$FC
-FC_CANONICAL(for slvfe)=$FC_CANONICAL
 FCFLAGS=$FCFLAGS
+LDFLAGS=$LDFLAGS
+LIBS=$LIBS
 
 Configuration complete; type \"make\" to start compiling])

@@ -33,19 +33,10 @@ EXTRA_DIST += ../tools/refs_converge ../tools/refs_converge_py2 ../tools/refs_co
 EXTRA_DIST += ../vmdplugins/*.C ../vmdplugins/*.c ../vmdplugins/*.h ../vmdplugins/*.cxx ../vmdplugins/*.hxx ../vmdplugins/Makefile ../vmdplugins/LICENSE
 CLEANFILES = *.mod
 
-if USE_FFTW
-FFTFLAGS = -DFFTW
-FFTLIBS = $(FFTWLIBS)
-endif
-
-if USE_MKL
-FFTFLAGS = -DMKL
-endif
-
 erdst_SOURCES = $(ersources)
 erdst_CFLAGS = -DINSTALL_PLUGIN_PATH=\"$(pkglibexecdir)\"
-erdst_FCFLAGS = $(VMDPLUGINFLAGS) $(FFTFLAGS)
-erdst_LDADD = $(LAPACK_LIBS) $(BLAS_LIBS) $(FFTLIBS) $(MPILIBS) -ldl -lm
+erdst_FCFLAGS = $(VMDPLUGINFLAGS)
+erdst_LDADD = $(LAPACK_LIBS) $(BLAS_LIBS) $(MPILIBS) -ldl -lm
 
 if USE_VMDPLUGIN
 erdst_SOURCES += vmdfio.c

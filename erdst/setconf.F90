@@ -608,6 +608,7 @@ contains
     numatm = sum( ptcnt(1:numtype) * ptsite(1:numtype) )
 
     allocate( moltype(nummol), numsite(nummol), sluvid(nummol) )
+    !$acc enter data create(moltype, numsite, sluvid)
 
     ! make mapping from molecule no. [1..nummol] to particle type [1..numtype]
     cmin = 1
@@ -617,13 +618,16 @@ contains
        moltype(cmin:cmax) = pti ! sequential identification
        cmin = cmax + 1
     end do
+    !$acc update device(moltype)
     if(cmax /= nummol) call halt_with_error("set_num")
 
     ! Assign the number of sites within molecule
     numsite(1:nummol) = ptsite( moltype(1:nummol) )
+    !$acc update device(numsite)
 
     ! Build the solute/solvent specification
     sluvid(1:nummol) = pttype( moltype(1:nummol) )
+    !$acc update device(sluvid)
 
     ! check if all the solute molecules have the same number of atoms
     stmax = -1
@@ -646,6 +650,7 @@ contains
     allocate( mol_begin_index(nummol + 1) )
     allocate( belong_to(numatm) )
     allocate( mol_charge(nummol) )
+    !$acc enter data create(charge, mol_begin_index, mol_charge)
 
     ! initial setting to zero
     bfcoord(:,:) = 0.0
@@ -661,6 +666,7 @@ contains
     do i = 1, nummol
        mol_begin_index(i + 1) = mol_begin_index(i) + numsite(i)
     end do
+    !$acc update device(mol_begin_index)
     if(mol_begin_index(nummol + 1) /= numatm + 1) call halt_with_error("set_bug")
     if(mol_end_index(nummol) /= numatm) call halt_with_error("set_bug")
 
@@ -820,11 +826,13 @@ contains
     ! conversion to (kcal/mol angstrom)^(1/2)
     ! == sqrt(e^2 * coulomb const * avogadro / (kcal / mol angstrom))
     charge(1:numatm) = 18.22261721 * charge(1:numatm)
+    !$acc update device(charge)
 
     ! get molecule-wise charges
     do i = 1, nummol
        mol_charge(i) = sum( charge(mol_begin_index(i):mol_end_index(i)) )
     end do
+    !$acc update device(mol_charge)
 
     deallocate( pttype, ptcnt, ptsite )
   end subroutine setparam

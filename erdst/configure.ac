@@ -299,14 +299,6 @@ AS_IF([test x$enable_defaults != xno],
 CFLAGS="$CFLAGS"
 FCFLAGS="$FCFLAGS")
 
-AC_ARG_ENABLE([perf],
-	AS_HELP_STRING([--enable-perf],
-		[(internal use only)]),
-	AS_IF([test x$enable_perf = xyes],
-		     [FCFLAGS="$FCFLAGS -fno-omit-frame-pointer -DPERF"
-                      CFLAGS="$CFLAGS -fno-omit-frame-pointer"
-                      LDFLAGS="$LDFLAGS -lprofiler"]))
-
 AM_CONDITIONAL(USE_MPI, [test "x$use_mpi" = "xyes"])
 
 AS_IF([test "x$use_mpi" = "xyes"],

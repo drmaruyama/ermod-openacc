@@ -715,10 +715,10 @@ contains
                        EL_COULOMB, EL_PME, EL_PPPM, &
                        SLT_SOLN, SLT_REFS_RIGID, SLT_REFS_FLEX
     use ptinsrt, only: instslt
-    use realcal, only: realcal_prepare, realcal_proc, realcal_self, &
-                       realcal_bare, realcal_cleanup
+    use realcal, only: realcal_prepare, realcal_acc, realcal_self, &
+         realcal_bare
     use reciprocal, only: recpcal_prepare_solute, recpcal_self_energy, &
-                          recpcal_energy
+         recpcal_energy
     use mpiproc                                                      ! MPI
     implicit none
     integer, intent(in) :: stnum
@@ -759,14 +759,14 @@ contains
     ! Calculate system-wide values
     if(cltype == EL_PME .or. cltype == EL_PPPM) then
        call recpcal_prepare_solute(tagslt)
-       call realcal_proc(tagslt, tagpt, slvmax, uvengy)
+       call realcal_acc(tagslt, tagpt, slvmax, uvengy)
        call recpcal_energy(tagslt, tagpt, slvmax, uvengy)
        call residual_ene(tagslt, tagpt, slvmax, uvengy)
        call recpcal_self_energy(uvengy(0))
     else
        call realcal_bare(tagslt, tagpt, slvmax, uvengy)
     endif
-    !$acc update self(uvengy)
+    !$acc update self(uvengy(1:slvmax))
 
     ! solute-solute self energy
     pairep = 0.0
@@ -786,7 +786,6 @@ contains
     call residual_self_ene(tagslt, residual)
     uvengy(0) = uvengy(0) + pairep + residual
 
-    call realcal_cleanup
   end subroutine get_uv_energy
 
   subroutine update_histogram(stat_weight_solute, uvengy)

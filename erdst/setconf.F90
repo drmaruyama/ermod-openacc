@@ -145,7 +145,7 @@ contains
          intprm, elecut, lwljcut, upljcut, &
          cmbrule, cltype, screen, ewtoler, splodr, scrtype, &
          ew1max, ew2max, ew3max, ms1max, ms2max, ms3max, &
-         ermax_limit, block_threshold, force_calculation, &
+         ermax_limit, force_calculation, &
          NO, YES, &
          SYS_NONPERIODIC, SYS_PERIODIC, &
          ES_NVT, ES_NPT, &
@@ -203,7 +203,6 @@ contains
 
     ! default settings
     ermax_limit = 15000          ! maximum size of the distribution functions
-    block_threshold = 4.0        ! cell-link box size of 13 atoms / box
     force_calculation = .false.  ! program terminates when there is a warning
 
     ! only part of constants set here

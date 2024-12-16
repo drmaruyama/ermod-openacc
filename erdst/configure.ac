@@ -38,12 +38,6 @@ ACX_MPI_MY
 AC_LANG(Fortran)
 ACX_MPI_MY([use_mpi=yes], [use_mpi=no])
 
-: ${enable_openmp=no}
-AC_ARG_ENABLE([openmp],
-              AS_HELP_STRING([--enable-openmp],
-                             [use OpenMP (default = no)]))
-AC_OPENMP
-
 AS_IF([test "x$FC" = "x"],
       [AC_MSG_ERROR("Failed to find Fortran Compiler (Fortran 90). Set environment variable FC to work around")]
       [])
@@ -99,7 +93,7 @@ AS_IF([test "x$with_mkl" != "x"],
          AS_IF([test "x$blas_ok" = "xyes"],
                [],
                # check for 10.3
-               [with_blas="-L$mklroot/lib/$mkl_platnew -lmkl_rt $OPENMP_FCFLAGS -lpthread"
+               [with_blas="-L$mklroot/lib/$mkl_platnew -lmkl_rt -lpthread"
                 MY_CHECK_BLAS([MKL 10.3+],
                               [$with_blas])
                 AS_IF([test "x$blas_ok" = "xyes"],
@@ -249,7 +243,7 @@ AC_CHECK_LIB([fftw3], [dfftw_execute], [have_fftw3=yes;FFTWLIBS=-lfftw3], [have_
 have_fftw3_mp=no
 AS_IF([test "$enable_openmp" != no],
   [AC_CHECK_LIB([fftw3_threads], [dfftw_init_threads], [have_fftw3_mp=yes;fftw3_mp=-lfftw3_threads], [], [-lfftw3 -lm])
-   AC_CHECK_LIB([fftw3_omp], [dfftw_init_threads], [have_fftw3_mp=yes;fftw3_mp=-lfftw3_omp], [], [-lfftw3 -lm $OPENMP_FCFLAGS])]
+   AC_CHECK_LIB([fftw3_omp], [dfftw_init_threads], [have_fftw3_mp=yes;fftw3_mp=-lfftw3_omp], [], [-lfftw3 -lm])]
    FFTWLIBS="$fftw3_mp $FFTWLIBS")
 AC_SUBST([FFTWLIBS])
 
@@ -360,21 +354,6 @@ AS_IF([test x$enable_opt = xyes || test x$enable_opt = x],
          esac])
    FCFLAGS="$FCFLAGS $optflag"])
 
-# Check OpenMP
-AS_IF([test "$enable_openmp" != "no"],
-  [FCFLAGS="$FCFLAGS $OPENMP_FCFLAGS"
-   # Check OpenMP version
-   AC_MSG_CHECKING([whether OpenMP version >= 3.0])
-   AC_COMPILE_IFELSE(
-     [AC_LANG_PROGRAM([], [dnl
-!\$omp task
-  print *, "test"
-!\$omp end task
-])], 
-     [AC_MSG_RESULT([yes])], 
-     [AC_MSG_RESULT([no])
-      AC_MSG_ERROR([OpenMP must be >= 3.0])])])
-
 # AM_CONDITIONAL([MPI], [test x$use_mpi = xyes])
 AM_CONDITIONAL([USE_FFTW], [test x$with_fft = xfftw])
 AM_CONDITIONAL([USE_MKL], [test x$with_fft = xmkl])
@@ -402,7 +381,6 @@ AC_MSG_RESULT([dnl
 LAPACK: $lapack_result
 FFT: $with_fft
 MPI: $mpi_result
-OpenMP: $enable_openmp
 FC(for ermod)=$FC
 FC_CANONICAL(for slvfe)=$FC_CANONICAL
 FCFLAGS=$FCFLAGS

@@ -418,7 +418,6 @@ contains
           
           pme_initialized = .true.
 
-          !$omp parallel do schedule(dynamic) private(k, i)
           do k = 1, slvmax
              i = tagpt(k)
              call recpcal_prepare_solvent(i)

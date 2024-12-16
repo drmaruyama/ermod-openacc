@@ -57,7 +57,6 @@ module realcal
 contains
   subroutine realcal_proc(target_solu, tagpt, slvmax, uvengy)
     use engmain, only: numsite
-    !$ use omp_lib, only: omp_get_num_procs
     implicit none
     integer, intent(in) :: target_solu, tagpt(:), slvmax
     real, intent(out) :: uvengy(0:slvmax)
@@ -107,7 +106,6 @@ contains
     lsize = max_solu_block * max_solv_block
 
     npar = 1
-    !$ npar = omp_get_num_procs()
     
     allocate(ljeps_lowlj(lsize, npar), ljsgm2_lowlj(lsize, npar), dist_lowlj(lsize, npar), belong_lowlj(lsize, npar))
     allocate(ljeps_switch(lsize, npar), ljsgm2_switch(lsize, npar), dist_switch(lsize, npar), belong_switch(lsize, npar))
@@ -308,7 +306,6 @@ contains
 
     ismax=numsite(i)
 
-    !$omp parallel do private(is,js,ati,atj,epcl,rst,dis2,xst) reduction(+:pairep)
     do is = 1, ismax
        ati = specatm(is, i)
 
@@ -545,16 +542,11 @@ contains
     integer :: i, upos, vpos_base, vpos_line_end, vpos_begin, vpos_end
     integer :: xlen
 
-    !$omp parallel &
-    !$omp   private(u1, u2, u3, upos, i, vbs, vpos_begin, vpos_base, vpos_end, vpos_line_end, xlen) &
-    !$omp   shared(energy_vec)
-    !$omp single
     do u3 = 0, block_size(3) - 1
        do u2 = 0, block_size(2) - 1
           do u1 = 0, block_size(1) - 1
              upos = u1 + block_size(1) * (u2 + block_size(2) * u3)
              if(psum_solu(upos + 1) /= psum_solu(upos)) then ! if solute have atoms in the block
-                !$omp task
                 do i = 1, subcell_num_neighbour
                    vbs(2) = mod(u2 + subcell_neighbour(2, i) , block_size(2))
                    vbs(3) = mod(u3 + subcell_neighbour(3, i) , block_size(3))
@@ -583,13 +575,10 @@ contains
                       endif
                    endif
                 end do
-                !$omp end task
              end if
           end do
        end do
     end do
-    !$omp end single
-    !$omp end parallel
   end subroutine get_pair_energy
 
   ! Computational kernel to calculate distance between particles
@@ -599,7 +588,6 @@ contains
          ljswitch, ljtype, ljtype_max, ljene_mat, ljlensq_mat, &
          SYS_NONPERIODIC, EL_COULOMB, &
          LJSWT_POT_CHM, LJSWT_POT_GMX, LJSWT_FRC_CHM, LJSWT_FRC_GMX
-    !$ use omp_lib, only: omp_get_thread_num
     implicit none
     integer, intent(in) :: upos, vpos_b, vpos_e
     real, intent(inout) :: energy_vec(:, :)
@@ -616,7 +604,6 @@ contains
     if(boxshp == SYS_NONPERIODIC) stop "realcal%get_pair_energy_block: boxshp assertion failure"
 
     curp = 1
-    !$ curp = omp_get_thread_num() + 1
 
     half_cell(:) = 0.5 * cell_len_normal(:)
 

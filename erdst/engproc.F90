@@ -757,23 +757,6 @@ contains
     call residual_self_ene(tagslt, residual)
     uvengy(0) = uvengy(0) + pairep + residual
 
-    ! solute-solvent pair
-    !$omp parallel do schedule(dynamic) private(i, k, pairep, factor)
-    do k = 1, slvmax
-       i = tagpt(k)
-       if(i == tagslt) cycle
-
-       pairep = 0
-       factor = 0
-       if(cltype == EL_PME .or. cltype == EL_PPPM) then
-          ! called only when PME or PPPM, non-self interaction
-!          call recpcal_energy(tagslt, i, factor)
-          pairep = pairep + factor
-       endif
-       !$omp atomic
-       uvengy(k) = uvengy(k) + pairep
-    enddo
-
     call realcal_cleanup
   end subroutine get_uv_energy
 

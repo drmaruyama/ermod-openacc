@@ -1,26 +1,46 @@
+This is an EXPERIMENTAL version. For information about the original code, see https://sourceforge.net/projects/ermod/.
+
 ERmod (Energy Representation Module) is a program to calculate the solvation free energy based on the energy representation method. The program allows users to calculate the solvation free energy in arbitrary solvent, including inhomogeneous systems, and runs in cooperation with state-of-art molecular simulation softwares, such as NAMD, GROMACS, and AMBER.
+
+## Requirements
+- NVIDIA HPC SDK (https://developer.nvidia.com/hpc-sdk)
+- BLAS & LAPACK library (BLAS and LAPACK, OpenBLAS, MKL etc) for erdst
 
 ## Typical Installation
 This package is built with autotools. To compile the program,
-1. configure the package with "configure",
-2. then compile the package with "make".
+1. cd erdst (or cd slvfe)
+2. aclocal
+3. autoconf
+4. automake (or automake --add-missing)
+Then 
+5. configure the package with "configure" (see below),
+6. then compile the package with "make".
 
+## Configuration
+### erdst
+For multi-GPU,
+    $ ./configure FC=nvfortran CC=nvc MPIFC=mpif90
+or for single-GPU,
+    $ ./configure --disable-mpi FC=nvfortran CC=nvc
+
+If your computer has OpenBLAS library, try:
+    $ ./configure --with-openblas [other options]
 If you have Intel MKL, configure program with:
-    $ ./configure --with-mkl
+    $ ./configure --with-mkl [other options]
 
-If your computer has BLAS & LAPACK library, and FFTW (http://www.fftw.org/) version 3, try:
-    $ ./configure --with-fft=fftw
+It is set to single-precision calculations by default.
+If you want to use double-precision calculations,
+    $ ./configure --enable-double [other options]
 
 If configuration finishes successfully, type
     $ make
 to start compilation.
 
-## Non-typical Installation
-If you want to use a specific version of Intel MKL, try
-    ./configure --with-mkl=(version number) --with-fft=mkl
+### slvfe
+slvfe command only supports single-GPU,
+    $ ./configure FC=nvfortran
+If configuration finishes successfully, type
+    $ make
+to start compilation.
 
-If you want to use a specific BLAS library, try
-    ./configure --with-blas=(BLAS library specification)
-
-Current configuration script only supports gfortran and ifort as a compiler.
-For other compilers, please specify F77 / FC / FFLAGS / FCFLAGS environment variables to appropriate ones.
+Current configuration script only supports nvfortran as a compiler.

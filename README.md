@@ -12,10 +12,8 @@ This package is built with autotools. To compile the program,
 2. aclocal
 3. autoconf
 4. automake (or automake --add-missing)
-
-Then 
-5. configure the package with "configure" (see below),
-6. then compile the package with "make".
+5. configure the package with "configure" (see below)
+6. then compile the package with "make"
 
 ## Configuration
 ### erdst

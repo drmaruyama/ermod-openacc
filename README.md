@@ -12,6 +12,7 @@ This package is built with autotools. To compile the program,
 2. aclocal
 3. autoconf
 4. automake (or automake --add-missing)
+
 Then 
 5. configure the package with "configure" (see below),
 6. then compile the package with "make".
@@ -19,28 +20,44 @@ Then
 ## Configuration
 ### erdst
 For multi-GPU,
-    $ ./configure FC=nvfortran CC=nvc MPIFC=mpif90
+```
+$ ./configure FC=nvfortran CC=nvc MPIFC=mpif90
+```
 or for single-GPU,
-    $ ./configure --disable-mpi FC=nvfortran CC=nvc
+```
+$ ./configure --disable-mpi FC=nvfortran CC=nvc
+```
 
 If your computer has OpenBLAS library, try:
-    $ ./configure --with-openblas [other options]
+```
+$ ./configure --with-openblas [other options]
+```
 If you have Intel MKL, configure program with:
-    $ ./configure --with-mkl [other options]
+```
+$ ./configure --with-mkl [other options]
+```
 
 It is set to single-precision calculations by default.
 If you want to use double-precision calculations,
-    $ ./configure --enable-double [other options]
+```
+$ ./configure --enable-double [other options]
+```
 
 If configuration finishes successfully, type
-    $ make
+```
+$ make
+```
 to start compilation.
 
 ### slvfe
 slvfe command only supports single-GPU,
-    $ ./configure FC=nvfortran
+```
+$ ./configure FC=nvfortran
+```
 If configuration finishes successfully, type
-    $ make
+```
+$ make
+```
 to start compilation.
 
 Current configuration script only supports nvfortran as a compiler.

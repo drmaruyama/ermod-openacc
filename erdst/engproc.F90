@@ -1001,7 +1001,7 @@ contains
        if(rmax - rmin <= 1) then
           exit
        endif
-       rmid = (rmin + rmax - 1) / 2
+       rmid = ishft((rmin + rmax - 1), -1)
        if(v > coord(rmid)) then
           rmin = rmid + 1
        else

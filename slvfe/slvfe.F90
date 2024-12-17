@@ -417,7 +417,7 @@ contains
        factor = sum( rddst, mask = (rdspec == pti) )
        ampl   = sum( rddns, mask = (rdspec == pti) )
        num_different = .false.
-       if(abs(factor - ampl) / ampl > tiny) num_different = .true.
+       if(abs(factor - ampl) > tiny) num_different = .true.
        if(cntrun > 1) then
           if(nint(factor) /= nint(nummol(pti))) num_different = .true.
           if(nint(ampl) /= nint(nummol(pti))) num_different = .true.

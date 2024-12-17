@@ -33,13 +33,15 @@ module mpiproc
   ! mpi common variables
   integer :: ierror, mpistatus(mpi_status_size)
   integer :: myrank, nprocs       ! rank number and total number of processes
+  integer :: local_rank, local_size
   integer :: nactiveproc          ! number of active processes
   integer, parameter :: tag_cell = 11, tag_coord = 12, tag_weight = 13
   integer, parameter :: tag_sltcrd = 22, tag_sltwgt = 23
-  integer :: mpi_comm_activeprocs
+  integer :: mpi_comm_activeprocs, local_comm
 
 contains
   subroutine mpi_setup(type)
+    use openacc
     implicit none
     character(len=4) :: type
     integer :: i
@@ -49,6 +51,7 @@ contains
     if(type == 'init') then
        call mpi_init(ierror)
        call mpi_rank_size_info
+       call acc_set_device_num(local_rank, acc_device_nvidia)
     endif
     if(type == 'stop') then
        call mpi_finalize(ierror)
@@ -64,6 +67,9 @@ contains
 #ifdef MPI
     call mpi_comm_size(mpi_comm_world, nprocs, ierror)
     call mpi_comm_rank(mpi_comm_world, myrank, ierror)
+    call mpi_comm_split_type(mpi_comm_world, mpi_comm_type_shared, 0, mpi_info_null, local_comm, ierror)
+    call mpi_comm_size(local_comm, local_size, ierror)
+    call mpi_comm_rank(local_comm, local_rank, ierror)
 #endif
     return
   end subroutine mpi_rank_size_info

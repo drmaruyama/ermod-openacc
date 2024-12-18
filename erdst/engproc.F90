@@ -518,7 +518,7 @@ contains
     character(len=3) :: suffeng
     integer, parameter :: eng_io = 51, cor_io = 52, slf_io = 53
     integer, parameter :: ave_io = 54, wgt_io = 55, uvr_io = 56
-    real :: voffset_local, voffset_scale
+    real(kind=8) :: voffset_local, voffset_scale
     real :: factor
     real(kind=8) :: invwt, leftbin, middlebin    
     call mpi_rank_size_info                                          ! MPI
@@ -541,9 +541,9 @@ contains
        ! scale histograms accoording to the maximum voffset
        select case(slttype)
        case(SLT_SOLN)
-          voffset_scale = exp((voffset_local - voffset)/temp)
+          voffset_scale = dexp((voffset_local - voffset)/temp)
        case(SLT_REFS_RIGID, SLT_REFS_FLEX)
-          voffset_scale = exp(-(voffset_local - voffset)/temp)
+          voffset_scale = dexp(-(voffset_local - voffset)/temp)
        end select
 
        engnorm = engnorm * voffset_scale
@@ -564,12 +564,12 @@ contains
     ! Gather all information to master node
     ! Only the variables which are initialized in the subsequent engclear
     !    can be subject to the mympi_reduce_real_* procedures
-    call mympi_reduce_real_scalar(avslf, mpi_sum, 0)
-    call mympi_reduce_real_scalar(engnorm, mpi_sum, 0)
-    call mympi_reduce_real_scalar(engsmpl, mpi_sum, 0)
-    if(selfcal == YES) call mympi_reduce_real_array(eself, esmax, mpi_sum, 0)
+    call mympi_reduce_real8_scalar(avslf, mpi_sum, 0)
+    call mympi_reduce_real8_scalar(engnorm, mpi_sum, 0)
+    call mympi_reduce_real8_scalar(engsmpl, mpi_sum, 0)
+    if(selfcal == YES) call mympi_reduce_real8_array(eself, esmax, mpi_sum, 0)
     if(slttype == SLT_SOLN) call mympi_reduce_real_array(slnuv, numslv, mpi_sum, 0)
-    call mympi_reduce_real_array(edens, ermax, mpi_sum, 0)
+    call mympi_reduce_real8_array(edens, ermax, mpi_sum, 0)
     if(corrcal == YES) then
        !$acc update self(ecorr)
        call mympi_reduce_real8_array(ecorr, (ermax * ermax), mpi_sum, 0)
@@ -802,7 +802,8 @@ contains
     real, intent(in) :: uvengy(0:slvmax), stat_weight_solute
     integer, allocatable :: insdst(:)
     integer :: i, k, q, iduv, iduvp, pti
-    real :: factor, engnmfc, pairep, total_weight
+    real :: factor, pairep, total_weight
+    real(kind=8) :: engnmfc
 
     allocate( insdst(ermax) )
 
@@ -817,9 +818,9 @@ contains
        factor = uvengy(0) - voffset  ! shifted by offset
        select case(slttype)
        case(SLT_SOLN)
-          engnmfc = exp(factor / temp)
+          engnmfc = dexp(factor / temp)
        case(SLT_REFS_RIGID, SLT_REFS_FLEX)
-          engnmfc = exp(- factor / temp)
+          engnmfc = dexp(- factor / temp)
        end select
     case default
        stop "Unknown wgtslf"

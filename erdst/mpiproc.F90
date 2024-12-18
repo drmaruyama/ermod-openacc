@@ -129,11 +129,9 @@ contains
     integer, intent(in) :: data_size, operation, rootrank
     real(kind=8), intent(inout) :: data(data_size)
     real(kind=8), allocatable :: buf(:)
-    integer :: mympi_realkind
 #ifdef MPI
     allocate( buf(data_size) )
-    call get_mympi_realkind(kind(data), mympi_realkind)
-    call mpi_reduce(data, buf, data_size, mympi_realkind, operation, rootrank, mpi_comm_world, ierror)
+    call mpi_reduce(data, buf, data_size, mpi_double_precision, operation, rootrank, mpi_comm_world, ierror)
     data(:) = buf(:)
     deallocate(buf)
 #endif
@@ -151,6 +149,17 @@ contains
     data = buf
 #endif
   end subroutine mympi_reduce_real_scalar
+
+  subroutine mympi_reduce_real8_scalar(data, operation, rootrank)
+    implicit none
+    integer, intent(in) :: operation, rootrank
+    real(kind=8), intent(inout) :: data
+    real(kind=8) :: buf
+#ifdef MPI
+    call mpi_reduce(data, buf, 1, mpi_double_precision, operation, rootrank, mpi_comm_world, ierror)
+    data = buf
+#endif
+  end subroutine mympi_reduce_real8_scalar
 
   subroutine get_mympi_realkind(data_kind, local_realkind)
     implicit none

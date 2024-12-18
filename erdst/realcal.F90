@@ -86,8 +86,10 @@ contains
           upljcut6 = upljcut3 * upljcut3
        endif
        if(ljswitch == LJSWT_FRC_GMX) then       ! force switch (GROMACS type)
-          call calc_gmx_switching_force_params(12, lwljcut, upljcut, repA, repB, repC)
-          call calc_gmx_switching_force_params(6,  lwljcut, upljcut, attA, attB, attC)
+          call calc_gmx_switching_force_params(12, lwljcut, upljcut, &
+               repA, repB, repC)
+          call calc_gmx_switching_force_params(6,  lwljcut, upljcut, &
+               attA, attB, attC)
        endif
        initialized = .true.
     end if

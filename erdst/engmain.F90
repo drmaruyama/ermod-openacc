@@ -258,7 +258,7 @@ module engmain
   integer :: sltpick, refpick, inscnd, inscfg           ! deprecated
   real :: lwreg, upreg, lwstr, upstr
   integer :: ljformat, ljswitch, iseed
-  real :: inptemp, temp
+  real(kind=8) :: inptemp, temp
   integer :: ermax_limit
   logical :: force_calculation
 
@@ -333,20 +333,18 @@ module engmain
   
   integer :: ermax, numslv, esmax, maxins
   integer, dimension(:), allocatable :: uvmax, uvsoft, uvspec
-  real(kind=8), dimension(:),    allocatable :: uvcrd
-  real, dimension(:),    allocatable :: edens
+  real(kind=8), dimension(:),    allocatable :: uvcrd, edens
   real(kind=8), dimension(:,:),  allocatable :: ecorr
-  real(kind=8), dimension(:),    allocatable :: escrd
-  real, dimension(:),    allocatable :: eself
+  real(kind=8), dimension(:),    allocatable :: escrd, eself
   real, dimension(:,:),  allocatable :: aveuv
   real, dimension(:),    allocatable :: slnuv
-  real, dimension(:,:),  allocatable :: avediv
-  real                               :: avslf
+  real(kind=8), dimension(:,:),  allocatable :: avediv
+  real(kind=8)                       :: avslf
   real, dimension(:),    allocatable :: minuv, maxuv
   integer                            :: numslt
   integer, dimension(:), allocatable :: sltlist
   real :: stat_weight_system
-  real :: engnorm, engsmpl, voffset
+  real(kind=8) :: engnorm, engsmpl, voffset
   logical :: voffset_initialized = .false.
 
 

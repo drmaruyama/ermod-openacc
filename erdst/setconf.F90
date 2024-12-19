@@ -649,7 +649,7 @@ contains
     allocate( mol_begin_index(nummol + 1) )
     allocate( belong_to(numatm) )
     allocate( mol_charge(nummol) )
-    !$acc enter data create(charge, mol_begin_index, mol_charge)
+    !$acc enter data create(charge, ljtype, mol_begin_index, mol_charge)
 
     ! initial setting to zero
     bfcoord(:,:) = 0.0
@@ -791,7 +791,8 @@ contains
        open(unit = ljtable_io, file = ljtable_file, status = 'old', action = 'read')
        read(ljtable_io, *) ljtype_max
        allocate( ljlensq_mat(ljtype_max, ljtype_max), &
-                 ljene_mat(ljtype_max, ljtype_max) )
+            ljene_mat(ljtype_max, ljtype_max) )
+       !$acc enter data create(ljlensq_mat, ljene_mat)
        do i = 1, ljtype_max
           read (ljtable_io, *) ljlensq_mat(i, 1:ljtype_max)
           ljlensq_mat(i, 1:ljtype_max) = ljlensq_mat(i, 1:ljtype_max) ** 2
@@ -803,7 +804,8 @@ contains
     else
        ! From LJ data
        allocate( ljlensq_mat(ljtype_max, ljtype_max), &
-                 ljene_mat(ljtype_max, ljtype_max) )
+            ljene_mat(ljtype_max, ljtype_max) )
+       !$acc enter data create(ljlensq_mat, ljene_mat)
        do i = 1, ljtype_max
           select case(cmbrule)
           case(LJCMB_ARITH)    ! arithmetic mean
@@ -819,13 +821,14 @@ contains
                                            * ljene_temp_table(i) )
        end do
     endif
+    !$acc update device(ljlensq_mat, ljene_mat)
     deallocate( ljlen_temp_table, ljene_temp_table )
 
 
     ! conversion to (kcal/mol angstrom)^(1/2)
     ! == sqrt(e^2 * coulomb const * avogadro / (kcal / mol angstrom))
     charge(1:numatm) = 18.22261721 * charge(1:numatm)
-    !$acc update device(charge)
+    !$acc update device(charge, ljtype)
 
     ! get molecule-wise charges
     do i = 1, nummol

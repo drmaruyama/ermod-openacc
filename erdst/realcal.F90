@@ -23,7 +23,6 @@ module realcal
   ! "straight" coordinate system
   real(kind=8), allocatable :: sitepos_normal(:, :)
   real(kind=8) :: cell_normal(3, 3), invcell_normal(3), cell_len_normal(3)
-  real :: invcell(3, 3)
   logical :: is_cuboid
   real, parameter :: check_rotate = 1e-8, cuboid_thres = 1e-8
   real, parameter :: cutoff_thres = 1e-4
@@ -68,8 +67,6 @@ contains
     logical, save :: initialized = .false.
     real, parameter :: infty = huge(infty)      ! essentially equal to infinity
     !
-    if(cltype == EL_COULOMB) stop "cannot happen: realcal_acc is called only when cltype is not 'bare coulomb'."
-
     if(boxshp == SYS_NONPERIODIC) reelcut = infty
     if(boxshp == SYS_PERIODIC) then
        reelcut = elecut
@@ -97,8 +94,8 @@ contains
 
     ! calculated only when PME or PPPM, non-self interaction
     ismax = numsite(tagslt)
-    !$acc data pcreate(xst)
-    !$acc parallel loop collapse(2) gang vector present(uvengy, mol_begin_index, tagpt, sitepos_normal, charge, numsite)
+    !$acc data pcreate(xst) copyin(half_cell, cell_normal, invcell_normal)
+    !$acc parallel loop collapse(2) gang vector present(uvengy, mol_begin_index, tagpt, sitepos_normal, ljlensq_mat, ljene_mat, charge, ljtype, numsite)
     do k = 1, slvmax
        do is = 1, ismax
           i = tagpt(k)
@@ -117,8 +114,14 @@ contains
                 if(is_cuboid) then
                    xst(:) = half_cell(:) - abs(half_cell(:) - abs(xst(:)))
                 else
-                   xst(:) = xst(:) &
-                        - matmul(cell_normal, anint(matmul(invcell, xst)))
+                   ! Note some ops can be skipped because cell_normal
+                   ! is upper triangular
+                   xst(:) = xst(:) - cell_normal(:, 3) &
+                        * anint(xst(3) * invcell_normal(3))
+                   xst(:) = xst(:) - cell_normal(:, 2) &
+                        * anint(xst(2) * invcell_normal(2))
+                   xst(:) = xst(:) - cell_normal(:, 1) &
+                        * anint(xst(1) * invcell_normal(1))
                 end if
              endif
              dis2 = sum(xst(1:3) ** 2)
@@ -263,8 +266,13 @@ contains
                 if(is_cuboid) then
                    xst(:) = half_cell(:) - abs(half_cell(:) - abs(xst(:)))
                 else
-                   xst(:) = xst(:) &
-                        - matmul(cell_normal, anint(matmul(invcell, xst)))
+                   ! Note some ops can be skipped because cell_normal is upper triangular
+                   xst(:) = xst(:) - cell_normal(:, 3) &
+                        * anint(xst(3) * invcell_normal(3))
+                   xst(:) = xst(:) - cell_normal(:, 2) &
+                        * anint(xst(2) * invcell_normal(2))
+                   xst(:) = xst(:) - cell_normal(:, 1) &
+                        * anint(xst(1) * invcell_normal(1))
                 end if
              endif
              dis2 = sum(xst(1:3) ** 2)
@@ -376,7 +384,13 @@ contains
           if(is_cuboid) then
              xst(:) = half_cell(:) - abs(half_cell(:) - abs(xst(:)))
           else
-             xst(:) = xst(:) - matmul(cell_normal, anint(matmul(invcell, xst)))
+             ! Note some ops can be skipped because cell_normal is upper triangular
+             xst(:) = xst(:) - cell_normal(:, 3) &
+                  * anint(xst(3) * invcell_normal(3))
+             xst(:) = xst(:) - cell_normal(:, 2) &
+                  * anint(xst(2) * invcell_normal(2))
+             xst(:) = xst(:) - cell_normal(:, 1) &
+                  * anint(xst(1) * invcell_normal(1))
           end if
 
           dis2 = sum(xst(1:3) ** 2)

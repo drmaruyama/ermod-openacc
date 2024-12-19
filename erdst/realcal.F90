@@ -26,6 +26,7 @@ module realcal
   real :: invcell(3, 3)
   logical :: is_cuboid
   real, parameter :: check_rotate = 1e-8, cuboid_thres = 1e-8
+  real, parameter :: cutoff_thres = 1e-4
 
 contains
   subroutine realcal_prepare
@@ -39,7 +40,7 @@ contains
        initialized = .true.
     end if
     sitepos_normal(:, :) = sitepos(:, :)
-    
+
     ! "Straighten" box, and normalize coordinate system
     if(boxshp == SYS_PERIODIC) call normalize_periodic
     !$acc update device(sitepos_normal)
@@ -392,103 +393,133 @@ contains
   ! Rotate box and coordinate so that the cell(:,:) is upper triangular:
   ! cell(2, 1) = cell(3, 1) = cell(3, 2) = 0
   ! (1st axis to be aligned to x-axis, 2nd axis to be within xy-plane)
+  subroutine make_cell_uppertriangular
+    use engmain, only: cell, sitepos
+    use mpiproc, only: warning
+    implicit none
+
+    real :: q(3,3), r(3, 3), temp(3, 3), axis_len
+    integer :: i, j
+
+    if (cell(2, 1) == 0.0 .and. cell(3, 1) == 0.0 .and. cell(3, 2) == 0.0) then
+       ! already upper triangular
+       ! As long as we use modern MD software the program shall go this path.
+       cell_normal(:, :) = cell(:, :)
+       sitepos_normal(:, :) = sitepos(:, :)
+       return
+    end if
+
+    call warning("cell")
+
+    ! modified Gram-Schmidt
+    q(:, :) = 0.0
+    r(:, :) = 0.0
+    temp(:, :) = cell(:, :)
+    do i = 1, 3
+       axis_len = sqrt(dot_product(temp(:, 1), temp(:, 1)))
+       q(:, i) = temp(:, i) / axis_len
+       r(i, i) = axis_len
+       do j = i + 1, 3
+          ! remove inner products
+          r(i, j) = dot_product(q(:, i), temp(:, j))
+          temp(:, j) = temp(:, j) - r(i, j) * q(:, i)
+       end do
+    end do
+
+    ! Now cell = QR
+    ! cell_normal = R = Q^T Q R
+    cell_normal(:, :) = r(:, :)
+
+    ! sitepos_normal = Q^T X
+    do i = 1, size(sitepos, 2)
+       sitepos_normal(:, i) = matmul(transpose(q), sitepos(:, i))
+    end do
+  end subroutine make_cell_uppertriangular
+
+  ! Cell vectors are normalized by either inverting the cell vector or by adding integer times other vectors
+  subroutine normalize_cell_vector
+    use engmain, only: elecut, upljcut
+    use mpiproc, only: warning
+    integer :: i
+    real :: cutoff
+
+    do i = 1, 3
+       if (cell_normal(1, 1) < 0.0) then
+          cell_normal(:, i) = -cell_normal(:, i)
+       end if
+    end do
+
+    ! check cell size restrictions
+    if (abs(cell_normal(1, 2)) > 0.5 * cell_normal(1, 1) + cutoff_thres) then
+       call warning("cel2")
+       cell_normal(:, 2) = cell_normal(:, 2) - &
+            cell_normal(:, 1) * anint(cell_normal(1, 2) * invcell_normal(1))
+    end if
+    if (abs(cell_normal(1, 3)) > 0.5 * cell_normal(1, 1) + cutoff_thres) then
+       call warning("cel2")
+       cell_normal(:, 3) = cell_normal(:, 3) - &
+            cell_normal(:, 1) * anint(cell_normal(1, 3) * invcell_normal(1))
+    end if
+    if (abs(cell_normal(2, 3)) > 0.5 * cell_normal(2, 2) + cutoff_thres) then
+       call warning("cel2")
+       cell_normal(:, 3) = cell_normal(:, 3) - &
+            cell_normal(:, 2) * anint(cell_normal(2, 3) * invcell_normal(2))
+    end if
+
+    cutoff = min(elecut, upljcut)
+    ! check cutoff restrictions
+    do i = 1, 3
+       if (cutoff > cell_normal(i, i) * 0.5) then
+          stop "One of axis in periodic cell is too small. This is either the box is too small compared to the cell, " // &
+               "or the periodic cell is too skewed."
+       endif
+    end do
+  end subroutine normalize_cell_vector
+
   subroutine normalize_periodic
     use engmain, only: cell, sitepos
     implicit none
-    integer :: n, i, perm(3), info, lwork
-    real :: qr(3,3), scale(3), newcell(3, 3)
-    real, allocatable :: work(:)
+    integer :: n, i
     real :: dummy
 
+    call make_cell_uppertriangular
+
+    call normalize_cell_vector
+
     n = size(sitepos, 2)
-    lwork = max(3 * 3 + 1, n)
-    allocate(work(lwork))
-
-    ! QR-factorize box vector
-    qr(:, :) = cell
-    perm(:) = 0
-
-    select case(kind(dummy))
-    case(8)
-       call dgeqp3(3, 3, qr, 3, perm, scale, work, lwork, info)
-    case(4)
-       call sgeqp3(3, 3, qr, 3, perm, scale, work, lwork, info)
-    case default
-       stop "The libraries are used only at real or double precision"
-    end select
-    if(info /= 0) stop "normalize_periodic: failed to factorize box vector"
-
-    ! reorganize R
-    ! AP = QR    <=>  Q^T AP = R
-    newcell(:, :) = cell(:, perm(:))
-
-    select case(kind(dummy))
-    case(8)
-       call dormqr('L', 'T', 3, 3, 3, qr, 3, scale, newcell, 3, work, lwork, info)
-    case(4)
-       call sormqr('L', 'T', 3, 3, 3, qr, 3, scale, newcell, 3, work, lwork, info)
-    end select
-    if(info /= 0) stop "normalize_periodic: failed to rotate cell"
-
-    cell_normal(:, :) = newcell(:, :)
-    if(abs(newcell(2, 1)) > check_rotate .or. &
-       abs(newcell(3, 1)) > check_rotate .or. &
-       abs(newcell(3, 2)) > check_rotate ) then
-       print *, newcell
-       stop "normalize_periodic: assertion failed, box rotation is bugged"
-    endif
-
-    ! rotate coordinates
-    ! Note: sitepos does not need permutation. (the order of cell axis is not important)
-    select case(kind(dummy))
-    case(8)
-       call dormqr('L', 'T', 3, n, 3, qr, 3, scale, sitepos_normal, 3, work, lwork, info)
-    case(4)
-       call sormqr('L', 'T', 3, n, 3, qr, 3, scale, sitepos_normal, 3, work, lwork, info)
-    end select
-    if(info /= 0) stop "normalize_periodic: failed to rotate coordinate"
-
-    deallocate(work)
 
     do i = 1, 3
        cell_len_normal(i) = abs(cell_normal(i, i))
     end do
     invcell_normal(:) = 1 / cell_len_normal(:)
 
-    info = 0
-    invcell(:, :) = cell_normal(:, :)
-    select case(kind(dummy))
-    case(8)
-       call dtrtri('U', 'N', 3, invcell, 3, info)
-    case(4)
-       call strtri('U', 'N', 3, invcell, 3, info)
-    end select
-    if(info /= 0) stop "normalize_periodic: failed to invert box vector"
-
     if(abs(cell(1, 2)) > cuboid_thres .or. &
-       abs(cell(1, 3)) > cuboid_thres .or. &
-       abs(cell(2, 3)) > cuboid_thres ) then
+         abs(cell(1, 3)) > cuboid_thres .or. &
+         abs(cell(2, 3)) > cuboid_thres ) then
        is_cuboid = .false.
-       stop "A non-cuboidal cell is not supported. Wait for ver 0.4"
     else
        is_cuboid = .true.
     end if
 
-    ! normalize coordinates into a periodic parallelpiped cell
-    do i = 1, n
-       sitepos_normal(1:3, i) = sitepos_normal(1:3, i) - &
-            matmul(cell_normal, floor(matmul(invcell, sitepos_normal(1:3, i))))
-    end do
-
     ! move all particles inside the cuboid spanned by (0 .. cell(1, 1)), (0 .. cell(2,2)), (0 .. cell(3,3)).
-    ! Z values are already within the range (only 1 axis exists within parallelpiped cell)
-    ! Y values are bit tricky, shifted by the second vector
-    ! X values are simply shifted along the first vector
+    ! Shift with the order Z -> Y -> X
     do i = 1, n
+       ! shift Z
        sitepos_normal(1:3, i) = sitepos_normal(1:3, i) - &
-            cell_normal(1:3, 2) * floor(dot_product(invcell(1:3, 2), sitepos_normal(1:3, i)))
-       sitepos_normal(1, i) = sitepos_normal(1, i) - &
-            cell_normal(1, 1) * floor(invcell(1, 1) * sitepos_normal(1, i))
+            cell_normal(:, 3) * floor(invcell_normal(3) * sitepos_normal(3, i))
+       ! shift Y
+       sitepos_normal(1:3, i) = sitepos_normal(1:3, i) - &
+            cell_normal(:, 2) * floor(invcell_normal(2) * sitepos_normal(2, i))
+       ! shift X
+       sitepos_normal(1:3, i) = sitepos_normal(1:3, i) - &
+            cell_normal(:, 1) * floor(invcell_normal(1) * sitepos_normal(1, i))
+
+       if(sitepos_normal(1, i) < 0 .or. sitepos_normal(1, i) > cell_len_normal(1) .or.&
+          sitepos_normal(2, i) < 0 .or. sitepos_normal(2, i) > cell_len_normal(2) .or.&
+          sitepos_normal(3, i) < 0 .or. sitepos_normal(3, i) > cell_len_normal(3)) then
+          print *, sitepos_normal(:, i), cell_len_normal
+          stop "INVALID sitepos"
+       endif
     end do
   end subroutine normalize_periodic
 

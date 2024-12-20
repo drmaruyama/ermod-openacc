@@ -24,7 +24,7 @@ module engproc
   integer :: cntdst, slvmax
   integer :: maxdst
   integer :: tagslt
-  integer, allocatable :: tagpt(:)
+  integer, allocatable :: tagpt(:), uvrange(:, :)
 
   ! flceng needs to be output in-order
   logical, allocatable :: flceng_stored(:)
@@ -270,7 +270,18 @@ contains
           ermax = ermax + pemax
        endif
     enddo
-    
+
+    allocate( uvrange(numslv, 2))
+    do pti = 1, numslv
+       if (pti == 1) then
+          i = 0
+       else
+          i = sum( uvmax(1:(pti - 1)))
+       end if
+       uvrange(pti, 1) = i + 1
+       uvrange(pti, 2) = i + uvmax(pti)
+    end do
+
     allocate( uvcrd(ermax), edens(ermax) )
     i = 0
     do pti = 1, numslv
@@ -789,21 +800,22 @@ contains
   end subroutine get_uv_energy
 
   subroutine update_histogram(stat_weight_solute, uvengy)
-    use engmain, only: wgtslf, estype, slttype, corrcal, selfcal, ermax, &
-                       volume, temp, uvspec, &
-                       slnuv, avslf, minuv, maxuv, &
-                       edens, ecorr, eself, &
-                       stat_weight_system, engnorm, engsmpl, &
-                       voffset, voffset_initialized, &
-                       SLT_SOLN, SLT_REFS_RIGID, SLT_REFS_FLEX, &
-                       ES_NVT, ES_NPT, NO, YES
+    use engmain, only: wgtslf, estype, slttype, uvmax, uvcrd, corrcal, &
+         selfcal, ermax, numslv, volume, temp, uvspec, &
+         slnuv, avslf, minuv, maxuv, &
+         edens, ecorr, eself, &
+         stat_weight_system, engnorm, engsmpl, &
+         voffset, voffset_initialized, stdout, &
+         SLT_SOLN, SLT_REFS_RIGID, SLT_REFS_FLEX, &
+         ES_NVT, ES_NPT, NO, YES
     use mpiproc
     implicit none
     real, intent(in) :: uvengy(0:slvmax), stat_weight_solute
     integer, allocatable :: insdst(:)
-    integer :: i, k, q, iduv, iduvp, pti
-    real :: factor, pairep, total_weight
+    integer :: i, k, q, iduv, iduvp, pti, idmin
+    real :: factor, pairep, total_weight, insmin, insmax
     real(kind=8) :: engnmfc
+    logical :: mask(slvmax)
 
     allocate( insdst(ermax) )
 
@@ -835,11 +847,25 @@ contains
 
     ! self energy histogram
     if(selfcal == YES) then
-       call getiduv(0, uvengy(0), iduv)
+       call getides(uvengy(0), iduv)
        eself(iduv) = eself(iduv) + engnmfc
     endif
     minuv(0) = min(minuv(0), uvengy(0))
     maxuv(0) = max(maxuv(0), uvengy(0))
+
+    do i = 1, numslv
+       mask = (uvspec == i)
+       insmin = minval(uvengy(1:slvmax), mask)
+       insmax = maxval(uvengy(1:slvmax), mask)
+       if (insmin < uvcrd(uvrange(i, 1))) then
+          write(stdout, '(A,g12.4,A,i3,A)') '  energy of ', insmin, &
+               ' for ', i, '-th species'
+          call halt_with_error('eng_min')
+       end if
+       ! minimum and maxmium of solute-solvent energy
+       minuv(i) = min(minuv(i), insmin)
+       maxuv(i) = max(maxuv(i), insmax)
+    end do
 
     insdst(:) = 0                              ! instantaneous histogram
     flceng(:, cntdst) = 0.0                    ! sum of solute-solvent energy
@@ -857,10 +883,6 @@ contains
        insdst(iduv) = insdst(iduv) + 1
        ! sum of solute-solvent energy
        flceng(pti, cntdst) = flceng(pti, cntdst) + pairep
-
-       ! minimum and maxmium of solute-solvent energy
-       minuv(pti) = min(minuv(pti), pairep)
-       maxuv(pti) = max(maxuv(pti), pairep)
     enddo
 
     if(slttype == SLT_SOLN) then
@@ -873,6 +895,7 @@ contains
        edens(iduv) = edens(iduv) + engnmfc * real(k)
     enddo
     if(corrcal == YES) then
+       !$acc data copyin(insdst)
        !$acc parallel loop present(ecorr)
        do iduv = 1, ermax
           k = insdst(iduv)
@@ -880,10 +903,12 @@ contains
           do iduvp = 1, ermax
              q = insdst(iduvp)
              if(q == 0) cycle
-             ecorr(iduvp,iduv) = ecorr(iduvp,iduv) + engnmfc * real(k) * real(q)
+             ecorr(iduvp,iduv) = ecorr(iduvp,iduv) &
+                  + engnmfc * real(k) * real(q)
           enddo
        enddo
        !$acc end parallel
+       !$acc end data
     endif
 
     deallocate( insdst )
@@ -987,10 +1012,6 @@ contains
     real, intent(in) :: v
     integer, intent(out) :: ret
     integer :: rmin, rmax, rmid
-    if(v < coord(1)) then
-       ret = 0
-       return
-    endif
     if(v > coord(n)) then
        ret = n
        return
@@ -1013,51 +1034,28 @@ contains
   end subroutine binsearch
 
   ! returns the position of the bin corresponding to energy coordinate value
-  subroutine getiduv(pti, engval, iduv)
+  subroutine getides(engval, iduv)
     use engmain, only: slttype, uvmax, uvsoft, uvcrd, esmax, escrd, &
                        stdout, SLT_SOLN
     use mpiproc, only: halt_with_error, warning
     implicit none
-    integer, intent(in) :: pti
-    real, intent(in) :: engval 
+    real, intent(in) :: engval
     integer, intent(out) :: iduv
-    integer :: idmin, idnum, idpti
+    integer :: pti, idmin, idnum, idpti
     real, parameter :: warn_threshold = 1.0e3
     logical, save :: warn_bin_firsttime = .true.
 
-    if(pti >  0) then            ! solute-solvent interaction
-       if(pti == 1) then         ! first solvent species
-          idmin = 0
-       elseif(pti > 1) then      ! second and later solvent species
-          idmin = sum( uvmax(1:(pti - 1)) )
-       else                      ! bug --- pti must not be smaller than 1
-          call halt_with_error('eng_bug')
-       endif
-       idnum = uvmax(pti)
-       call binsearch(uvcrd((idmin + 1):(idmin + idnum)), idnum, engval, idpti)
-    elseif(pti == 0) then        ! solute self-energy
-       idmin = 0
-       idnum = esmax
-       call binsearch(escrd(1:idnum), idnum, engval, idpti)
-    else                         ! bug --- pti must be non-negative
-       call halt_with_error('eng_bug')
-    endif
+    pti = 0
+    idmin = 0
+    idnum = esmax
+    call binsearch(escrd(1:idnum), idnum, engval, idpti)
 
     ! inappropriate setting of energy coordinate
     ! smaller than the minimum energy mesh
     if(idpti <= 0) then
-       write(stdout, '(A,g12.4,A,i3,A)') '  energy of ', engval, ' for ', pti, '-th species'
+       write(stdout, '(A,g12.4,A,i3,A)') '  energy of ', engval, &
+            ' for ', pti, '-th species'
        call halt_with_error('eng_min')
-    endif
-    ! larger than the maximum energy mesh
-    if(idpti > idnum) call halt_with_error('eng_bug')
-    ! only for solute-solvent interaction in solution system
-    ! larger than the maximum of soft part (linear-graduation part)
-    if((slttype == SLT_SOLN) .and. (pti > 0)) then
-       if(idpti > uvsoft(pti)) then
-          write(stdout, '(A,g12.4,A,i3,A)') '  energy of ', engval, ' for ', pti, '-th species'
-          call halt_with_error('eng_sft')
-       endif
     endif
 
     ! Warning if the energy exceeds the maximum binning region and pecore = 0
@@ -1065,12 +1063,43 @@ contains
     ! the energy value is simply shown as a warning
     if((idpti == idnum) .and. (engval < warn_threshold) &
                         .and. (warn_bin_firsttime)) then
-       write(stdout, '(A,g12.4,A,i3,A)') '  energy of ', engval, ' for ', pti, '-th species'
+       write(stdout, '(A,g12.4,A,i3,A)') '  energy of ', engval, &
+            ' for ', pti, '-th species'
        call warning('mbin')
        warn_bin_firsttime = .false.
     endif
 
     iduv = idmin + idpti
+
+    return
+  end subroutine getides
+
+  subroutine getiduv(pti, engval, iduv)
+    use engmain, only: slttype, uvmax, uvsoft, uvcrd, esmax, escrd, &
+                       stdout, SLT_SOLN
+    use mpiproc, only: halt_with_error, warning
+    implicit none
+    integer, intent(in) :: pti
+    real, intent(in) :: engval
+    integer, intent(out) :: iduv
+    integer :: idmin, idmax, idnum, idpti
+
+    idmin = uvrange(pti, 1)
+    idmax = uvrange(pti, 2)
+    idnum = uvmax(pti)
+    call binsearch(uvcrd(idmin:idmax), idnum, engval, idpti)
+
+    ! only for solute-solvent interaction in solution system
+    ! larger than the maximum of soft part (linear-graduation part)
+    if((slttype == SLT_SOLN)) then
+       if(idpti > uvsoft(pti)) then
+          write(stdout, '(A,g12.4,A,i3,A)') '  energy of ', engval, &
+               ' for ', pti, '-th species'
+          call halt_with_error('eng_sft')
+       endif
+    endif
+
+    iduv = idmin + idpti - 1
 
     return
   end subroutine getiduv

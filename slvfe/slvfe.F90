@@ -960,7 +960,6 @@ contains
       if(first_time) then
          first_time = .false.
          if(invmtrx /= 'syevr') invmtrx = 'posv'    ! default is 'posv'
-         invmtrx = 'syevr'
       endif
 
       do cnt = 1, 2     ! cnt = 1: solution   cnt = 2: reference solvent
@@ -994,14 +993,6 @@ contains
                      dmcr = 0.0
                   endif
                endif
-!               dmcr = edmcr(iduvp, iduv) - dnsp * dns
-!               if((dnsp <= zero) .or. (dns <= zero)) then
-!                  if(iduv == iduvp) then
-!                     dmcr = 1.0
-!                  else
-!                     dmcr = 0.0
-!                  endif
-!               endif
                edmcr(iduvp, iduv) = dmcr
             end do
          end do

@@ -491,6 +491,7 @@ contains
    end subroutine posv_wrap
 
    subroutine posv_wrap_acc(n, mat, vec, info)
+     use iso_c_binding
      use cuBlas_v2
      use cuSolverDn
      implicit none
@@ -499,26 +500,50 @@ contains
      real, intent(inout) :: vec(n)
      integer, intent(out) :: info
      type(cuSolverDnHandle) :: h
-     integer :: istat
+     integer :: istat, lwork
      real, allocatable :: input_mat(:, :)
      real, allocatable :: input_vec(:), residual(:)
+     real, allocatable :: work(:)
 
      istat = cuSolverDnCreate(h)
 
-     istat = cusolverDnPotrf_bufferSize
+     lwork = -1
+     !$acc data copyin(mat)
+     !$acc host_data use_device(mat)
+#ifdef DP
+     istat = cusolverDnDpotrf_bufferSize(h, CUBLAS_FILL_MODE_UPPER, &
+          n, mat, n, lwork)
+#else
+     istat = cusolverDnDpotrf_bufferSize(h, CUBLAS_FILL_MODE_UPPER, &
+          n, mat, n, lwork)
+#endif
+     !$acc end host_data
+     !$acc end data
+
+     if (istat /= 0) then
+        return
+     endif
 
      allocate( input_mat(n, n), input_vec(n), residual(n) )
      input_mat(:, :) = mat(:, :)
      input_vec(:) = vec(:)
-
-     select case(kind(mat))
-     case(8)
-        call DPOSV('U', n, 1, mat, n, vec, n, info)
-     case(4)
-        call SPOSV('U', n, 1, mat, n, vec, n, info)
-     case default
-        stop "The libraries are used only at real or double precision"
-     end select
+     allocate(work(lwork))
+     !$acc enter data create(work)
+     !$acc data copy(mat, vec) copyout(info)
+     !$acc host_data use_device(mat, vec, work, info)
+#ifdef DP
+     istat = cusolverDnDpotrf(h, CUBLAS_FILL_MODE_UPPER, &
+          n, mat, n, work, lwork, info)
+     istat = cusolverDnDpotrs(h, CUBLAS_FILL_MODE_UPPER, &
+          n, 1, mat, n, vec, n, info)
+#else
+     istat = cusolverDnSpotrf(h, CUBLAS_FILL_MODE_UPPER, &
+          n, mat, n, work, lwork, info)
+     istat = cusolverDnSpotrs(h, CUBLAS_FILL_MODE_UPPER, &
+          n, 1, mat, n, vec, n, info)
+#endif
+     !$acc end host_data
+     !$acc end data
 
      if (info == 0) then
         residual(:) = matmul( input_mat(:, :), vec(:) )
@@ -538,9 +563,8 @@ contains
      real, intent(out) :: eigval(n)
      integer, intent(out) :: info
      type(cuSolverDnHandle) :: h
-     integer :: istat
+     integer :: istat, lwork
      real(kind=8), allocatable :: work(:)
-     integer :: lwork
 
      istat = cuSolverDnCreate(h)
 
@@ -1048,7 +1072,7 @@ contains
                edmcr_nonzeroec(k, k) = 1.0
                work(k) = 0.0
             enddo
-            call posv_wrap(gemax, edmcr_nonzeroec, work, inv_info)
+            call posv_wrap_acc(gemax, edmcr_nonzeroec, work, inv_info)
             if(inv_info == 0) then
                if(cnt == 1) then           ! solution
                   sdrcv(:) = work(:)

@@ -475,14 +475,11 @@ contains
       input_mat(:, :) = mat(:, :)
       input_vec(:) = vec(:)
 
-      select case(kind(mat))
-       case(8)
-         call DPOSV('U', n, 1, mat, n, vec, n, info)
-       case(4)
-         call SPOSV('U', n, 1, mat, n, vec, n, info)
-       case default
-         stop "The libraries are used only at real or double precision"
-      end select
+#ifdef DP
+      call DPOSV('U', n, 1, mat, n, vec, n, info)
+#else
+      call SPOSV('U', n, 1, mat, n, vec, n, info)
+#endif
 
       if (info == 0) then
          residual(:) = matmul( input_mat(:, :), vec(:) )
@@ -492,6 +489,45 @@ contains
 
       deallocate( input_mat, input_vec, residual )
    end subroutine posv_wrap
+
+   subroutine posv_wrap_acc(n, mat, vec, info)
+     use cuBlas_v2
+     use cuSolverDn
+     implicit none
+     integer, intent(in) :: n
+     real, intent(inout) :: mat(n, n)
+     real, intent(inout) :: vec(n)
+     integer, intent(out) :: info
+     type(cuSolverDnHandle) :: h
+     integer :: istat
+     real, allocatable :: input_mat(:, :)
+     real, allocatable :: input_vec(:), residual(:)
+
+     istat = cuSolverDnCreate(h)
+
+     istat = cusolverDnPotrf_bufferSize
+
+     allocate( input_mat(n, n), input_vec(n), residual(n) )
+     input_mat(:, :) = mat(:, :)
+     input_vec(:) = vec(:)
+
+     select case(kind(mat))
+     case(8)
+        call DPOSV('U', n, 1, mat, n, vec, n, info)
+     case(4)
+        call SPOSV('U', n, 1, mat, n, vec, n, info)
+     case default
+        stop "The libraries are used only at real or double precision"
+     end select
+
+     if (info == 0) then
+        residual(:) = matmul( input_mat(:, :), vec(:) )
+        residual(:) = abs( residual(:) - input_vec(:) )
+        if(maxval( residual(:) ) > error) info = 1    ! invalid solution
+     endif
+
+     deallocate( input_mat, input_vec, residual )
+   end subroutine posv_wrap_acc
 
    subroutine syevr_wrap(n, mat, eigval, info)
      use cuBlas_v2

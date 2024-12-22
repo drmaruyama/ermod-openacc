@@ -463,34 +463,6 @@ module sfecalc
    integer gemax
 contains
    subroutine posv_wrap(n, mat, vec, info)
-      implicit none
-      integer, intent(in) :: n
-      real, intent(inout) :: mat(n, n)
-      real, intent(inout) :: vec(n)
-      integer, intent(out) :: info
-      real, allocatable :: input_mat(:, :)
-      real, allocatable :: input_vec(:), residual(:)
-
-      allocate( input_mat(n, n), input_vec(n), residual(n) )
-      input_mat(:, :) = mat(:, :)
-      input_vec(:) = vec(:)
-
-#ifdef DP
-      call DPOSV('U', n, 1, mat, n, vec, n, info)
-#else
-      call SPOSV('U', n, 1, mat, n, vec, n, info)
-#endif
-
-      if (info == 0) then
-         residual(:) = matmul( input_mat(:, :), vec(:) )
-         residual(:) = abs( residual(:) - input_vec(:) )
-         if(maxval( residual(:) ) > error) info = 1    ! invalid solution
-      endif
-
-      deallocate( input_mat, input_vec, residual )
-   end subroutine posv_wrap
-
-   subroutine posv_wrap_acc(n, mat, vec, info)
      use iso_c_binding
      use cuBlas_v2
      use cuSolverDn
@@ -552,7 +524,7 @@ contains
      endif
 
      deallocate( input_mat, input_vec, residual )
-   end subroutine posv_wrap_acc
+   end subroutine posv_wrap
 
    subroutine syevr_wrap(n, mat, eigval, info)
      use cuBlas_v2
@@ -1072,7 +1044,7 @@ contains
                edmcr_nonzeroec(k, k) = 1.0
                work(k) = 0.0
             enddo
-            call posv_wrap_acc(gemax, edmcr_nonzeroec, work, inv_info)
+            call posv_wrap(gemax, edmcr_nonzeroec, work, inv_info)
             if(inv_info == 0) then
                if(cnt == 1) then           ! solution
                   sdrcv(:) = work(:)

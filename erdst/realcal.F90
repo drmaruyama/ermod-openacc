@@ -494,7 +494,6 @@ contains
     use engmain, only: cell, sitepos
     implicit none
     integer :: n, i
-    real :: dummy
 
     call make_cell_uppertriangular
 

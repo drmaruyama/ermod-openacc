@@ -751,10 +751,8 @@ contains
     ! At this moment all coordinate in the system is determined
     call realcal_prepare
 
-    !$acc parallel loop present(uvengy)
-    do k = 1, slvmax
-       uvengy(k) = 0.0
-    end do
+    !$acc parallel present(uvengy)
+    uvengy = 0.0
     !$acc end parallel
     ! Calculate system-wide values
     if(cltype == EL_PME .or. cltype == EL_PPPM) then

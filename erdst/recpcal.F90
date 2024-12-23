@@ -477,13 +477,14 @@ contains
     integer :: grid1
     complex :: rcpt
 
+    if(sluvid(tagslt) == 0) stop  ! call halt_with_error('rcp_fst')
+
     !$acc parallel loop present(uvengy, mol_begin_index, tagpt, charge, numsite, sluvid, slvtag, splslv, grdslv, cnvslt)
     do k = 1, slvmax
        i = tagpt(k)
        if(i == tagslt) cycle
 
        pairep = 0.0
-       if(sluvid(tagslt) == 0) stop  ! call halt_with_error('rcp_fst')
        svi = slvtag(i)
        if(svi <= 0) stop  ! call halt_with_error('rcp_cns')
        stmax = numsite(i)
@@ -499,21 +500,12 @@ contains
                 fac2 = fac1 * splslv(cg2, 2, ptrnk)
                 rc2 = modulo(grdslv(2, ptrnk) - cg2, ms2max)
                 grid1 = grdslv(1, ptrnk)
-                if(grid1 >= splodr-1 .and. grid1 < ms1max) then
-                   !$acc loop seq
-                   do cg1 = 0, splodr - 1
-                      fac3 = fac2 * splslv(cg1, 1, ptrnk)
-                      rc1 = grid1 - cg1
-                      pairep = pairep + fac3 * real(cnvslt(rc1, rc2, rc3))
-                   enddo
-                else
-                   !$acc loop seq
-                   do cg1 = 0, splodr - 1
-                      fac3 = fac2 * splslv(cg1, 1, ptrnk)
-                      rc1 = mod(grid1 + ms1max - cg1, ms1max) ! speedhack
-                      pairep = pairep + fac3 * real(cnvslt(rc1, rc2, rc3))
-                   end do
-                endif
+                !$acc loop seq
+                do cg1 = 0, splodr - 1
+                   fac3 = fac2 * splslv(cg1, 1, ptrnk)
+                   rc1 = mod(grid1 + ms1max - cg1, ms1max) ! speedhack
+                   pairep = pairep + fac3 * real(cnvslt(rc1, rc2, rc3))
+                end do
              end do
           end do
        end do

@@ -500,12 +500,21 @@ contains
                 fac2 = fac1 * splslv(cg2, 2, ptrnk)
                 rc2 = modulo(grdslv(2, ptrnk) - cg2, ms2max)
                 grid1 = grdslv(1, ptrnk)
-                !$acc loop seq
-                do cg1 = 0, splodr - 1
-                   fac3 = fac2 * splslv(cg1, 1, ptrnk)
-                   rc1 = mod(grid1 + ms1max - cg1, ms1max) ! speedhack
-                   pairep = pairep + fac3 * real(cnvslt(rc1, rc2, rc3))
-                end do
+                if(grid1 >= splodr-1 .and. grid1 < ms1max) then
+                   !$acc loop seq
+                   do cg1 = 0, splodr - 1
+                      fac3 = fac2 * splslv(cg1, 1, ptrnk)
+                      rc1 = grid1 - cg1
+                      pairep = pairep + fac3 * real(cnvslt(rc1, rc2, rc3))
+                   enddo
+                else
+                   !$acc loop seq
+                   do cg1 = 0, splodr - 1
+                      fac3 = fac2 * splslv(cg1, 1, ptrnk)
+                      rc1 = mod(grid1 + ms1max - cg1, ms1max) ! speedhack
+                      pairep = pairep + fac3 * real(cnvslt(rc1, rc2, rc3))
+                   end do
+                endif
              end do
           end do
        end do

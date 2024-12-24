@@ -180,7 +180,7 @@ contains
 
   ! Stop calculation with error message
   subroutine halt_with_error(errtype)
-    use engmain, only: stdout
+    use engmain, only: slttype, stdout, SLT_REFS_FLEX
     implicit none
     character(len=7), intent(in) :: errtype
 
@@ -189,8 +189,14 @@ contains
     if(errtype == 'eng_ins') write(stdout, "(A)") " The solute numbering is incorrect for insertion"
     if(errtype == 'eng_par') write(stdout, "(A)") " The input parameter is incorrectly set"
     if(errtype == 'eng_siz') write(stdout, "(A)") " The number of energy-coordinate meshes is too large"
-    if(errtype == 'eng_min') write(stdout, "(A)") " The minimum of the energy coordinate is too large; " // &
-         "the ecdmin parameter needs to be smaller"
+    if(errtype == 'eng_min') then
+       write(stdout, "(A)") " The minimum of the energy coordinate is too large; " // &
+            "the ecdmin parameter needs to be smaller"
+       if(slttype == SLT_REFS_FLEX) then
+          write(stdout, '(A)') " If ecdmin seems unphysically negative, the solute structure in SltConf could be fragmented. " &
+               // "If so, unwrap the trajectory for the isolated solute and link SltConf to the unwrapped trajectory"
+       endif
+    endif
     if(errtype == 'eng_sft') write(stdout, "(A)") " The eccore parameter is too small; " // &
          "there should be no distribution at energy coordinate larger than eccore in the solution system"
     if(errtype == 'eng_pcr') write(stdout, "(A)") " The pecore parameter is incorrectly set"

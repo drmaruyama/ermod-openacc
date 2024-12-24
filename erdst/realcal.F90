@@ -494,7 +494,6 @@ contains
     use engmain, only: cell, sitepos
     implicit none
     integer :: n, i
-    real :: dummy
 
     call make_cell_uppertriangular
 
@@ -528,12 +527,12 @@ contains
        sitepos_normal(1:3, i) = sitepos_normal(1:3, i) - &
             cell_normal(:, 1) * floor(invcell_normal(1) * sitepos_normal(1, i))
 
-       if(sitepos_normal(1, i) < 0 .or. sitepos_normal(1, i) > cell_len_normal(1) .or.&
-          sitepos_normal(2, i) < 0 .or. sitepos_normal(2, i) > cell_len_normal(2) .or.&
-          sitepos_normal(3, i) < 0 .or. sitepos_normal(3, i) > cell_len_normal(3)) then
-          print *, sitepos_normal(:, i), cell_len_normal
-          stop "INVALID sitepos"
-       endif
+!       if(sitepos_normal(1, i) < 0 .or. sitepos_normal(1, i) > cell_len_normal(1) .or.&
+!          sitepos_normal(2, i) < 0 .or. sitepos_normal(2, i) > cell_len_normal(2) .or.&
+!          sitepos_normal(3, i) < 0 .or. sitepos_normal(3, i) > cell_len_normal(3)) then
+!          print *, sitepos_normal(:, i), cell_len_normal
+!          stop "INVALID sitepos"
+!       endif
     end do
   end subroutine normalize_periodic
 

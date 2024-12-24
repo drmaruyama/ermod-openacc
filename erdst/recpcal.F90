@@ -477,13 +477,14 @@ contains
     integer :: grid1
     complex :: rcpt
 
+    if(sluvid(tagslt) == 0) stop  ! call halt_with_error('rcp_fst')
+
     !$acc parallel loop present(uvengy, mol_begin_index, tagpt, charge, numsite, sluvid, slvtag, splslv, grdslv, cnvslt)
     do k = 1, slvmax
        i = tagpt(k)
        if(i == tagslt) cycle
 
        pairep = 0.0
-       if(sluvid(tagslt) == 0) stop  ! call halt_with_error('rcp_fst')
        svi = slvtag(i)
        if(svi <= 0) stop  ! call halt_with_error('rcp_cns')
        stmax = numsite(i)

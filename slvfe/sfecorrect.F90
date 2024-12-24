@@ -192,9 +192,9 @@ contains
        if(pti == 0) then
           molfile = solute_file                          ! solute
        else
-          molfile = solvent_file//numbers(pti:pti)       ! solvent
+          molfile = solvent_file // numbers(pti:pti)     ! solvent
        endif
-       molfile = trim(refsdirec)//'/'//molfile
+       molfile = trim(refsdirec) // '/' // molfile
        open(unit = mol_io, file = molfile, status='old')
        stmax = 0
        do
@@ -219,13 +219,13 @@ contains
        if(pti == 0) then
           molfile = solute_file                          ! solute
        else
-          molfile = solvent_file//numbers(pti:pti)       ! solvent
+          molfile = solvent_file // numbers(pti:pti)     ! solvent
        endif
-       molfile = trim(refsdirec)//'/'//molfile
+       molfile = trim(refsdirec) // '/' // molfile
        stmax = ptsite(pti)
        open(unit = mol_io, file = molfile, status = 'old')
        do sid = 1, stmax
-          read(mol_io,*) m, atmtype, xst(1:3)
+          read(mol_io, *) m, atmtype, xst(1:3)
           if(ljformat == LJFMT_EPS_Rminh) xst(3) = sgmcnv * xst(3)
           if((ljformat == LJFMT_A_C) .or. (ljformat == LJFMT_C12_C6)) then
              if(xst(3) /= 0.0) then
@@ -277,7 +277,7 @@ contains
     ! Fill LJ table
     if(ljformat == LJFMT_TABLE) then
        ! From table (directly)
-       open(unit = ljtable_io, file = trim(refsdirec)//'/'//ljtable_file, status = 'old', action = 'read')
+       open(unit = ljtable_io, file = trim(refsdirec) // '/' // ljtable_file, status = 'old', action = 'read')
        read(ljtable_io, *) ljtype_max
        allocate( ljlensq_mat(ljtype_max, ljtype_max), &
             ljene_mat(ljtype_max, ljtype_max) )

@@ -1009,7 +1009,7 @@ contains
   end subroutine read_weight
 
 
-  subroutine getmass(stmass,atmtype)
+  subroutine getmass(stmass, atmtype)
     implicit none
     real, parameter :: massM = 0.0              ! dummy atom
     real, parameter :: massH = 1.00794          ! atomic weight (hydrogen)

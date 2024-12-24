@@ -44,7 +44,7 @@
 !   wgtsys : weight of the solution / solvent configuration
 !               0 : no  1 : yes
 !   boxshp : shape of the unit cell box
-!               0 : non-periodic  1 : periodic and parallelepiped
+!               0 : non-periodic  1 : periodic (parallelepiped or triclinic)
 !   estype : type of system
 !               1 : constant volume  2 : constant pressure
 !
@@ -411,7 +411,7 @@ contains
     specatm = mol_begin_index(mol) + (i - 1)
   end function specatm
 
-  ! helper function that corresponds mol_begin_index
+  ! helper function that corresponds to mol_begin_index
   integer function mol_end_index(mol)
     implicit none
     integer, intent(in) :: mol

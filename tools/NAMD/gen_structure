@@ -64,12 +64,7 @@ if options.topology == None:
     sys.exit(1)
 
 def get_params():
-    if options.param:
-        for f in options.param:
-            if not os.path.exists(f):
-                print("Error: parameter file \"%s\" does not exist!" % f, file=sys.stderr)
-                sys.exit(1)
-        return options.param
+
     def mine_from_file(fname, kind, pattern, groupno):
         if not os.path.exists(fname):
             print("Error: %s file \"%s\" does not exist!" % (kind, fname), file=sys.stderr)
@@ -87,10 +82,29 @@ def get_params():
             print("Error: could not find paramter line in %s file. Did you specify correct file (\"%s\")?" % (kind, fname), file=sys.stderr)
             sys.exit(1)
         return lst
+
+    # param
+    if options.param:
+        for f in options.param:
+            if not os.path.exists(f):
+                print("Error: parameter file \"%s\" does not exist!" % f, file=sys.stderr)
+                sys.exit(1)
+        return options.param
+
+    # conf or log
+    fnames = []
     if options.conf:
-        return mine_from_file(options.conf, "configuration", r"^\s*parameters\s+(\S+)", 1)
+        src_file = options.conf
+        fnames = mine_from_file(src_file, "configuration", r"^\s*parameters\s+(\S+)", 1)
+
     if options.log:
-        return mine_from_file(options.log, "log", r"^Info: PARAMETERS\s+(\S+)", 1)
+        src_file = options.log
+        fnames = mine_from_file(src_file, "log", r"^Info: PARAMETERS\s+(\S+)", 1)
+
+    if fnames:
+        base_dir = os.path.dirname(src_file)
+        parfs = [os.path.join(base_dir, fname) for fname in fnames]
+        return parfs
 
 parfs = get_params()
 

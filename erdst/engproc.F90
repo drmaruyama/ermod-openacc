@@ -806,6 +806,7 @@ contains
 
     if(.not. initialized) then
        allocate( insdst(ermax) )
+       !$acc enter data create(insdst)
        initialized = .true.
     end if
 
@@ -875,7 +876,8 @@ contains
        edens(iduv) = edens(iduv) + engnmfc * real(k)
     enddo
     if(corrcal == YES) then
-       !$acc parallel loop present(ecorr)
+       !$acc update device(insdst)
+       !$acc parallel loop present(insdst, ecorr)
        do iduv = 1, ermax
           k = insdst(iduv)
           if(k == 0) cycle

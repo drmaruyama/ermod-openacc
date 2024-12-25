@@ -788,22 +788,26 @@ contains
 
   subroutine update_histogram(stat_weight_solute, uvengy)
     use engmain, only: wgtslf, estype, slttype, corrcal, selfcal, ermax, &
-                       volume, temp, uvspec, &
-                       slnuv, avslf, minuv, maxuv, &
-                       edens, ecorr, eself, &
-                       stat_weight_system, engnorm, engsmpl, &
-                       voffset, voffset_initialized, &
-                       SLT_SOLN, SLT_REFS_RIGID, SLT_REFS_FLEX, &
-                       ES_NVT, ES_NPT, NO, YES
+         volume, temp, uvspec, &
+         slnuv, avslf, minuv, maxuv, &
+         edens, ecorr, eself, &
+         stat_weight_system, engnorm, engsmpl, &
+         voffset, voffset_initialized, &
+         SLT_SOLN, SLT_REFS_RIGID, SLT_REFS_FLEX, &
+         ES_NVT, ES_NPT, NO, YES
     use mpiproc
     implicit none
     real, intent(in) :: uvengy(0:slvmax), stat_weight_solute
-    integer, allocatable :: insdst(:)
+    integer, allocatable, save :: insdst(:)
     integer :: i, k, q, iduv, iduvp, pti
     real :: factor, pairep, total_weight
     real(kind=8) :: engnmfc
+    logical, save :: initialized = .false.
 
-    allocate( insdst(ermax) )
+    if(.not. initialized) then
+       allocate( insdst(ermax) )
+       initialized = .true.
+    end if
 
     select case(wgtslf)
     case(NO)
@@ -878,13 +882,13 @@ contains
           do iduvp = 1, ermax
              q = insdst(iduvp)
              if(q == 0) cycle
-             ecorr(iduvp,iduv) = ecorr(iduvp,iduv) + engnmfc * real(k) * real(q)
+             ecorr(iduvp,iduv) = ecorr(iduvp,iduv) &
+                  + engnmfc * real(k) * real(q)
           enddo
        enddo
        !$acc end parallel
     endif
 
-    deallocate( insdst )
   end subroutine update_histogram
 
   !

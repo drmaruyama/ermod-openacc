@@ -202,7 +202,6 @@ contains
   ! find a rotation that satisfies 
   subroutine find_rotation_quaternion(n, refPt, movedPt, masses, rotation)
     implicit none
-!    external dsyev
     integer :: n, info
     real, intent(in) :: refPt(3, n), movedPt(3, n), masses(n)
     real, intent(out) :: rotation(0:3)
@@ -239,11 +238,9 @@ contains
     matmax(2, 4) = + inner_prod(3, 1) + inner_prod(1, 3)
 
     !-- solve eigenvalue and eigenvector
-!    call dsyev('V', 'U', 4, matmax, 4, eigenvalue, work, lwork, info)
     call jacobi(4, matmax, eigenvalue, info)
 
     if (info /= 0) then
-!       print *, "error on LAPACK/DSYEV"
        print *, "error on Jacobi routine"
        print *, "info =", info
        stop

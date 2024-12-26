@@ -2,7 +2,7 @@
 
 # autoconf <= 2.64 has a bug in AC_OPENMP
 AC_PREREQ([2.65])
-AC_INIT(erdst-openacc, 0.6.0, Matubayasi Laboratory)
+AC_INIT(erdst-openacc, 0.8.0, Matubayasi Laboratory)
 AC_CONFIG_MACRO_DIR(m4)
 AM_INIT_AUTOMAKE
 

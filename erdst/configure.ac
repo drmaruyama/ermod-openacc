@@ -37,80 +37,6 @@ AC_ARG_ENABLE([vmdplugin],
 	AS_HELP_STRING([--disable-vmdplugin],
 		[disable VMD plugin]))
 
-AC_DEFUN([MY_CHECK_BLAS], [
-  AC_MSG_CHECKING([whether $1 is available])
-  save_LIBS=$LIBS
-  LIBS="$LIBS $2"
-  AC_LINK_IFELSE([AC_LANG_CALL([], [sgemm])],
-                 [blas_ok=yes], [blas_ok=no])
-  LIBS=$save_LIBS
-  AC_MSG_RESULT([$blas_ok])
-])
-
-AC_ARG_WITH([mkl],
-  AS_HELP_STRING([--with-mkl[[=(MKL version)]]],
-    [Automatically set environmental variables for MKL; for a specific version, use this option like --with-mkl=10.2.3]))
-
-AS_IF([test "x$with_mkl" != "x"],
-  [case x`uname -m` in # (
-  xx86_64) :
-  mkl_plat=em64t
-  mkl_platnew=intel64
-  ;; # (
-  xi386) :
-  mkl_plat=32
-  mkl_platnew=ia32
-  ;; # (
-  *) :
-  ;;
-  esac
-
-  AS_IF([test "x$with_mkl" = "xyes"],
-    AS_IF([test "x$MKLROOT" = "x"],
-      [AC_MSG_FAILURE([could not get MKL version; set MKLROOT or use --with-mkl=(version number)])],
-      mklroot="$MKLROOT"),
-    mklroot="/opt/intel/mkl/$with_mkl")
-  # Check for recent Intel Composer (-mkl=parallel works)
-  with_blas="-mkl=parallel"
-  MY_CHECK_BLAS([Intel composer default], [$with_blas])
-  AS_IF([test "x$blas_ok" = "xyes"],
-        [FCFLAGS="-mkl=parallel $FCFLAGS"],
-        [
-         # Here comes super-duper crazily dirty MKL versioning checker
-         # check 10.0 - 10.2
-         with_blas="-L$mklroot/lib/$mkl_plat -lmkl_solver_lp64 -Wl,--start-group -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -Wl,--end-group -lguide -lpthread"
-         MY_CHECK_BLAS([MKL 10.0-10.2], 
-                       [$with_blas])
-         AS_IF([test "x$blas_ok" = "xyes"],
-               [],
-               # check for 10.3
-               [with_blas="-L$mklroot/lib/$mkl_platnew -lmkl_rt -lpthread"
-                MY_CHECK_BLAS([MKL 10.3+],
-                              [$with_blas])
-                AS_IF([test "x$blas_ok" = "xyes"],
-                      [],
-                      [AC_MSG_WARN([Failed to find appropriate MKL. If you are using old mkl, please update])])])
-         with_lapack="-L$mklroot/lib/$mkl_plat -lmkl_lapack"
-         FCFLAGS="-I$mklroot/include $FCFLAGS"
-        ])
-])
-
-AC_ARG_WITH([openblas],
-  AS_HELP_STRING([--with-openblas[=DIR]],
-                 [Use OpenBLAS at DIR (default is to try system-wide)]),
-  [if test "x$with_openblas" = "xno"; then
-     with_openblas=yes
-  fi])
-
-# Check for OpenBLAS libraries (prioritize OpenBLAS)
-AS_IF([test "x$with_openblas" != "xno"],
-  [LIBS="$LIBS -lopenblas"])
-
-
-ACX_BLAS
-ACX_LAPACK([lapack_exist=yes],
-           [lapack_exist=no])
-
 ################################
 
 AC_ARG_ENABLE([double],
@@ -250,50 +176,14 @@ FCFLAGS=$save_FCFLAGS
 AC_LANG_POP(Fortran)
 ])])
 
-AC_ARG_ENABLE([opt],
-	AS_HELP_STRING([--disable-opt],
-		[disable automatic edit to optimization flags]))
-
-AS_IF([test x$enable_opt = xyes || test x$enable_opt = x],
-  [FCFLAGS="$FCFLAGS"
-   AS_IF([test x$ac_compiler_gnu = xyes],
-        [optflag="-O3 -ffast-math -fno-finite-math-only"
-         MY_FC_OPT_ACCEPT_NATIVE
-         AS_IF([test x$my_fc_opt_accept_native = xyes],
-                optflag="$optflag -march=native")],
-        [case x$FC in #(
-           xmpiifort|xifort)
-             optflag="-O3 -no-prec-div -xHost"
-             ;; #(
-           *)
-             optflag="-O"
-             ;;
-         esac])
-   FCFLAGS="$FCFLAGS $optflag"])
-
 # AM_CONDITIONAL([MPI], [test x$use_mpi = xyes])
 AM_CONDITIONAL([USE_VMDPLUGIN], [test x$enable_vmdplugin = xyes || test x$enable_vmdplugin = x])
-
-AS_IF([test "x$lapack_exist" != xyes],
-	    [AC_MSG_ERROR(
-		[dnl
-LAPACK library was not found.
-Try specifying --with-lapack=<lib> options or set FCFLAGS/FLIBS environment variables to fix the problem.])])
-
-lapack_result="$LAPACK_LIBS $BLAS_LIBS"
 
 AC_CONFIG_FILES([Makefile])
 AC_CONFIG_HEADERS([config.h])
 AC_OUTPUT
 
-AS_IF([test "$enable_openmp" != "no" && test "$with_fft" = "fftw" && test "$have_fftw3_mp" != "yes"],
-  [AC_MSG_WARN([dnl
-OpenMP is enabled, but your FFTW does not support multithreading.
-This results in lower FFTW performance.
-It is recommended to recompile FFTW library with --enable-omp or --enable-threads; see the FFTW manual for details.])])
-
 AC_MSG_RESULT([dnl
-LAPACK: $lapack_result
 MPI: $mpi_result
 FC(for ermod)=$FC
 FCFLAGS=$FCFLAGS

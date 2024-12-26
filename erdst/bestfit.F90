@@ -102,11 +102,107 @@ end module quaternion
 
 module bestfit
   implicit none
-contains  
+contains
+  subroutine swap(a, b)
+    implicit none
+    real(kind=8), intent(inout) :: a, b
+    real(kind=8) :: tmp
+    tmp = a
+    a = b
+    b = tmp
+  end subroutine swap
+
+  subroutine jacobi(n, a, e, info)
+    implicit none
+    integer, intent(in) :: n
+    integer, intent(out) :: info
+    real(kind=8), intent(inout) :: a(n, n)
+    real(kind=8), intent(out) :: e(n)
+    integer :: i, j, k, iter
+    real(kind=8) :: amax, theta, t, c, s, tmp
+    real(kind=8) :: r(n, n), rt(n, n), v(n, n)
+    integer, parameter :: max_iter = 100
+    real(kind=8), parameter :: tol = 1.0d-10
+    logical :: converged
+
+    do j = 2, n
+       do i = 1, j -1
+          a(j, i) = a(i, j)
+       end do
+    end do
+
+    converged = .false.
+    v = 0.0d0
+    do i = 1, n
+       v(i, i) = 1.0d0
+    end do
+    do iter = 1, max_iter
+       amax = 0.0
+!      do i = 1, n - 1
+!         do j = i + 1, n
+       do j = 2, n
+          do i = 1, j - 1
+             if (abs(a(i, j) > amax)) amax = abs(a(i, j))
+          end do
+       end do
+       if (amax < tol) then
+          converged = .true.
+          exit
+       end if
+!      do i = 1, n - 1
+!         do j = i + 1, n
+       do j = 2, n
+          do i = 1, j - 1
+             if (abs(a(i, j)) < tol) then
+                exit
+             end if
+             theta = 0.5d0 * atan2(2.0d0 * a(i, j),  a(i, i) - a(j, j))
+             c = cos(theta)
+             s = sin(theta)
+
+             r = 0.0d0
+             do k = 1, n
+                r(k, k) = 1.0d0
+             end do
+
+             r(i, i) = c
+             r(j, j) = c
+             r(i, j) = -s
+             r(j, i) = s
+             rt = transpose(r)
+             a = matmul(matmul(rt, a), r)
+             v = matmul(v, r)
+          end do
+       end do
+    end do
+
+    if (converged) then
+       info = 0
+       do i = 1, n
+          e(i) = a(i, i)
+       end do
+       a = v
+       do i = 1, n - 1
+          k = i
+          do j = i + 1, n
+             if (abs(e(j)) < abs(e(k))) k = j
+          end do
+          if (k /= i) then
+             call swap(e(i), e(k))
+          end if
+          do j = 1, n
+             call swap(a(j, i), a(j, k))
+          end do
+       end do
+    else
+       info = -1
+    end if
+  end subroutine jacobi
+
   ! find a rotation that satisfies 
   subroutine find_rotation_quaternion(n, refPt, movedPt, masses, rotation)
     implicit none
-    external dsyev
+!    external dsyev
     integer :: n, info
     real, intent(in) :: refPt(3, n), movedPt(3, n), masses(n)
     real, intent(out) :: rotation(0:3)
@@ -143,10 +239,12 @@ contains
     matmax(2, 4) = + inner_prod(3, 1) + inner_prod(1, 3)
 
     !-- solve eigenvalue and eigenvector
-    call dsyev('V', 'U', 4, matmax, 4, eigenvalue, work, lwork, info)
+!    call dsyev('V', 'U', 4, matmax, 4, eigenvalue, work, lwork, info)
+    call jacobi(4, matmax, eigenvalue, info)
 
     if (info /= 0) then
-       print *, "error on LAPACK/DSYEV"
+!       print *, "error on LAPACK/DSYEV"
+       print *, "error on Jacobi routine"
        print *, "info =", info
        stop
     end if

@@ -353,7 +353,7 @@ contains
     end do
     !$acc update device(splslv, grdslv)
   end subroutine recpcal_prepare_solvent
-    
+
   subroutine recpcal_prepare_solute(tagslt)
     use engmain, only: ms1max, ms2max, ms3max, sitepos, invcl, numsite, splodr, charge, mol_begin_index
     use fft_iface, only: fft_ctr, fft_rtc
@@ -362,11 +362,15 @@ contains
     integer :: i, j, k
     integer :: rc1, rc2, rc3, sid, ati, cg1, cg2, cg3, stmax
     real :: factor, chr
-    real, allocatable :: splval(:,:,:)
-    integer, allocatable :: grdval(:,:)
+    real, allocatable, save :: splval(:,:,:)
+    integer, allocatable, save :: grdval(:,:)
+    logical, save :: initialized = .false.
 
     stmax = numsite(tagslt)
-    allocate( splval(0:splodr-1, 3, stmax), grdval(3, stmax) )
+    if(.not. initialized) then
+       allocate( splval(0:splodr-1, 3, stmax), grdval(3, stmax) )
+       initialized = .true.
+    end if
     call calc_spline_molecule(tagslt, stmax, splval(:,:,1:stmax), grdval(:,1:stmax))
     cnvslt(:,:,:) = 0.0
     !$acc update device(cnvslt)
@@ -417,7 +421,6 @@ contains
 
     call fft_ctr(handle_c2r, rcpslt, cnvslt)                    ! 3D-FFT
 
-    deallocate( splval,grdval )
   end subroutine recpcal_prepare_solute
 
   subroutine calc_spline_molecule(imol, stmax, store_spline, store_grid)

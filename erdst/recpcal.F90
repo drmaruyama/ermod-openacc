@@ -85,7 +85,7 @@ contains
     allocate( rcpslt(rc1min:ccemax, rc2min:rc2max, rc3min:rc3max) )
     !$acc enter data create(engfac, rcpslt)
     ! init fft
-    if((kind(dummy) /= 4) .and. (kind(dummy) /= 8)) then
+    if ((kind(dummy) /= 4) .and. (kind(dummy) /= 8)) then
        stop "The FFT libraries are used only at real or double precision"
     endif
     call fft_init_rtc(handle_r2c, cnvslt, rcpslt)
@@ -126,18 +126,18 @@ contains
        do rc2 = rc2min, rc2max
           do rc1 = rc1min, ccemax
              factor = 0.0
-             if(rc1 == 0 .and. rc2 == 0 .and. rc3 == 0) cycle
+             if (rc1 == 0 .and. rc2 == 0 .and. rc3 == 0) cycle
              do m = 1, 3
-                if(m == 1) rci = rc1
-                if(m == 2) rci = rc2
-                if(m == 3) rci = rc3
+                if (m == 1) rci = rc1
+                if (m == 2) rci = rc2
+                if (m == 3) rci = rc3
 
-                if(m == 1) rcimax = ms1max
-                if(m == 2) rcimax = ms2max
-                if(m == 3) rcimax = ms3max
+                if (m == 1) rcimax = ms1max
+                if (m == 2) rcimax = ms2max
+                if (m == 3) rcimax = ms3max
 
-                if((mod(splodr, 2) == 1) .and. (2*abs(rci) == rcimax)) goto 3219
-                if(rci <= rcimax / 2) then
+                if ((mod(splodr, 2) == 1) .and. (2*abs(rci) == rcimax)) goto 3219
+                if (rci <= rcimax / 2) then
                    inm(m) = real(rci)
                 else
                    inm(m) = real(rci - rcimax)
@@ -398,7 +398,7 @@ contains
     ! 0.5 * sum(engfac(:, :, :) * real(rcpslt_c(:, :, :)) * conjg(rcpslt_c(:, :, :)))
     ! where rcpslt_c(rc1, rc2, rc3) = conjg(rcpslt_buf(ms1max - rc1, ms2max - rc2, ms3max - rc3))
     ! Here we use symmetry of engfac to calculate efficiently
-    if(mod(ms1max, 2) == 0) then
+    if (mod(ms1max, 2) == 0) then
        solute_self_energy = &
             sum(engfac(1:(ccemax-1), :, :) * real(rcpslt(1:(ccemax-1), :, :) * conjg(rcpslt(1:(ccemax-1), :, :)))) + &
             0.5 * sum(engfac(0,      :, :) * real(rcpslt(0,      :, :) * conjg(rcpslt(0,      :, :)))) + &
@@ -442,9 +442,9 @@ contains
           inm(k) = factor
        end do
        do m = 1, 3
-          if(m == 1) rcimax = ms1max
-          if(m == 2) rcimax = ms2max
-          if(m == 3) rcimax = ms3max
+          if (m == 1) rcimax = ms1max
+          if (m == 2) rcimax = ms2max
+          if (m == 3) rcimax = ms3max
           factor = inm(m) * real(rcimax)
           rci = int(factor)
           do spi = 0, splodr - 1
@@ -477,16 +477,16 @@ contains
     integer :: grid1
     complex :: rcpt
 
-    if(sluvid(tagslt) == 0) stop  ! call halt_with_error('rcp_fst')
+    if (sluvid(tagslt) == 0) stop  ! call halt_with_error('rcp_fst')
 
     !$acc parallel loop present(uvengy, mol_begin_index, tagpt, charge, numsite, sluvid, slvtag, splslv, grdslv, cnvslt)
     do k = 1, slvmax
        i = tagpt(k)
-       if(i == tagslt) cycle
+       if (i == tagslt) cycle
 
        pairep = 0.0
        svi = slvtag(i)
-       if(svi <= 0) stop  ! call halt_with_error('rcp_cns')
+       if (svi <= 0) stop  ! call halt_with_error('rcp_cns')
        stmax = numsite(i)
        do sid = 1, stmax
           ptrnk = svi + sid - 1
@@ -500,7 +500,7 @@ contains
                 fac2 = fac1 * splslv(cg2, 2, ptrnk)
                 rc2 = modulo(grdslv(2, ptrnk) - cg2, ms2max)
                 grid1 = grdslv(1, ptrnk)
-                if(grid1 >= splodr-1 .and. grid1 < ms1max) then
+                if (grid1 >= splodr-1 .and. grid1 < ms1max) then
                    !$acc loop seq
                    do cg1 = 0, splodr - 1
                       fac3 = fac2 * splslv(cg1, 1, ptrnk)

@@ -103,15 +103,15 @@ contains
     select case(particle_type)
     case('system')                  ! reading the HISTORY file
        call read_trajectory(history_trajectory, OUTatm, (OUTbox == 1), OUTpos, OUTcell, status)
-       if(status /= 0) call halt_with_error("set_trj")
+       if (status /= 0) call halt_with_error("set_trj")
     case('solute')                  ! reading the SltConf file
        call read_trajectory(solute_trajectory, OUTatm, .false., OUTpos, OUTcell, status)
-       if(status /= 0) then
+       if (status /= 0) then
           ! wrap around
           call close_trajectory(solute_trajectory)
           call open_trajectory(solute_trajectory, "SltConf")
           call read_trajectory(solute_trajectory, OUTatm, .false., OUTpos, OUTcell, status)
-          if(status /= 0) then
+          if (status /= 0) then
              stop "Failed to reload solute trajectory"
           endif
        endif
@@ -222,7 +222,7 @@ contains
        corrcal = NO              ! no calculation of correlation matrix
     case(SLT_REFS_RIGID, SLT_REFS_FLEX)
        corrcal = YES             ! calculation of correlation matrix
-       if((cltype == EL_EWALD) .or. (cltype == EL_PME) &
+       if ((cltype == EL_EWALD) .or. (cltype == EL_PME) &
             .or. (cltype == EL_PPPM)) then  ! Ewald, PME and PPPM
           wgtslf = YES
        endif
@@ -256,14 +256,14 @@ contains
     lwstr = -1.0
     upstr = lwstr - 1.0
 
-    if(intprm /= 0) then
+    if (intprm /= 0) then
       cmbrule = LJCMB_ARITH        ! arithmetic mean of LJ sigma
       ew2max = ew1max ; ew3max = ew1max
       ms2max = ms1max ; ms3max = ms1max
     endif
 
-    if(sltpick > 0) sltspec = sltpick                      ! deprecated
-    if(refpick > 0) refspec(1) = refpick                   ! deprecated
+    if (sltpick > 0) sltspec = sltpick                     ! deprecated
+    if (refpick > 0) refspec(1) = refpick                  ! deprecated
 
     select case(inscnd)                                    ! deprecated
     case(0)    ! random
@@ -295,7 +295,7 @@ contains
     call init_params()
 
     ! initialize random seed
-    if(iseed == 0) then
+    if (iseed == 0) then
        CALL RANDOM_SEED
        CALL RANDOM_NUMBER(real_seed)
        iseed = 100000 + int(899999 * real_seed)
@@ -305,10 +305,10 @@ contains
     temp = inptemp * 8.314510e-3 / 4.184
 
     ! get the screening parameter in Ewald and PME
-    if((cltype == EL_EWALD) .or. (cltype == EL_PME) &
+    if ((cltype == EL_EWALD) .or. (cltype == EL_PME) &
          .or. (cltype == EL_PPPM)) then  ! Ewald, PME and PPPM
-       if(screen <= tiny) then
-          if(ewtoler <= tiny) call halt_with_error('set_ewa')
+       if (screen <= tiny) then
+          if (ewtoler <= tiny) call halt_with_error('set_ewa')
           screen = getscrn(ewtoler, elecut, scrtype)
        endif
     endif
@@ -318,11 +318,11 @@ contains
     case(EL_COULOMB)
     case(EL_EWALD)   ! Ewald parameters, not effective in the current version
        call halt_with_error('set_prs')
-       if(ew1max * ew2max * ew3max == 0) call halt_with_error('set_ewa')
+       if (ew1max * ew2max * ew3max == 0) call halt_with_error('set_ewa')
     case(EL_PME)     ! PME parameters
-       if(ms1max * ms2max * ms3max == 0) call halt_with_error('set_ewa')
+       if (ms1max * ms2max * ms3max == 0) call halt_with_error('set_ewa')
     case(EL_PPPM)    ! PPPM parameters
-       if(ms1max * ms2max * ms3max == 0) call halt_with_error('set_ewa')
+       if (ms1max * ms2max * ms3max == 0) call halt_with_error('set_ewa')
     case default
        stop "Unknown cltype"
     end select
@@ -347,26 +347,26 @@ contains
     case(SLT_SOLN)
        maxins = 1                  ! not used in calculation of solution
     case(SLT_REFS_RIGID)
-       if(maxins <  1) call halt_with_error('set_ins')
+       if (maxins <  1) call halt_with_error('set_ins')
        ! maxins > 1 makes no sense if coordinate is used as is for rigid solute
-       if((insposition == INSPOS_NOCHANGE) .and. &
+       if ((insposition == INSPOS_NOCHANGE) .and. &
           (insorient == INSROT_NOCHANGE) .and.   &
           (maxins /= 1)) call halt_with_error('set_ins')
     case(SLT_REFS_FLEX)
-       if(maxins <  1) call halt_with_error('set_ins')
+       if (maxins <  1) call halt_with_error('set_ins')
     case default
        stop "Unknown slttype"
     end select
 
     ! check the consistency in parameters for non-periodic system
-    if(boxshp == SYS_NONPERIODIC) then
-       if((estype == ES_NPT) .or. &
+    if (boxshp == SYS_NONPERIODIC) then
+       if ((estype == ES_NPT) .or. &
           (cltype /= EL_COULOMB)) call halt_with_error('set_prs')
     endif
 
     ! check the consistency of insertion with structure-dependent weight
-    if(wgtins == YES) then
-       if(slttype /= SLT_REFS_FLEX) call halt_with_error('set_ins')
+    if (wgtins == YES) then
+       if (slttype /= SLT_REFS_FLEX) call halt_with_error('set_ins')
     endif
 
     ! set insorigin parameter and check insposition parameter
@@ -378,19 +378,19 @@ contains
     case(INSPOS_SPHERE)                               ! sphere geometry
        insorigin = INSORG_AGGCEN
        ! check lwreg and upreg parameters
-       if((lwreg < 0.0) .or. (upreg < 0.0) .or. &
+       if ((lwreg < 0.0) .or. (upreg < 0.0) .or. &
           (lwreg > upreg)) call halt_with_error('set_reg')
     case(INSPOS_SLAB_GENERIC, INSPOS_SLAB_SYMMETRIC)  ! slab configuration
        insorigin = INSORG_AGGCEN
        ! check lwreg and upreg parameters
-       if(lwreg > upreg) call halt_with_error('set_reg')
-       if(insposition == INSPOS_SLAB_SYMMETRIC) then  ! symmetric bilayer
-          if((lwreg < 0.0) .or. (upreg < 0.0)) call halt_with_error('set_reg')
+       if (lwreg > upreg) call halt_with_error('set_reg')
+       if (insposition == INSPOS_SLAB_SYMMETRIC) then ! symmetric bilayer
+          if ((lwreg < 0.0) .or. (upreg < 0.0)) call halt_with_error('set_reg')
        endif
     case(INSPOS_RMSD, INSPOS_GAUSS)                   ! comparison to reference
        insorigin = INSORG_REFSTR
        ! check lwreg and upreg parameters
-       if((lwreg < 0.0) .or. (upreg < 0.0) .or. &
+       if ((lwreg < 0.0) .or. (upreg < 0.0) .or. &
           (lwreg > upreg)) call halt_with_error('set_reg')
     case default
        stop "Unknown insposition"
@@ -399,15 +399,15 @@ contains
     ! check insorigin parameter
     select case(insorigin)
     case(INSORG_ORIGIN)
-       if(insposition /= INSPOS_RANDOM) call halt_with_error('set_bug')
+       if (insposition /= INSPOS_RANDOM) call halt_with_error('set_bug')
     case(INSORG_NOCHANGE)
-       if(insposition /= INSPOS_NOCHANGE) call halt_with_error('set_bug')
+       if (insposition /= INSPOS_NOCHANGE) call halt_with_error('set_bug')
     case(INSORG_AGGCEN)
-       if((insposition /= INSPOS_SPHERE) .and. &
+       if ((insposition /= INSPOS_SPHERE) .and. &
           (insposition /= INSPOS_SLAB_GENERIC) .and. &
           (insposition /= INSPOS_SLAB_SYMMETRIC)) call halt_with_error('set_bug')
     case(INSORG_REFSTR)
-       if((insposition /= INSPOS_RMSD) .and. &
+       if ((insposition /= INSPOS_RMSD) .and. &
           (insposition /= INSPOS_GAUSS)) call halt_with_error('set_bug')
     case default
        stop "Unknown insorigin"
@@ -427,10 +427,10 @@ contains
        ! do nothing
     case(INSSTR_RMSD)        ! solute structure rejection with RMSD
        ! check lwstr and upstr parameters
-       if((lwstr < 0.0) .or. (upstr < 0.0) .or. &
+       if ((lwstr < 0.0) .or. (upstr < 0.0) .or. &
           (lwstr > upstr)) call halt_with_error('set_str')
        ! check the solute type
-       if(slttype == SLT_REFS_RIGID) call halt_with_error('set_slt')
+       if (slttype == SLT_REFS_RIGID) call halt_with_error('set_slt')
     case default
        stop "Unknown insstructure"
     end select
@@ -462,13 +462,13 @@ contains
     !             or between 1 and (numtype for soln, numtype - 1 for refs)
     ! with the insposition specified here, at least one of hostspec is non-zero
     ! Number of non-zero entries of hostspec <= number of species in the system
-    if((insposition == INSPOS_SPHERE) .or. &
+    if ((insposition == INSPOS_SPHERE) .or. &
        (insposition == INSPOS_SLAB_GENERIC) .or. &
        (insposition == INSPOS_SLAB_SYMMETRIC)) then
-       if(count( mask = (hostspec(:) < 0) ) > 0) call halt_with_error('set_ins')
-       if(count( mask = (hostspec(:) >= 1) ) == 0) call halt_with_error('set_ins')
-       if(any(hostspec(:) > phys_numtype)) call halt_with_error('set_ins')
-       if(count( mask = (hostspec(:) >= 1) ) > phys_numtype) call halt_with_error('set_ins')
+       if (count( mask = (hostspec(:) < 0) ) > 0) call halt_with_error('set_ins')
+       if (count( mask = (hostspec(:) >= 1) ) == 0) call halt_with_error('set_ins')
+       if (any(hostspec(:) > phys_numtype)) call halt_with_error('set_ins')
+       if (count( mask = (hostspec(:) >= 1) ) > phys_numtype) call halt_with_error('set_ins')
     else
        hostspec(:) = 0
     endif
@@ -478,11 +478,11 @@ contains
     !            or between 1 and (numtype for soln, numtype - 1 for refs)
     ! with the insposition specified here, at least one of refspec is non-zero
     ! Number of non-zero entries of refspec <= number of species in the system
-    if((insposition == INSPOS_RMSD) .or. (insposition == INSPOS_GAUSS)) then
-       if(count( mask = (refspec(:) < 0) ) > 0) call halt_with_error('set_ins')
-       if(count( mask = (refspec(:) >= 1) ) == 0) call halt_with_error('set_ins')
-       if(any(refspec(:) > phys_numtype)) call halt_with_error('set_ins')
-       if(count( mask = (refspec(:) >= 1) ) > phys_numtype) call halt_with_error('set_ins')
+    if ((insposition == INSPOS_RMSD) .or. (insposition == INSPOS_GAUSS)) then
+       if (count( mask = (refspec(:) < 0) ) > 0) call halt_with_error('set_ins')
+       if (count( mask = (refspec(:) >= 1) ) == 0) call halt_with_error('set_ins')
+       if (any(refspec(:) > phys_numtype)) call halt_with_error('set_ins')
+       if (count( mask = (refspec(:) >= 1) ) > phys_numtype) call halt_with_error('set_ins')
     else
        refspec(:) = 0
     endif
@@ -501,8 +501,8 @@ contains
     do while(factor > error)
        scrfac = (ewasml + ewalrg) / 2.0
        factor = erfc(scrfac * elecut)
-       if(scrtype == 'distance') factor = factor / elecut
-       if(factor > ewtoler) then
+       if (scrtype == 'distance') factor = factor / elecut
+       if (factor > ewtoler) then
           ewasml = scrfac
        else
           ewalrg = scrfac
@@ -579,10 +579,10 @@ contains
     ptcnt(1:OUTntype) = OUTnmol(1:OUTntype)
     ptsite(1:OUTntype) = OUTsite(1:OUTntype)
 
-    if(slttype == SLT_SOLN) then
+    if (slttype == SLT_SOLN) then
        ! Determine which molecule is solute?
        solute_index = 1            ! default for soln
-       if((1 <= sltspec) .and. (sltspec <= numtype)) solute_index = sltspec
+       if ((1 <= sltspec) .and. (sltspec <= numtype)) solute_index = sltspec
        pttype(solute_index) = PT_SOLUTE
     else
        ! Test particle information will be defined outside
@@ -618,7 +618,7 @@ contains
        cmin = cmax + 1
     end do
     !$acc update device(moltype)
-    if(cmax /= nummol) call halt_with_error("set_num")
+    if (cmax /= nummol) call halt_with_error("set_num")
 
     ! Assign the number of sites within molecule
     numsite(1:nummol) = ptsite( moltype(1:nummol) )
@@ -631,16 +631,16 @@ contains
     ! check if all the solute molecules have the same number of atoms
     stmax = -1
     do i = 1, nummol
-       if(moltype(i) == solute_index) then        ! solute
-          if(stmax == -1) then                 ! initialize
+       if (moltype(i) == solute_index) then        ! solute
+          if (stmax == -1) then                 ! initialize
              stmax = numsite(i)
           else
-             if(stmax /= numsite(i)) call halt_with_error("set_slt")
+             if (stmax /= numsite(i)) call halt_with_error("set_slt")
           endif
        endif
     end do
 
-    if(numatm /= sum( numsite(1:nummol) )) stop "something is wrong in setconf::setparam, numatm"
+    if (numatm /= sum( numsite(1:nummol) )) stop "something is wrong in setconf::setparam, numatm"
 
 
     allocate( bfcoord(3, stmax), sitemass(numatm) )
@@ -666,8 +666,8 @@ contains
        mol_begin_index(i + 1) = mol_begin_index(i) + numsite(i)
     end do
     !$acc update device(mol_begin_index)
-    if(mol_begin_index(nummol + 1) /= numatm + 1) call halt_with_error("set_bug")
-    if(mol_end_index(nummol) /= numatm) call halt_with_error("set_bug")
+    if (mol_begin_index(nummol + 1) /= numatm + 1) call halt_with_error("set_bug")
+    if (mol_end_index(nummol) /= numatm) call halt_with_error("set_bug")
 
     ! initialize belong_to(map from atom number to molecule no)
     do i = 1, nummol
@@ -690,11 +690,11 @@ contains
     ! read molecules specification
     do pti = 1, numtype
        uvtype = pttype(pti)
-       if(uvtype == PT_SOLVENT) then            ! solvent
+       if (uvtype == PT_SOLVENT) then            ! solvent
           cur_solvent = cur_solvent + 1
           molfile = solvent_file//trim(adjustl(itoa(cur_solvent)))
        else
-          if(ptcnt(pti) > 1) cur_solvent = cur_solvent + 1
+          if (ptcnt(pti) > 1) cur_solvent = cur_solvent + 1
           molfile = solute_file                 ! solute / test particle
        endif
        stmax = ptsite(pti)
@@ -704,10 +704,10 @@ contains
        open(unit = mol_io, file = molfile, status = 'old', action='read')
        do sid = 1, stmax
           read(mol_io, '(A)') linebuf ! read entire line into buf
-          if(uvtype == SLT_REFS_RIGID) then
+          if (uvtype == SLT_REFS_RIGID) then
              ! new format
              read(linebuf,*,iostat=ierr) m, mass, atmtype, atmname, xst(1:3), psite(1:3,sid)
-             if(ierr/=0) then
+             if (ierr/=0) then
                 ! old format
                 read(linebuf,*) m, atmtype, xst(1:3), psite(1:3,sid)
                 call getmass(mass, atmtype)
@@ -715,7 +715,7 @@ contains
           else
              ! new format
              read(linebuf,*, iostat=ierr) m, mass, atmtype, atmname, xst(1:3)
-             if(ierr/=0) then
+             if (ierr/=0) then
                 ! old format
                 read(linebuf,*) m, atmtype, xst(1:3)
                 call getmass(mass, atmtype)
@@ -724,9 +724,9 @@ contains
           sitemass_temp(sid) = mass
 
           charge_temp(sid) = xst(1)
-          if(ljformat == LJFMT_EPS_Rminh) xst(3) = sgmcnv * xst(3)
-          if((ljformat == LJFMT_A_C) .or. (ljformat == LJFMT_C12_C6)) then
-             if(xst(3) /= 0.0) then
+          if (ljformat == LJFMT_EPS_Rminh) xst(3) = sgmcnv * xst(3)
+          if ((ljformat == LJFMT_A_C) .or. (ljformat == LJFMT_C12_C6)) then
+             if (xst(3) /= 0.0) then
                 factor = (xst(2) / xst(3)) ** (1.0 / 6.0)
                 xst(2) = xst(3) / (4.0 * (factor ** 6))
                 xst(3) = factor
@@ -734,7 +734,7 @@ contains
                 xst(2) = 0.0
              endif
           endif
-          if((ljformat == LJFMT_EPS_J_SGM_A) .or. (ljformat == LJFMT_C12_C6)) then
+          if ((ljformat == LJFMT_EPS_J_SGM_A) .or. (ljformat == LJFMT_C12_C6)) then
              xst(2) = engcnv * xst(2)
              xst(3) = lencnv * xst(3)
           endif
@@ -743,7 +743,7 @@ contains
        end do
        close(mol_io)
 
-       if(ljformat == LJFMT_TABLE) then
+       if (ljformat == LJFMT_TABLE) then
           ! use numbers directly
           ! No sane system will have the problem with 
           ! string -> double -> int conversion ...
@@ -754,14 +754,14 @@ contains
              lj_is_new = .true.
              do i = 1, ljtype_max
                 ! linear search LJ table
-                if((ljlen_temp_table(i) == ljlen_temp(sid)) .and. &
+                if ((ljlen_temp_table(i) == ljlen_temp(sid)) .and. &
                    (ljene_temp_table(i) == ljene_temp(sid))) then
                    ljtype_found = i
                    lj_is_new = .false.
                    exit
                 endif
              end do
-             if(lj_is_new) then
+             if (lj_is_new) then
                 ! new LJ type
                 ljtype_max = ljtype_max + 1
                 ljlen_temp_table(ljtype_max) = ljlen_temp(sid)
@@ -779,14 +779,14 @@ contains
           cur_atom = cur_atom + stmax
        end do
 
-       if(uvtype == SLT_REFS_RIGID) bfcoord(1:3, 1:stmax) = psite(1:3, 1:stmax)
+       if (uvtype == SLT_REFS_RIGID) bfcoord(1:3, 1:stmax) = psite(1:3, 1:stmax)
     end do
 
     deallocate( psite, sitemass_temp, charge_temp, &
                 ljlen_temp, ljene_temp, ljtype_temp )
 
     ! Fill LJ table
-    if(ljformat == LJFMT_TABLE) then
+    if (ljformat == LJFMT_TABLE) then
        ! From table (directly)
        open(unit = ljtable_io, file = ljtable_file, status = 'old', action = 'read')
        read(ljtable_io, *) ljtype_max
@@ -867,15 +867,15 @@ contains
     ! sum over solvent & solute in trajectory file (HISTORY); no test particle
     OUTatm = sum( numsite, &
                   mask = ((sluvid == PT_SOLVENT) .or. (sluvid == PT_SOLUTE)) )
-    if(myrank == 0) allocate( readpos(3, OUTatm) )
+    if (myrank == 0) allocate( readpos(3, OUTatm) )
     allocate( OUTpos(3, OUTatm), OUTcell(3, 3) )
 
     ! first time setup: read index permutation
-    if(first_time) then
+    if (first_time) then
        first_time = .false.
        open(file = perm_file, unit = perm_io, status = 'old', action = 'read', iostat = stat)
-       if(stat == 0) then ! file exists and is successfully opened
-          if(myrank == 0) write(stdout, *) "Reading permutation information"
+       if (stat == 0) then ! file exists and is successfully opened
+          if (myrank == 0) write(stdout, *) "Reading permutation information"
           allocate( permutation(OUTatm) )
           do i = 1, OUTatm
              permutation(i) = i
@@ -903,9 +903,9 @@ contains
           do i = 1, OUTatm
              count_perm(permutation(i)) = count_perm(permutation(i)) + 1
           end do
-          if( any(count_perm /= 1) ) then
+          if ( any(count_perm /= 1) ) then
              do i = 1, OUTatm
-                if(count_perm(i) /= 1) then
+                if (count_perm(i) /= 1) then
                    print *, "Atom ", i, " has ", count_perm(i), " entries"
                 end if
              end do
@@ -915,10 +915,10 @@ contains
        endif
 #ifdef MPI
        call get_mympi_realkind(kind(OUTpos), system_mpikind)
-       if(kind(OUTcell) /= kind(OUTpos)) then
+       if (kind(OUTcell) /= kind(OUTpos)) then
           stop "inconsistent kind(real) values for OUTcell and OUTpos"
        endif
-       if(kind(weight) /= kind(OUTpos)) then
+       if (kind(weight) /= kind(OUTpos)) then
           stop "inconsistent kind(real) values for weight and OUTpos"
        endif
 #endif
@@ -928,8 +928,8 @@ contains
     weight = 0
     readweight = 0
 
-    if(myrank < nread) then
-       if(myrank == 0) then              ! rank-0 to read from file
+    if (myrank < nread) then
+       if (myrank == 0) then              ! rank-0 to read from file
           do iproc = 1, nread
              ! get configuration and store in OUTpos / OUTcell
              do i = 1, skpcnf
@@ -938,7 +938,7 @@ contains
                 call read_weight(readweight)
              end do
              
-             if(iproc /= 1) then         ! send the data to other rank
+             if (iproc /= 1) then         ! send the data to other rank
 #ifdef MPI
                 ! FIXME: rewrite with grouping and scatter?
                 call mpi_send(readpos, 3 * OUTatm, system_mpikind, &
@@ -966,7 +966,7 @@ contains
 #endif
        endif
 
-       if(allocated(permutation)) then
+       if (allocated(permutation)) then
           sitepos(:, permutation(1:OUTatm)) = OUTpos(:, 1:OUTatm)
        else
           sitepos(:, 1:OUTatm) = OUTpos(:, 1:OUTatm)
@@ -975,7 +975,7 @@ contains
        stat_weight_system = weight
     endif
 
-    if(myrank == 0) deallocate( readpos )
+    if (myrank == 0) deallocate( readpos )
     deallocate( OUTpos, OUTcell )
     actual_read = nread
 
@@ -989,18 +989,18 @@ contains
     integer :: dummy, ioerr    
     logical, save :: file_opened = .false.
 
-    if(wgtsys /= YES) then
+    if (wgtsys /= YES) then
        weight = 1.0
        return
     endif
 
-    if(.not. file_opened) then
+    if (.not. file_opened) then
        open(unit = syswgt_io, file = syswgt_file, action = 'read')
        file_opened = .true.
     endif
     
     read(syswgt_io, *, iostat = ioerr) dummy, weight
-    if(ioerr /= 0) then 
+    if (ioerr /= 0) then 
        write(stdout, *) " The weight file (", syswgt_file, ") is ill formed or its length does not match with that of HISTORY"
        call mpi_setup('stop')
        stop
@@ -1041,33 +1041,33 @@ contains
     character(len=3) :: eltp3
 
     eltp1 = atmtype(1:1)
-    if(eltp1 == 'M') stmass = massM
-    if(eltp1 == 'H') stmass = massH
-    if(eltp1 == 'D') stmass = massD
-    if(eltp1 == 'C') stmass = massC
-    if(eltp1 == 'O') stmass = massO
-    if(eltp1 == 'N') stmass = massN
-    if(eltp1 == 'S') stmass = massS
-    if(eltp1 == 'P') stmass = massP
-    if(eltp1 == 'B') stmass = massB
-    if(eltp1 == 'K') stmass = massK
-    if(eltp1 == 'F') stmass = massF
-    if(eltp1 == 'I') stmass = massI
+    if (eltp1 == 'M') stmass = massM
+    if (eltp1 == 'H') stmass = massH
+    if (eltp1 == 'D') stmass = massD
+    if (eltp1 == 'C') stmass = massC
+    if (eltp1 == 'O') stmass = massO
+    if (eltp1 == 'N') stmass = massN
+    if (eltp1 == 'S') stmass = massS
+    if (eltp1 == 'P') stmass = massP
+    if (eltp1 == 'B') stmass = massB
+    if (eltp1 == 'K') stmass = massK
+    if (eltp1 == 'F') stmass = massF
+    if (eltp1 == 'I') stmass = massI
     eltp2 = atmtype(1:2)
-    if(eltp2 == 'He') stmass = massHe
-    if(eltp2 == 'Si') stmass = massSi
-    if(eltp2 == 'Li') stmass = massLi
-    if(eltp2 == 'Na') stmass = massNa
-    if(eltp2 == 'Cl') stmass = massCl
-    if(eltp2 == 'Br') stmass = massBr
-    if(eltp2 == 'Ca') stmass = massCa
-    if(eltp2 == 'Zn') stmass = massZn
-    if(eltp2 == 'Fe') stmass = massFe
-    if(eltp2 == 'Cu') stmass = massCu
-    if(eltp2 == 'CH') stmass = massC + massH
+    if (eltp2 == 'He') stmass = massHe
+    if (eltp2 == 'Si') stmass = massSi
+    if (eltp2 == 'Li') stmass = massLi
+    if (eltp2 == 'Na') stmass = massNa
+    if (eltp2 == 'Cl') stmass = massCl
+    if (eltp2 == 'Br') stmass = massBr
+    if (eltp2 == 'Ca') stmass = massCa
+    if (eltp2 == 'Zn') stmass = massZn
+    if (eltp2 == 'Fe') stmass = massFe
+    if (eltp2 == 'Cu') stmass = massCu
+    if (eltp2 == 'CH') stmass = massC + massH
     eltp3 = atmtype(1:3)
-    if(eltp3 == 'CH2') stmass = massC + 2.0 * massH
-    if(eltp3 == 'CH3') stmass = massC + 3.0 * massH
+    if (eltp3 == 'CH2') stmass = massC + 2.0 * massH
+    if (eltp3 == 'CH3') stmass = massC + 3.0 * massH
     return
   end subroutine getmass
 end module

@@ -89,7 +89,7 @@ contains
     integer, intent(in) :: cntrun
     logical, save :: first_time = .true.
     integer :: pti
-    if(first_time) then
+    if (first_time) then
        call set_keyparam
        write(6, '(A, f7.1, A)') '  Be sure that ' // &
             'the solvent distribution is homogeneous ' // &
@@ -109,7 +109,7 @@ contains
        first_time = .false.
     endif
     aveuv(1:numslv) = aveuv(1:numslv) + ljcorr(1:numslv)
-    if((uvread /= 'not') .and. (clcond == 'merge')) then
+    if ((uvread /= 'not') .and. (clcond == 'merge')) then
        blockuv(1:numslv, cntrun) = blockuv(1:numslv, cntrun) + ljcorr(1:numslv)
        blockuv(0, cntrun) = blockuv(0, cntrun) + sum( ljcorr(1:numslv) )
     endif
@@ -149,18 +149,18 @@ contains
 
     keyfile = trim(refsdirec)//'/'//ene_confname
     open(unit = iounit, file = keyfile, action = 'read', status = 'old', iostat = stat)
-    if(stat == 0) then
+    if (stat == 0) then
        read(iounit, nml = ene_param)
     else
        stop "The parameters_er file is not found in the refs directory"
     endif
     close(iounit)
 
-    if(avevolume <= 0.0) then   ! no input of avevolume from parameters_fe
+    if (avevolume <= 0.0) then   ! no input of avevolume from parameters_fe
        write(6, '(A)') "  What is the average volume of reference solvent? (in Angstrom^3)"
        read(5, *) avevolume
     endif
-    if(avevolume < volm_min) then
+    if (avevolume < volm_min) then
        write(6, '(A)') "  Warning: your input volume seems too small"
        write(6, '(A, f8.1)') "           This warning appears when your input is less than ",volm_min
        write(6, '(A)') "  Re-type the volume in Angstrom^3 (NOT in nm^3)"
@@ -189,7 +189,7 @@ contains
 
     allocate( ptsite(0:numslv) )
     do pti = 0, numslv
-       if(pti == 0) then
+       if (pti == 0) then
           molfile = solute_file                          ! solute
        else
           molfile = solvent_file // numbers(pti:pti)     ! solvent
@@ -216,7 +216,7 @@ contains
     ljtype(:, :) = 0
 
     do pti = 0, numslv
-       if(pti == 0) then
+       if (pti == 0) then
           molfile = solute_file                          ! solute
        else
           molfile = solvent_file // numbers(pti:pti)     ! solvent
@@ -226,9 +226,9 @@ contains
        open(unit = mol_io, file = molfile, status = 'old')
        do sid = 1, stmax
           read(mol_io, *) m, atmtype, xst(1:3)
-          if(ljformat == LJFMT_EPS_Rminh) xst(3) = sgmcnv * xst(3)
-          if((ljformat == LJFMT_A_C) .or. (ljformat == LJFMT_C12_C6)) then
-             if(xst(3) /= 0.0) then
+          if (ljformat == LJFMT_EPS_Rminh) xst(3) = sgmcnv * xst(3)
+          if ((ljformat == LJFMT_A_C) .or. (ljformat == LJFMT_C12_C6)) then
+             if (xst(3) /= 0.0) then
                 factor = (xst(2) / xst(3)) ** (1.0 / 6.0)
                 xst(2) = xst(3) / (4.0 * (factor ** 6))
                 xst(3) = factor
@@ -236,7 +236,7 @@ contains
                 xst(2) = 0.0
              endif
           endif
-          if((ljformat == LJFMT_EPS_J_SGM_A) .or. (ljformat == LJFMT_C12_C6)) then
+          if ((ljformat == LJFMT_EPS_J_SGM_A) .or. (ljformat == LJFMT_C12_C6)) then
              xst(2) = engcnv * xst(2)
              xst(3) = lencnv * xst(3)
           endif
@@ -245,21 +245,21 @@ contains
        end do
        close(mol_io)
 
-       if(ljformat == LJFMT_TABLE) then
+       if (ljformat == LJFMT_TABLE) then
           ljtype_temp(1:stmax) = ljene_temp(1:stmax)
        else
           do sid = 1, stmax
              lj_is_new = .true.
              do i = 1, ljtype_max
                 ! linear search LJ table
-                if((ljlen_temp_table(i) == ljlen_temp(sid)) .and. &
+                if ((ljlen_temp_table(i) == ljlen_temp(sid)) .and. &
                      (ljene_temp_table(i) == ljene_temp(sid))) then
                    ljtype_found = i
                    lj_is_new = .false.
                    exit
                 endif
              end do
-             if(lj_is_new) then
+             if (lj_is_new) then
                 ! new LJ type
                 ljtype_max = ljtype_max + 1
                 ljlen_temp_table(ljtype_max) = ljlen_temp(sid)
@@ -275,7 +275,7 @@ contains
     deallocate( ljlen_temp, ljene_temp, ljtype_temp )
 
     ! Fill LJ table
-    if(ljformat == LJFMT_TABLE) then
+    if (ljformat == LJFMT_TABLE) then
        ! From table (directly)
        open(unit = ljtable_io, file = trim(refsdirec) // '/' // ljtable_file, status = 'old', action = 'read')
        read(ljtable_io, *) ljtype_max
@@ -348,24 +348,24 @@ contains
     logical, save :: do_swth, first_time = .true.
     integer :: i
 
-    if(first_time) then
-       if(lwljcut > upljcut) then
+    if (first_time) then
+       if (lwljcut > upljcut) then
           stop "Incorrect setting of lwljcut and upljcut (lwljcut > upljcut)"
        else
           numbin = nint((upljcut - lwljcut) / rbin)
-          if(numbin >= 1) then
+          if (numbin >= 1) then
              do_swth = .true.
              rbin = (upljcut - lwljcut) / real(numbin)
 
              lwljcut2 = lwljcut ** 2
              upljcut2 = upljcut ** 2
-             if(ljswitch == LJSWT_FRC_CHM) then    ! force switch (CHARMM type)
+             if (ljswitch == LJSWT_FRC_CHM) then  ! force switch (CHARMM type)
                 lwljcut3 = lwljcut ** 3
                 upljcut3 = upljcut ** 3
                 lwljcut6 = lwljcut3 * lwljcut3
                 upljcut6 = upljcut3 * upljcut3
              endif
-             if(ljswitch == LJSWT_FRC_GMX) then    ! force switch (GROMACS type)
+             if (ljswitch == LJSWT_FRC_GMX) then  ! force switch (GROMACS type)
                 call calc_gmx_switching_force_params(12, lwljcut, upljcut, repA, repB, repC)
                 call calc_gmx_switching_force_params(6,  lwljcut, upljcut, attA, attB, attC)
              endif
@@ -401,7 +401,7 @@ contains
     end select
 
     ! lwljcut < r < upljcut
-    if(do_swth) then
+    if (do_swth) then
        do i = 1, numbin
           r = lwljcut + (real(i) - 0.5) * rbin
           dist = r * r

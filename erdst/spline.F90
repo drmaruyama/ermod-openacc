@@ -38,7 +38,7 @@ contains
           factor = factor * real(k)
        end do
        factor = order / factor
-       if(mod(i,2) == 1) factor = -factor
+       if (mod(i,2) == 1) factor = -factor
        coeff(i) = factor
     end do
   end subroutine spline_init
@@ -49,7 +49,7 @@ contains
     integer :: i, k
     real :: f
     f = 0.0
-    if((rst > 0.0) .and. (rst < order)) then
+    if ((rst > 0.0) .and. (rst < order)) then
        k = int(rst)
        do i = 0, k
           f = f + coeff(i) * ((rst-i)**(order-1))

@@ -46,24 +46,24 @@ contains
     integer, save :: insml
     logical :: reject
     
-    if((.not. present(cntdst)) .and. (.not. present(stat_weight_solute))) then
+    if ((.not. present(cntdst)) .and. (.not. present(stat_weight_solute))) then
        select case(caltype)
        case('init')
           ! sanity check of solute specification
           reject = .false.
-          if(numslt /= 1) reject = .true.
-          if((numslt == 1) .and. (sltlist(1) /= nummol)) reject = .true.
-          if(reject) call halt_with_error('ins_set')
+          if (numslt /= 1) reject = .true.
+          if ((numslt == 1) .and. (sltlist(1) /= nummol)) reject = .true.
+          if (reject) call halt_with_error('ins_set')
           ! inserted solute is set to the last molecule in the system
           insml = sltlist(1)
           ! initialize the random number used for solute insertion
           call urand_init(iseed)
           ! opening the file for coordinate of flexible solute
-          if(slttype == SLT_REFS_FLEX) call getsolute(caltype, insml)
+          if (slttype == SLT_REFS_FLEX) call getsolute(caltype, insml)
           return
        case('last')
           ! closing the file for coordinate of flexible solute
-          if(slttype == SLT_REFS_FLEX) call getsolute(caltype, insml)
+          if (slttype == SLT_REFS_FLEX) call getsolute(caltype, insml)
           return
        case('proc')
           call halt_with_error('ins_bug')
@@ -72,11 +72,11 @@ contains
        end select
     endif
 
-    if((.not. present(cntdst)) .or. (.not. present(stat_weight_solute))) then
+    if ((.not. present(cntdst)) .or. (.not. present(stat_weight_solute))) then
        call halt_with_error('ins_bug')
     endif
 
-    if(slttype == SLT_REFS_FLEX) then
+    if (slttype == SLT_REFS_FLEX) then
        ! get the configuration and structure-specific weight of flexible solute
        call getsolute(caltype, insml, cntdst, stat_weight_solute)
     else
@@ -150,7 +150,7 @@ contains
     select case(insposition)
     case(INSPOS_RANDOM)
        ! fully random position within periodic box
-       if(boxshp == SYS_NONPERIODIC) then    ! system has to be periodic
+       if (boxshp == SYS_NONPERIODIC) then    ! system has to be periodic
           call halt_with_error('ins_geo')
        endif
        do i = 1, 3
@@ -173,7 +173,7 @@ contains
           end do
           r(:) = r(:) * 2.0 - 1.0
           norm = sum(r ** 2)
-          if((0 < norm) .and. (norm <= 1)) exit
+          if ((0 < norm) .and. (norm <= 1)) exit
        end do
        norm = sqrt(norm)
        com(:) = t * r(:) / norm
@@ -181,7 +181,7 @@ contains
        return
     case(INSPOS_SLAB_GENERIC, INSPOS_SLAB_SYMMETRIC)
        ! slab random position
-       if(boxshp == SYS_NONPERIODIC) then    ! system has to be periodic
+       if (boxshp == SYS_NONPERIODIC) then    ! system has to be periodic
           call halt_with_error('ins_geo')
        endif
        call urand(r(1))
@@ -190,9 +190,9 @@ contains
        call urand(t)
        t = t * (upreg - lwreg) + lwreg
 
-       if(insposition == INSPOS_SLAB_SYMMETRIC) then  ! symmetric bilayer
+       if (insposition == INSPOS_SLAB_SYMMETRIC) then  ! symmetric bilayer
           call urand(dir)
-          if(dir > 0.5) t = -t
+          if (dir > 0.5) t = -t
        endif
 
        r(3) = t / celllen(3)
@@ -209,7 +209,7 @@ contains
        do i = insb, inse
           r(1:3) = sitepos(1:3, i) - com(1:3)
           dst = sum( r(1:3) ** 2 )
-          if(dst > maxdis) maxdis = dst
+          if (dst > maxdis) maxdis = dst
        end do
        maxdis = sqrt(maxdis)    ! maximum distance in solute from COM to atom
        ! margin_factor assures that the random translation within movmax
@@ -263,16 +263,16 @@ contains
       logical, save :: use_uniform = .false.
       logical, save :: first_time = .true.
 
-      if(first_time) then
+      if (first_time) then
          l_of_sigma(:) = (celllen(:) / 2) / upreg
-         if(myrank == 0) print *, "Lx/2 / sigma = ", l_of_sigma(:)
+         if (myrank == 0) print *, "Lx/2 / sigma = ", l_of_sigma(:)
          z0 = 8 * l_of_sigma(1) * l_of_sigma(2) * l_of_sigma(3)
          z1 = (sqrt(PI) ** 3) * erf(l_of_sigma(1)) * erf(l_of_sigma(2)) * erf(l_of_sigma(3))
          first_time = .false.
       endif
 
       use_uniform = .not. use_uniform
-      if(use_uniform) then
+      if (use_uniform) then
          ! use random position
          do i = 1, 3
             call urand(r)
@@ -286,7 +286,7 @@ contains
          do i = 1, 3
             do 
                r = nrand() / sqrt(2.0)
-               if(abs(r) < l_of_sigma(i)) exit
+               if (abs(r) < l_of_sigma(i)) exit
             end do
             scaled_coord(i) = r
          end do
@@ -347,7 +347,7 @@ contains
              call urand(randq(i))
           end do
           randq(:) = randq(:) * 2.0 - 1.0
-          if(sum(randq ** 2) < 1) exit
+          if (sum(randq ** 2) < 1) exit
        end do
 
        randq(:) = randq(:) / sqrt(sum(randq ** 2)) ! set on unit hyper-sphere surface
@@ -373,7 +373,7 @@ contains
     implicit none
     integer, intent(in) :: insml
     logical, intent(inout) :: out_of_range
-    if(out_of_range) return
+    if (out_of_range) return
     return
   end subroutine insscheme
 
@@ -405,17 +405,17 @@ contains
     real :: dumcl(3, 3), weight, rmsd
     logical :: reject
  
-    if(slttype /= SLT_REFS_FLEX) call halt_with_error('ins_bug')
+    if (slttype /= SLT_REFS_FLEX) call halt_with_error('ins_bug')
  
-    if((.not. present(cntdst)) .and. (.not. present(stat_weight))) then
+    if ((.not. present(cntdst)) .and. (.not. present(stat_weight))) then
        select case(caltype)
        case('init')
-          if(wgtins == YES) then
+          if (wgtins == YES) then
              read_weight = .true.
           else
              read_weight = .false.
           endif
-          if(consecutive_read) then
+          if (consecutive_read) then
              readmax = maxins
           else
              readmax = 1
@@ -423,22 +423,22 @@ contains
           stmax = numsite(insml)
 
           allocate( solute_crd(3, stmax, readmax), solute_wgt(readmax) )
-          if(myrank == 0) then
+          if (myrank == 0) then
              call open_trajectory(solute_trajectory, slttrj)
-             if(read_weight) open(unit = sltwgt_io, file = sltwgt_file, status = 'old')
+             if (read_weight) open(unit = sltwgt_io, file = sltwgt_file, status = 'old')
           endif
 #ifdef MPI
            call get_mympi_realkind(kind(solute_crd), solute_mpikind)
-           if(kind(solute_crd) /= kind(solute_wgt)) then
+           if (kind(solute_crd) /= kind(solute_wgt)) then
               stop "inconsistent kind(real) for solute_crd and solute_wgt"
            endif
 #endif
           return
        case('last')
           deallocate( solute_crd, solute_wgt )
-          if(myrank == 0) then
+          if (myrank == 0) then
              call close_trajectory(solute_trajectory)
-             if(read_weight) close(unit = sltwgt_io)
+             if (read_weight) close(unit = sltwgt_io)
           endif
           return
        case('proc')
@@ -448,30 +448,30 @@ contains
        end select
     endif
  
-    if((.not. present(cntdst)) .or. (.not. present(stat_weight)) .or. &
+    if ((.not. present(cntdst)) .or. (.not. present(stat_weight)) .or. &
        (myrank >= nactiveproc)) call halt_with_error('ins_bug')
  
     ! get the configuration and structure-specific weight
-    if((.not. consecutive_read) .or. (cntdst == 1)) then
+    if ((.not. consecutive_read) .or. (cntdst == 1)) then
 
        ! The following part has a similar program structure as the
        ! coordinate-reading part of getconf_parallel subroutine in setconf.F90
-       if(myrank == 0) then               ! rank-0 to read from file
+       if (myrank == 0) then               ! rank-0 to read from file
           allocate( read_crd(3, stmax, readmax), read_wgt(readmax) )
           allocate( psite(3, stmax) )
-          if(size(psite) /= size(bfcoord)) call halt_with_error('ins_siz')
+          if (size(psite) /= size(bfcoord)) call halt_with_error('ins_siz')
 
           do iproc = 1, nactiveproc
              do readcnt = 1, readmax
                 reject = .true.
                 do while(reject)
                    call OUTconfig(psite, dumcl, stmax, 0, 'solute', 'trjfl_read')
-                   if(read_weight) then   ! weight read from a file
+                   if (read_weight) then   ! weight read from a file
                       read(sltwgt_io, *, iostat = ioerr) dumint, weight
-                      if(ioerr /= 0) then ! wrap around
+                      if (ioerr /= 0) then ! wrap around
                          rewind(sltwgt_io)
                          read(sltwgt_io, *, iostat = ioerr) dumint, weight
-                         if(ioerr /= 0) then
+                         if (ioerr /= 0) then
                             write(stdout, *) " The weight file (", sltwgt_file, ") is ill-formed"
                             call mpi_setup('stop')
                             stop
@@ -485,11 +485,11 @@ contains
                    case(INSSTR_NOREJECT)  ! no rejection of solute structure
                       reject = .false.
                    case(INSSTR_RMSD)      ! solute structure rejection with RMSD
-                      if(size(psite) /= size(refslt_crd)) call halt_with_error('ins_siz')
-                      if(stmax /= refslt_natom) call halt_with_error('ins_siz')
+                      if (size(psite) /= size(refslt_crd)) call halt_with_error('ins_siz')
+                      if (stmax /= refslt_natom) call halt_with_error('ins_siz')
                       rmsd = rmsd_bestfit(refslt_natom, refslt_crd, &
                                           psite, refslt_weight)
-                      if((lwstr <= rmsd) .and. (rmsd <= upstr)) reject = .false.
+                      if ((lwstr <= rmsd) .and. (rmsd <= upstr)) reject = .false.
                    case default
                       stop "Unknown insstructure in getsolute"
                    end select
@@ -498,7 +498,7 @@ contains
                 read_wgt(readcnt) = weight
              enddo
 
-             if(iproc /= 1) then          ! send the data to other rank
+             if (iproc /= 1) then         ! send the data to other rank
 #ifdef MPI
                 call mpi_send(read_crd, 3 * stmax * readmax, solute_mpikind, &
                               iproc - 1, tag_sltcrd, mpi_comm_world, ierror)
@@ -521,7 +521,7 @@ contains
        endif
     endif
 
-    if(consecutive_read) then
+    if (consecutive_read) then
        readcnt = cntdst
     else
        readcnt = 1
@@ -565,7 +565,7 @@ contains
     seedarray(:) = 1
 
     seedarray(1) = myrank + seed
-    if(seed == 0) call system_clock(count = seedarray(1))
+    if (seed == 0) call system_clock(count = seedarray(1))
 
     call random_seed(put = seedarray)
     deallocate(seedarray)
@@ -583,12 +583,12 @@ contains
     integer :: num_aggsite, molb, mole, nsite, cnt, i
     num_aggsite = 0
     do i = 1, nummol
-       if(any(moltype(i) == hostspec(:))) num_aggsite = num_aggsite + numsite(i)
+       if (any(moltype(i) == hostspec(:))) num_aggsite = num_aggsite + numsite(i)
     enddo
     allocate( agg_mass(num_aggsite), agg_site(3,num_aggsite) )
     cnt = 0
     do i = 1, nummol
-       if(any(moltype(i) == hostspec(:))) then
+       if (any(moltype(i) == hostspec(:))) then
           nsite = numsite(i)
           molb = mol_begin_index(i)
           mole = mol_end_index(i)
@@ -613,9 +613,9 @@ contains
     logical, intent(inout) :: out_of_range
     integer :: ptb, pte
     real :: rmsd
-    if(out_of_range) return
-    if(insorigin == INSORG_REFSTR) then
-       if((insposition /= INSPOS_RMSD) .and. (insposition /= INSPOS_GAUSS)) then
+    if (out_of_range) return
+    if (insorigin == INSORG_REFSTR) then
+       if ((insposition /= INSPOS_RMSD) .and. (insposition /= INSPOS_GAUSS)) then
           call halt_with_error('ins_bug')
        endif
     else
@@ -623,10 +623,10 @@ contains
     endif
     ptb = mol_begin_index(insml)
     pte = mol_end_index(insml)
-    if(numsite(insml) /= refslt_natom) call halt_with_error('ins_bug')
+    if (numsite(insml) /= refslt_natom) call halt_with_error('ins_bug')
     rmsd = rmsd_nofit(refslt_natom, refslt_bestfit, &
                       sitepos(1:3, ptb:pte), refslt_weight)
-    if((lwreg > rmsd) .or. (rmsd > upreg)) out_of_range = .true.
+    if ((lwreg > rmsd) .or. (rmsd > upreg)) out_of_range = .true.
     return
   end subroutine check_solute_configuration
 !
@@ -638,7 +638,7 @@ contains
     integer :: i
     logical, save :: first_time = .true.
     real, dimension(:,:), allocatable :: hostcrd, fit_sltcrd
-    if(first_time) then
+    if (first_time) then
        allocate( refslt_bestfit(3, refslt_natom) )
        first_time = .false.
     endif
@@ -672,21 +672,21 @@ contains
 
     refhost_natom = 0
     do i = 1, nummol
-       if(any(moltype(i) == refspec(:))) refhost_natom = refhost_natom + numsite(i)
+       if (any(moltype(i) == refspec(:))) refhost_natom = refhost_natom + numsite(i)
     enddo
-    if(refhost_natom > 0) then
+    if (refhost_natom > 0) then
        allocate( refhost_crd(3, refhost_natom), refhost_weight(refhost_natom) )
        allocate( refhost_specatm(refhost_natom) )
        atom_count = 0
        do i = 1, nummol
-          if(any(moltype(i) == refspec(:))) then
+          if (any(moltype(i) == refspec(:))) then
              do sid = 1, numsite(i)
                 refhost_specatm(atom_count + sid) = mol_begin_index(i) + sid - 1
              end do
              atom_count = atom_count + numsite(i)
           endif
        end do
-       if(atom_count /= refhost_natom) call halt_with_error('ins_bug')
+       if (atom_count /= refhost_natom) call halt_with_error('ins_bug')
     endif
 
     sltmol = sltlist(1)
@@ -698,16 +698,16 @@ contains
     end do
 
     open(unit = refstr_io, file = refstr_file, status = 'old', iostat = stat)
-    if(stat /= 0) call halt_with_error('ins_ref')
+    if (stat /= 0) call halt_with_error('ins_ref')
     atom_count = 0    ! counts the number of lines with ATOM/HETATM header
     do
        read(refstr_io, '(A6)', end = 99) header
-       if(header == 'ATOM  ' .or. header == 'HETATM') atom_count = atom_count + 1
+       if (header == 'ATOM  ' .or. header == 'HETATM') atom_count = atom_count + 1
     end do
 99  rewind(refstr_io)
-    if(atom_count /= refhost_natom + refslt_natom) call halt_with_error('ins_str')
+    if (atom_count /= refhost_natom + refslt_natom) call halt_with_error('ins_str')
 
-    if(refhost_natom > 0) then
+    if (refhost_natom > 0) then
        do i = 1, refhost_natom
           call read_refPDB_weight(refhost_specatm(i), crd, wgt)
           refhost_crd(1:3, i) = crd(1:3)
@@ -733,20 +733,20 @@ contains
       character(len=6) :: header
       do                       ! skip until ATOM/HETATM lines
          read(refstr_io, '(A6)', advance='no') header
-         if(header == 'ATOM  ' .or. header == 'HETATM') exit
+         if (header == 'ATOM  ' .or. header == 'HETATM') exit
          read(refstr_io, *)
       end do
       read(refstr_io, '(24X, 3F8.3, F6.2)') crd(1:3), refindex
-      if(refindex == 0.0) then ! not counted as an atom in reference structure
+      if (refindex == 0.0) then ! not counted as an atom in reference structure
          wgt = 0.0
-      else                     ! atom in reference with a weight given below
+      else                      ! atom in reference with a weight given below
          ! initialize the weight as the atomic mass
          wgt = sitemass(ati)
          !
          ! user can implement his own special selection rule to mask fitting
          ! (e.g. by using B-factor, etc.)
          ! default: hydrogen is masked and the others have the same weight
-         if(wgt > 0.95 * massHe) then    ! non-hydrogen
+         if (wgt > 0.95 * massHe) then    ! non-hydrogen
             ! wgt >= massHe, actually, where massHe is the helium atomic weight
             wgt = 1.0
          else                            ! hydrogen

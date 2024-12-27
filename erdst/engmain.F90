@@ -395,7 +395,7 @@ contains
     param_err = 0
     open(unit = io_paramfile, file = ene_confname, action = "read", iostat = param_err)
     
-    if(param_err == 0) then
+    if (param_err == 0) then
        read(io_paramfile, nml = ene_param)
        close(io_paramfile)
     else

@@ -48,7 +48,7 @@ contains
     external vmdfio_open_traj
 
     call vmdfio_open_traj(htraj%vmdhandle, fname, len_trim(fname), status)
-    if(status /= 0) then
+    if (status /= 0) then
        stop "vmdfio_open_traj: unable to open trajectory. HISTORY must be a symlink"
     endif
   end subroutine open_trajectory

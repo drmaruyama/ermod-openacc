@@ -114,34 +114,34 @@ contains
     logical :: file_exist
 
     open(unit = iounit, file = parmfname, action = 'read', status = 'old', iostat = ioerr)
-    if(ioerr /= 0) goto 99
+    if (ioerr /= 0) goto 99
     read(iounit, nml = fevars)
     close(iounit)
 99  continue
 
-    if(clcond == 'merge') then
+    if (clcond == 'merge') then
        call check_tt_or_numeric_files(solndirec, slndnspf, suffix_of_engsln_is_tt, count_soln)
        call check_tt_or_numeric_files(refsdirec, refdnspf, suffix_of_engref_is_tt, count_refs)
 
        open(unit = iounit, file = parmfname, action = 'read', status = 'old', iostat = ioerr)
-       if(ioerr /= 0) goto 91
+       if (ioerr /= 0) goto 91
        read(iounit, nml = fevars)
        close(iounit)
 91     continue
 
-       if((numsln <= 0) .or. (numsln > count_soln)) numsln = count_soln
-       if((numref <= 0) .or. (numref > count_refs)) numref = count_refs
+       if ((numsln <= 0) .or. (numsln > count_soln)) numsln = count_soln
+       if ((numref <= 0) .or. (numref > count_refs)) numref = count_refs
 
-       if((numdiv <= 0) .or. (numdiv >= numsln)) numdiv = numsln
-       if(mod(numsln, numdiv) /= 0) then
+       if ((numdiv <= 0) .or. (numdiv >= numsln)) numdiv = numsln
+       if (mod(numsln, numdiv) /= 0) then
           do i = numdiv + 1, numsln      ! find the larger and closest divisor
-             if(mod(numsln, i) == 0) exit
+             if (mod(numsln, i) == 0) exit
           enddo
           numdiv = i
        endif
-       if(refmerge == 'not') then        ! see subroutine datread for refmerge
-          if(numdiv > numref) stop " With refmerge = 'not', numdiv needs to be not larger than numref"
-          if(mod(numref, numdiv) /= 0) then
+       if (refmerge == 'not') then        ! see subroutine datread for refmerge
+          if (numdiv > numref) stop " With refmerge = 'not', numdiv needs to be not larger than numref"
+          if (mod(numref, numdiv) /= 0) then
              write(6, "(A,i2,A,i2,A)") " Note: only ", numdiv * (numref / numdiv), &
                   &" files out of ", numref, " engref and corref files prepared"
              numref = numdiv * (numref / numdiv)
@@ -149,17 +149,17 @@ contains
        endif
     endif
 
-    if(numprm <= 0) then                 ! default setting
-       if(infchk == 'yes') then
+    if (numprm <= 0) then                 ! default setting
+       if (infchk == 'yes') then
           numprm = numprm_def_inf_yes    ! default numprm at infchk = 'yes'
        else
           numprm = numprm_def_inf_not    ! default numprm at infchk = 'not'
        endif
     endif
 
-    if(pickgr < msemin) stop " Incorrect setting: pickgr < msemin not allowed"
-    if(pickgr > msemax) stop " Incorrect setting: pickgr > msemax not allowed"
-    if(pickgr > numprm) stop " Incorrect setting: pickgr > numprm not allowed"
+    if (pickgr < msemin) stop " Incorrect setting: pickgr < msemin not allowed"
+    if (pickgr > msemax) stop " Incorrect setting: pickgr > msemax not allowed"
+    if (pickgr > numprm) stop " Incorrect setting: pickgr > numprm not allowed"
 
   contains
 
@@ -198,7 +198,7 @@ contains
       do count_suf = 1, sufmax
          opnfile = trim(dirname) // '/' // trim(trunk) // '.' // get_suffix(count_suf)
          inquire(file = opnfile, exist = file_exist)
-         if( file_exist ) then
+         if ( file_exist ) then
             nfiles = count_suf
          else
             if (count_suf == 1) then
@@ -243,7 +243,7 @@ contains
     character(len=digits) :: res
     character(len=25) :: formatbuf ! max (I0.x) len is assumed to be ceil(log10(2^64+1)) + 5
 
-    if(digits <= 0) stop "Invalid args to zero_padded_str()"
+    if (digits <= 0) stop "Invalid args to zero_padded_str()"
 
     write (formatbuf, "(A4,I0,A1)") "(I0.", digits, ")"
     write (res, trim(formatbuf)) n

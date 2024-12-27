@@ -260,7 +260,7 @@ contains
     integer :: i
     
     sumOfMasses = sum(masses)
-    if(sumOfMasses == 0) call halt_with_error('bst_zrw')
+    if (sumOfMasses == 0) call halt_with_error('bst_zrw')
     do i = 1, 3
        center(i) = dot_product(points(i, :), masses(:)) / sumOfMasses
     end do
@@ -355,7 +355,7 @@ contains
     integer :: i
     real :: sumOfMasses, disp, dx(3)
     sumOfMasses = sum(masses)
-    if(sumOfMasses == 0) call halt_with_error('bst_zrw')
+    if (sumOfMasses == 0) call halt_with_error('bst_zrw')
     disp = 0.0
     do i = 1, n
        dx(1:3) = crdB(1:3, i) - crdA(1:3, i)

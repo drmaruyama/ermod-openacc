@@ -41,7 +41,7 @@ contains
     sitepos_normal(:, :) = sitepos(:, :)
 
     ! "Straighten" box, and normalize coordinate system
-    if(boxshp == SYS_PERIODIC) call normalize_periodic
+    if (boxshp == SYS_PERIODIC) call normalize_periodic
     !$acc update device(sitepos_normal)
   end subroutine realcal_prepare
 
@@ -67,8 +67,8 @@ contains
     logical, save :: initialized = .false.
     real, parameter :: infty = huge(infty)      ! essentially equal to infinity
     !
-    if(boxshp == SYS_NONPERIODIC) reelcut = infty
-    if(boxshp == SYS_PERIODIC) then
+    if (boxshp == SYS_NONPERIODIC) reelcut = infty
+    if (boxshp == SYS_PERIODIC) then
        reelcut = elecut
        half_cell(:) = 0.5 * cell_len_normal(:)
     else
@@ -76,14 +76,14 @@ contains
        half_cell(:) = 0.0
     endif
 
-    if(.not. initialized) then
-       if(ljswitch == LJSWT_FRC_CHM) then       ! force switch (CHARMM type)
+    if (.not. initialized) then
+       if (ljswitch == LJSWT_FRC_CHM) then       ! force switch (CHARMM type)
           lwljcut3 = lwljcut ** 3
           upljcut3 = upljcut ** 3
           lwljcut6 = lwljcut3 * lwljcut3
           upljcut6 = upljcut3 * upljcut3
        endif
-       if(ljswitch == LJSWT_FRC_GMX) then       ! force switch (GROMACS type)
+       if (ljswitch == LJSWT_FRC_GMX) then       ! force switch (GROMACS type)
           call calc_gmx_switching_force_params(12, lwljcut, upljcut, &
                repA, repB, repC)
           call calc_gmx_switching_force_params(6,  lwljcut, upljcut, &
@@ -99,7 +99,7 @@ contains
     do k = 1, slvmax
        do is = 1, ismax
           i = tagpt(k)
-          if(i == tagslt) cycle
+          if (i == tagslt) cycle
 
           pairep = 0.0
           do js = 1, numsite(i)
@@ -110,8 +110,8 @@ contains
              ljtype_i = ljtype(ati)
              ljtype_j = ljtype(atj)
              xst(:) = sitepos_normal(:,ati) - sitepos_normal(:,atj)
-             if(boxshp == SYS_PERIODIC) then    ! when the system is periodic
-                if(is_cuboid) then
+             if (boxshp == SYS_PERIODIC) then    ! when the system is periodic
+                if (is_cuboid) then
                    xst(:) = half_cell(:) - abs(half_cell(:) - abs(xst(:)))
                 else
                    ! Note some ops can be skipped because cell_normal
@@ -126,7 +126,7 @@ contains
              endif
              dis2 = sum(xst(1:3) ** 2)
              rst = sqrt(dis2)
-             if(rst > upljcut) then
+             if (rst > upljcut) then
                 eplj = 0.0
              else
                 ljeps = ljene_mat(ljtype_i, ljtype_j)
@@ -137,7 +137,7 @@ contains
                 select case(ljswitch)
                 case(LJSWT_POT_CHM, LJSWT_POT_GMX)    ! potential switch
                    eplj = 4.0 * ljeps * invr6 * (invr6 - 1.0)
-                   if(rst > lwljcut) then
+                   if (rst > lwljcut) then
                       select case(ljswitch)
                       case(LJSWT_POT_CHM)                  ! CHARMM type
                          lwljcut2 = lwljcut ** 2
@@ -156,7 +156,7 @@ contains
                    endif
                 case(LJSWT_FRC_CHM)               ! force switch (CHARMM type)
                    ljsgm6 = ljsgm2 * ljsgm2 * ljsgm2
-                   if(rst <= lwljcut) then
+                   if (rst <= lwljcut) then
                       vdwa = invr6 * invr6 &
                            - ljsgm6 *ljsgm6 / (lwljcut6 * upljcut6)
                       vdwb = invr6 - ljsgm6 / (lwljcut3 * upljcut3)
@@ -171,7 +171,7 @@ contains
                    eplj = 4.0 * ljeps * (vdwa - vdwb)
                 case(LJSWT_FRC_GMX)               ! force switch (GROMACS type)
                    ljsgm6 = ljsgm2 * ljsgm2 * ljsgm2
-                   if(rst <= lwljcut) then
+                   if (rst <= lwljcut) then
                       vdwa = invr6 * invr6 - ljsgm6 * ljsgm6 * repC
                       vdwb = invr6 - ljsgm6 * attC
                    else
@@ -186,7 +186,7 @@ contains
                    stop "Unknown ljswitch"
                 end select
              endif
-             if(rst >= reelcut) then
+             if (rst >= reelcut) then
                 epcl = 0.0
              else
                 epcl = charge(ati) * charge(atj) &
@@ -222,10 +222,10 @@ contains
     integer :: ljtype_i, ljtype_j
     real, parameter :: infty = huge(infty)      ! essentially equal to infinity
     !
-    if(cltype /= EL_COULOMB) stop "cannot happen: realcal_bare is called only when cltype is 'bare coulomb'."
+    if (cltype /= EL_COULOMB) stop "cannot happen: realcal_bare is called only when cltype is 'bare coulomb'."
 
-    if(boxshp == SYS_NONPERIODIC) reelcut=infty
-    if(boxshp == SYS_PERIODIC) then
+    if (boxshp == SYS_NONPERIODIC) reelcut=infty
+    if (boxshp == SYS_PERIODIC) then
        reelcut = elecut
        half_cell(:) = 0.5 * cell_len_normal(:)
     else
@@ -233,13 +233,13 @@ contains
        half_cell(:) = 0.0
     endif
 
-    if(ljswitch == LJSWT_FRC_CHM) then       ! force switch (CHARMM type)
+    if (ljswitch == LJSWT_FRC_CHM) then       ! force switch (CHARMM type)
        lwljcut3 = lwljcut ** 3
        upljcut3 = upljcut ** 3
        lwljcut6 = lwljcut3 * lwljcut3
        upljcut6 = upljcut3 * upljcut3
     endif
-    if(ljswitch == LJSWT_FRC_GMX) then       ! force switch (GROMACS type)
+    if (ljswitch == LJSWT_FRC_GMX) then       ! force switch (GROMACS type)
        call calc_gmx_switching_force_params(12, lwljcut, upljcut, repA, repB, repC)
        call calc_gmx_switching_force_params(6,  lwljcut, upljcut, attA, attB, attC)
     endif
@@ -251,7 +251,7 @@ contains
     do k = 1, slvmax
        do is = 1, ismax
           i = tagpt(k)
-          if(i == tagslt) cycle
+          if (i == tagslt) cycle
 
           pairep = 0.0
           do js = 1, numsite(i)
@@ -262,8 +262,8 @@ contains
              ljtype_i = ljtype(ati)
              ljtype_j = ljtype(atj)
              xst(:) = sitepos_normal(:,ati) - sitepos_normal(:,atj)
-             if(boxshp == SYS_PERIODIC) then    ! when the system is periodic
-                if(is_cuboid) then
+             if (boxshp == SYS_PERIODIC) then    ! when the system is periodic
+                if (is_cuboid) then
                    xst(:) = half_cell(:) - abs(half_cell(:) - abs(xst(:)))
                 else
                    ! Note some ops can be skipped because cell_normal is upper triangular
@@ -277,7 +277,7 @@ contains
              endif
              dis2 = sum(xst(1:3) ** 2)
              rst = sqrt(dis2)
-             if(rst > upljcut) then
+             if (rst > upljcut) then
                 eplj = 0.0
              else
                 ljeps = ljene_mat(ljtype_i, ljtype_j)
@@ -288,7 +288,7 @@ contains
                 select case(ljswitch)
                 case(LJSWT_POT_CHM, LJSWT_POT_GMX)    ! potential switch
                    eplj = 4.0 * ljeps * invr6 * (invr6 - 1.0)
-                   if(rst > lwljcut) then
+                   if (rst > lwljcut) then
                       select case(ljswitch)
                       case(LJSWT_POT_CHM)                  ! CHARMM type
                          lwljcut2 = lwljcut ** 2
@@ -307,7 +307,7 @@ contains
                    endif
                 case(LJSWT_FRC_CHM)               ! force switch (CHARMM type)
                    ljsgm6 = ljsgm2 * ljsgm2 * ljsgm2
-                   if(rst <= lwljcut) then
+                   if (rst <= lwljcut) then
                       vdwa = invr6 * invr6 &
                            - ljsgm6 *ljsgm6 / (lwljcut6 * upljcut6)
                       vdwb = invr6 - ljsgm6 / (lwljcut3 * upljcut3)
@@ -322,7 +322,7 @@ contains
                    eplj = 4.0 * ljeps * (vdwa - vdwb)
                 case(LJSWT_FRC_GMX)               ! force switch (GROMACS type)
                    ljsgm6 = ljsgm2 * ljsgm2 * ljsgm2
-                   if(rst <= lwljcut) then
+                   if (rst <= lwljcut) then
                       vdwa = invr6 * invr6 - ljsgm6 * ljsgm6 * repC
                       vdwb = invr6 - ljsgm6 * attC
                    else
@@ -337,7 +337,7 @@ contains
                    stop "Unknown ljswitch"
                 end select
              endif
-             if(rst >= reelcut) then
+             if (rst >= reelcut) then
                 epcl = 0.0
              else
                 epcl = charge(ati) * charge(atj) / rst
@@ -363,7 +363,7 @@ contains
     real :: rst, dis2, epcl, xst(3), half_cell(3)
 
     pairep = 0.0
-    if(cltype == EL_COULOMB) return
+    if (cltype == EL_COULOMB) return
 
     half_cell(:) = 0.5 * cell_len_normal(:) 
 
@@ -381,7 +381,7 @@ contains
           atj = specatm(js, i)
  
           xst(:) = sitepos_normal(:,ati) - sitepos_normal(:,atj)
-          if(is_cuboid) then
+          if (is_cuboid) then
              xst(:) = half_cell(:) - abs(half_cell(:) - abs(xst(:)))
           else
              ! Note some ops can be skipped because cell_normal is upper triangular
@@ -506,7 +506,7 @@ contains
     end do
     invcell_normal(:) = 1 / cell_len_normal(:)
 
-    if(abs(cell(1, 2)) > cuboid_thres .or. &
+    if (abs(cell(1, 2)) > cuboid_thres .or. &
          abs(cell(1, 3)) > cuboid_thres .or. &
          abs(cell(2, 3)) > cuboid_thres ) then
        is_cuboid = .false.
@@ -527,7 +527,7 @@ contains
        sitepos_normal(1:3, i) = sitepos_normal(1:3, i) - &
             cell_normal(:, 1) * floor(invcell_normal(1) * sitepos_normal(1, i))
 
-!       if(sitepos_normal(1, i) < 0 .or. sitepos_normal(1, i) > cell_len_normal(1) .or.&
+!       if (sitepos_normal(1, i) < 0 .or. sitepos_normal(1, i) > cell_len_normal(1) .or.&
 !          sitepos_normal(2, i) < 0 .or. sitepos_normal(2, i) > cell_len_normal(2) .or.&
 !          sitepos_normal(3, i) < 0 .or. sitepos_normal(3, i) > cell_len_normal(3)) then
 !          print *, sitepos_normal(:, i), cell_len_normal

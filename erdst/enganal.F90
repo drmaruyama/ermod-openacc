@@ -35,7 +35,7 @@ subroutine enganal_init()
   call setparam
   call enginit
   ! getting the reference structure from file
-  if((insorigin == INSORG_REFSTR) .or. (insstructure == INSSTR_RMSD)) then
+  if ((insorigin == INSORG_REFSTR) .or. (insstructure == INSSTR_RMSD)) then
      call load_refstructure
   endif
 end subroutine enganal_init
@@ -63,7 +63,7 @@ program trjmain
   integer :: stnum, idiv, frames_per_div, nread, iframe
 
   call mpi_setup('init')
-  if(myrank == 0) then
+  if (myrank == 0) then
      print *, "ERmod " // PACKAGE_VERSION // ", Copyright (C) 2000-2024 Nobuyuki Matubayasi"
      print *, "                           2010-2024 Shun Sakuraba"
      print *, "                           2024-2024 Hidekazu Kojima"
@@ -75,7 +75,7 @@ program trjmain
   end if
   call initconf()
 
-  if(myrank == 0) then
+  if (myrank == 0) then
      call init_trajectory()
      call opentrj()
   end if
@@ -85,7 +85,7 @@ program trjmain
 
   stnum = 0
   frames_per_div = maxcnf / skpcnf / engdiv
-  if(frames_per_div <= 0) call halt_with_error("eng_par")
+  if (frames_per_div <= 0) call halt_with_error("eng_par")
 
   do idiv = 1, engdiv
      call engclear
@@ -99,7 +99,7 @@ program trjmain
   end do
   call engproc_cleanup
 
-  if(myrank == 0) then
+  if (myrank == 0) then
      call closetrj
      call finish_trajectory()
   end if

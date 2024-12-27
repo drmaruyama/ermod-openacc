@@ -73,38 +73,38 @@ contains
     allocate( tplst(nummol) )
     numslt = 0
     do i = 1, nummol
-       if(sluvid(i) > 0) then
+       if (sluvid(i) > 0) then
           numslt = numslt + 1
           tplst(numslt) = i
           solute_moltype = moltype(i)
        endif
     enddo
     ! solute must have moltype value equal to solute_moltype
-    if(any(sluvid(:) /= PT_SOLVENT .and. moltype(:) /= solute_moltype)) call halt_with_error('eng_typ')
+    if (any(sluvid(:) /= PT_SOLVENT .and. moltype(:) /= solute_moltype)) call halt_with_error('eng_typ')
     ! solvent must have moltype value not equal to solute_moltype
-    if(any(sluvid(:) == PT_SOLVENT .and. moltype(:) == solute_moltype)) call halt_with_error('eng_typ')
+    if (any(sluvid(:) == PT_SOLVENT .and. moltype(:) == solute_moltype)) call halt_with_error('eng_typ')
     !
     ! consistency check between slttype and numslt (number of solute molecules)
     check_ok = .true.
-    if(numslt <= 0) check_ok = .false.
-    if((slttype == SLT_REFS_RIGID) .or. (slttype == SLT_REFS_FLEX)) then
-       if(numslt /= 1) check_ok = .false.
+    if (numslt <= 0) check_ok = .false.
+    if ((slttype == SLT_REFS_RIGID) .or. (slttype == SLT_REFS_FLEX)) then
+       if (numslt /= 1) check_ok = .false.
     endif
-    if(.not. check_ok) call halt_with_error('eng_num')
+    if (.not. check_ok) call halt_with_error('eng_num')
     !
     allocate( sltlist(numslt) )
     sltlist(1:numslt) = tplst(1:numslt)   ! list of solute molecules
     deallocate( tplst )
     !
     ! solute needs to be the last particle in reference system
-    if((slttype == SLT_REFS_RIGID) .or. (slttype == SLT_REFS_FLEX)) then
-       if(sltlist(1) /= nummol) call halt_with_error('eng_ins')
+    if ((slttype == SLT_REFS_RIGID) .or. (slttype == SLT_REFS_FLEX)) then
+       if (sltlist(1) /= nummol) call halt_with_error('eng_ins')
     endif
     !
     ! number of solvent species
-    if(numslt == 1) then
+    if (numslt == 1) then
        numslv = numtype - 1
-    elseif(numslt > 1) then     ! solute can also be a solvent species
+    elseif (numslt > 1) then     ! solute can also be a solvent species
        numslv = numtype
     else
        call halt_with_error('eng_bug')
@@ -112,12 +112,12 @@ contains
     !
     allocate( uvspec(nummol) )
     uvspec(1:nummol) = moltype(1:nummol)
-    if(numslt == 1) then        ! solute is not present in reference solvent
+    if (numslt == 1) then        ! solute is not present in reference solvent
       where(sluvid(:) /= PT_SOLVENT) uvspec(:) = 0 ! solute
       ! after the solute, slide the value of molecule type
       where(sluvid(:) == PT_SOLVENT .and. moltype(:) > solute_moltype) uvspec(:) = uvspec(:) - 1
     endif
-    if(numslv /= maxval(uvspec(:))) call halt_with_error('eng_bug')
+    if (numslv /= maxval(uvspec(:))) call halt_with_error('eng_bug')
     !
     allocate( uvmax(numslv), uvsoft(numslv), ercrd(large, 0:numslv) )
     !
@@ -127,30 +127,30 @@ contains
     ermax = 0
     do pti = 0, numslv
        open(unit = io_paramfile, file = ene_confname, action = "read", iostat = param_err)
-       if(param_err == 0) then
+       if (param_err == 0) then
           read(io_paramfile, nml = hist)
           close(io_paramfile)
        else
           call halt_with_error('eng_per')
        end if
-       if(peread == YES) ecprread = YES   ! deprecated
+       if (peread == YES) ecprread = YES   ! deprecated
 
        ! read coordinate parameters from EcdInfo
-       if(ecprread == YES) then
+       if (ecprread == YES) then
           open(unit = ecdinfo_io, file = ecdinfo_file, action = 'read', iostat = param_err)
-          if(param_err /= 0) call halt_with_error('eng_eci')
+          if (param_err /= 0) call halt_with_error('eng_eci')
           read(ecdinfo_io, *)             ! comment line
           do i = 1, large
              read(ecdinfo_io, *, end = 3109) q
-             if(q == pti) then
+             if (q == pti) then
                 backspace(ecdinfo_io)
-                if(pti == 0) then         ! solute self-energy
+                if (pti == 0) then         ! solute self-energy
                    read(ecdinfo_io, *) iduv, ecpmrd(1:8)
                    pecore = 0               ! no core region for self-energy
                 else                      ! solute-solvent interaction energy
                    read(ecdinfo_io, *) iduv, ecpmrd(1:9), pecore
                    ecdmax = ecpmrd(9)
-                   if(pecore <= 1) call halt_with_error('eng_pcr')
+                   if (pecore <= 1) call halt_with_error('eng_pcr')
                 endif
                 eclbin = ecpmrd(1)
                 ecfbin = ecpmrd(2)
@@ -160,8 +160,8 @@ contains
                 ecfmns = ecpmrd(6)
                 ecdcen = ecpmrd(7)
                 eccore = ecpmrd(8)
-                if(eccore < tiny) pecore=0
-                if(pecore == 1) call halt_with_error('eng_pcr')
+                if (eccore < tiny) pecore=0
+                if (pecore == 1) call halt_with_error('eng_pcr')
                 exit
              endif
           enddo
@@ -187,11 +187,11 @@ contains
 
        uprgcd(0) = 1
        do regn = 1, rglmax
-          if((regn == 1) .or. (regn == 5)) factor = eclbin
-          if((regn == 2) .or. (regn == 4)) factor = ecfbin
-          if(regn == 3) factor = ec0bin
+          if ((regn == 1) .or. (regn == 5)) factor = eclbin
+          if ((regn == 2) .or. (regn == 4)) factor = ecfbin
+          if (regn == 3) factor = ec0bin
           incre = cdrgvl(regn) - cdrgvl(regn - 1)
-          if(incre < factor) call halt_with_error('eng_ecd')
+          if (incre < factor) call halt_with_error('eng_ecd')
           iduv = nint(incre / factor)
           uprgcd(regn) = uprgcd(regn - 1) + iduv
        enddo
@@ -201,46 +201,46 @@ contains
        uprgcd(rglmax + 1) = pemax
        ercrd(uprgcd(0:(rglmax + 1)), pti) = cdrgvl(0:(rglmax + 1))
 
-       if(pemax > large) call halt_with_error('eng_siz')
+       if (pemax > large) call halt_with_error('eng_siz')
 
-       if(pecore == 0) i = rglmax         ! no core region
-       if(pecore >  0) i = rglmax + 1     ! explicit treatment of core region
+       if (pecore == 0) i = rglmax         ! no core region
+       if (pecore >  0) i = rglmax + 1     ! explicit treatment of core region
        do regn = 1, i
           minrg = uprgcd(regn - 1)
           maxrg = uprgcd(regn)
-          if(regn <= rglmax) then
+          if (regn <= rglmax) then
              incre = ercrd(maxrg, pti) - ercrd(minrg, pti)
           endif
-          if(regn == (rglmax + 1)) then   ! effective only when pecore > 0
+          if (regn == (rglmax + 1)) then   ! effective only when pecore > 0
              incre = log(ercrd(maxrg, pti) / ercrd(minrg, pti))
           endif
           factor = incre / real(maxrg - minrg)
           do iduv = minrg, (maxrg - 1)
              incre = factor * real(iduv - minrg)
-             if(regn <= rglmax) then
+             if (regn <= rglmax) then
                 ercrd(iduv, pti) = ercrd(minrg, pti) + incre
              endif
-             if(regn == (rglmax + 1)) then
+             if (regn == (rglmax + 1)) then
                 ercrd(iduv, pti) = ercrd(minrg, pti) * exp(incre)
              endif
           enddo
        enddo
 
        ! read coordinate meshes from EcdMesh
-       if(meshread == YES) then
+       if (meshread == YES) then
           open(unit = ecdmesh_io, file = ecdmesh_file, action = 'read', iostat = param_err)
-          if(param_err /= 0) call halt_with_error('eng_ecm')
+          if (param_err /= 0) call halt_with_error('eng_ecm')
           start_line = .true.
           do i = 1, large
              read(ecdmesh_io, *, end = 3209) q
-             if(q == pti) then
+             if (q == pti) then
                 backspace(ecdmesh_io)
-                if( start_line ) then     ! 0-th line of the q-th species
+                if ( start_line ) then    ! 0-th line of the q-th species
                    start_line = .false.
                    iduv = 0
-                   if(pti == 0) then      ! solute self-energy
+                   if (pti == 0) then     ! solute self-energy
                       read(ecdmesh_io, *) dummy, pemax
-                      pecore = 0            ! no core region for self-energy
+                      pecore = 0          ! no core region for self-energy
                    else                   ! solute-solvent interaction energy
                       read(ecdmesh_io, *) dummy, pemax, pecore
                    endif
@@ -254,15 +254,15 @@ contains
 3209      continue
           close(ecdmesh_io)
           check_ok = .true.
-          if(iduv /= pemax) check_ok = .false.
-          if(pemax <= pecore) check_ok = .false.
+          if (iduv /= pemax) check_ok = .false.
+          if (pemax <= pecore) check_ok = .false.
           do iduv = 1, pemax - 1
-             if(ercrd(iduv, pti) >= ercrd(iduv + 1, pti)) check_ok = .false.
+             if (ercrd(iduv, pti) >= ercrd(iduv + 1, pti)) check_ok = .false.
           enddo
-          if(.not. check_ok) call halt_with_error('eng_emf')
+          if (.not. check_ok) call halt_with_error('eng_emf')
        endif
 
-       if(pti == 0) then                  ! solute self-energy
+       if (pti == 0) then                 ! solute self-energy
           esmax = pesoft
        else                               ! solute-solvent interaction energy
           uvmax(pti) = pemax
@@ -281,19 +281,19 @@ contains
        enddo
     enddo
 
-    if(corrcal == YES) then
-       if(ermax > ermax_limit) call warning('emax')
+    if (corrcal == YES) then
+       if (ermax > ermax_limit) call warning('emax')
        allocate( ecorr(ermax, ermax) )
        !$acc enter data create(ecorr)
     endif
 
-    if(selfcal == YES)  then
+    if (selfcal == YES)  then
       allocate( escrd(esmax), eself(esmax) )
       escrd(1:esmax) = ercrd(1:esmax,0)
     endif
     deallocate( ercrd )
 
-    if(slttype == SLT_SOLN) allocate( aveuv(engdiv, numslv), slnuv(numslv) )
+    if (slttype == SLT_SOLN) allocate( aveuv(engdiv, numslv), slnuv(numslv) )
     allocate( avediv(engdiv, 2) )
     allocate( minuv(0:numslv), maxuv(0:numslv) )
      
@@ -306,8 +306,8 @@ contains
     call engclear
 
     ! Output for energy fluctuation
-    if(myrank == 0) then
-       if(slttype == SLT_SOLN) then
+    if (myrank == 0) then
+       if (slttype == SLT_SOLN) then
           ! open flcuv file
           open(unit = io_flcuv, file = 'flcuv.tt', status = 'new', action = 'write')
        else
@@ -325,15 +325,15 @@ contains
     implicit none
     integer :: i, j
     edens(:) = 0.0
-    if(corrcal == YES) then
+    if (corrcal == YES) then
        !$acc parallel present(ecorr)
        do concurrent (i = 1:ermax, j = 1:ermax)
           ecorr(i,j) = 0.0
        end do
        !$acc end parallel
     end if
-    if(selfcal == YES) eself(:) = 0.0
-    if(slttype == SLT_SOLN) slnuv(:) = 0.0
+    if (selfcal == YES) eself(:) = 0.0
+    if (slttype == SLT_SOLN) slnuv(:) = 0.0
     avslf = 0.0
     engnorm = 0.0
     engsmpl = 0.0
@@ -344,7 +344,7 @@ contains
     use engmain, only: io_flcuv
     use mpiproc, only: myrank
     implicit none
-    if(myrank == 0) then
+    if (myrank == 0) then
        endfile(io_flcuv)
        close(io_flcuv)
     endif
@@ -391,7 +391,7 @@ contains
     slvmax = 0
     do i = 1, nummol
        ! particle exists in trajectory (not a test particle)
-       if((sluvid(i) == PT_SOLVENT) .or. (sluvid(i) == PT_SOLUTE)) then
+       if ((sluvid(i) == PT_SOLVENT) .or. (sluvid(i) == PT_SOLUTE)) then
           slvmax = slvmax + 1
           tplst(slvmax) = i
        end if
@@ -408,15 +408,15 @@ contains
     flceng_stored(:) = .false.
     flceng(:,:) = 0
 
-    if(myrank < nactiveproc) then
+    if (myrank < nactiveproc) then
        ! Initialize reciprocal space - grid and charges
        call get_inverted_cell
-       if(cltype == EL_PME .or. cltype == EL_PPPM) then
-          if(.not. pme_initialized) call recpcal_init(slvmax, tagpt)
+       if (cltype == EL_PME .or. cltype == EL_PPPM) then
+          if (.not. pme_initialized) call recpcal_init(slvmax, tagpt)
           
           ! check whether cell size changes
           ! recpcal is called only when cell size differ
-          if((.not. pme_initialized) .or. &
+          if ((.not. pme_initialized) .or. &
              (any(prevcl(:,:) /= cell(:,:)))) then
              if (cltype == EL_PME) then
                 call recpcal_spline_greenfunc()
@@ -435,7 +435,7 @@ contains
        ! cntdst is the iteration no. of insertion (refs)
        do cntdst = 1, maxdst
           call get_uv_energy(stnum, stat_weight_solute, uvengy(0:slvmax), skipcond)
-          if(skipcond) cycle
+          if (skipcond) cycle
           call update_histogram(stat_weight_solute, uvengy(0:slvmax))
        enddo
 
@@ -446,7 +446,7 @@ contains
           
 #ifdef MPI
           ! gather flceng values to rank 0
-          if(kind(flceng) /= kind(flceng_g)) then
+          if (kind(flceng) /= kind(flceng_g)) then
              stop "bug in the kind(real) for flceng or flceng_g"
           else
              call get_mympi_realkind(kind(flceng), flceng_mpikind)
@@ -462,11 +462,11 @@ contains
           flceng_g(:,:,1) = flceng(:,:)
 #endif
           
-          if(myrank == 0) then
+          if (myrank == 0) then
              do irank = 1, nactiveproc
                 do cntdst = 1, maxdst
-                   if(flceng_stored_g(cntdst, irank)) then
-                      if(maxdst == 1) then
+                   if (flceng_stored_g(cntdst, irank)) then
+                      if (maxdst == 1) then
                          write(io_flcuv, 911) &
                                         (stnum + irank - 1) * skpcnf, &
                                         flceng_g(1:numslv, cntdst, irank)
@@ -484,9 +484,8 @@ contains
           deallocate( flceng_g, flceng_stored_g )
 
        case(SLT_REFS_RIGID, SLT_REFS_FLEX)      ! for refs: output progress
-          if(myrank == 0) write(io_flcuv, *) ( &
-                                        (stnum + irank - 1) * skpcnf, &
-                                             irank = 1, nactiveproc)
+          if (myrank == 0) write(io_flcuv, *) &
+               ((stnum + irank - 1) * skpcnf, irank = 1, nactiveproc)
        end select
 #ifdef HAVE_FLUSH
        if (myrank == 0) flush(io_flcuv)
@@ -524,10 +523,10 @@ contains
     call mpi_rank_size_info                                          ! MPI
 
     ! synchronize voffset
-    if(wgtslf == YES) then
+    if (wgtslf == YES) then
        voffset_local = voffset
 #ifdef MPI
-       if(kind(voffset) /= kind(voffset_local)) then
+       if (kind(voffset) /= kind(voffset_local)) then
           stop "bug in the kind(real) for voffset or voffset_local"
        else
           call get_mympi_realkind(kind(voffset), reduce_mpikind)
@@ -536,7 +535,7 @@ contains
        endif
 
        ! if uninitialized, use voffset so as not to pollute results with NaN
-       if(.not. voffset_initialized) voffset_local = voffset
+       if (.not. voffset_initialized) voffset_local = voffset
 
        ! scale histograms accoording to the maximum voffset
        select case(slttype)
@@ -547,10 +546,10 @@ contains
        end select
 
        engnorm = engnorm * voffset_scale
-       if(selfcal == YES) eself(:) = eself(:) * voffset_scale
-       if(slttype == SLT_SOLN) slnuv(:) = slnuv(:) * voffset_scale
+       if (selfcal == YES) eself(:) = eself(:) * voffset_scale
+       if (slttype == SLT_SOLN) slnuv(:) = slnuv(:) * voffset_scale
        edens(:) = edens(:) * voffset_scale
-       if(corrcal == YES) then
+       if (corrcal == YES) then
           !$acc parallel present(ecorr)
           do concurrent (i = 1:ermax, j = 1:ermax)
              ecorr(i, j) = ecorr(i, j) * voffset_scale
@@ -567,10 +566,10 @@ contains
     call mympi_reduce_real8_scalar(avslf, mpi_sum, 0)
     call mympi_reduce_real8_scalar(engnorm, mpi_sum, 0)
     call mympi_reduce_real8_scalar(engsmpl, mpi_sum, 0)
-    if(selfcal == YES) call mympi_reduce_real8_array(eself, esmax, mpi_sum, 0)
-    if(slttype == SLT_SOLN) call mympi_reduce_real_array(slnuv, numslv, mpi_sum, 0)
+    if (selfcal == YES) call mympi_reduce_real8_array(eself, esmax, mpi_sum, 0)
+    if (slttype == SLT_SOLN) call mympi_reduce_real_array(slnuv, numslv, mpi_sum, 0)
     call mympi_reduce_real8_array(edens, ermax, mpi_sum, 0)
-    if(corrcal == YES) then
+    if (corrcal == YES) then
        !$acc update self(ecorr)
        call mympi_reduce_real8_array(ecorr, (ermax * ermax), mpi_sum, 0)
        !$acc update device(ecorr)
@@ -581,25 +580,25 @@ contains
     ! index for the division of the trajectory
     division = stnum / (maxcnf / skpcnf / engdiv)
 
-    if(division == engdiv) then
+    if (division == engdiv) then
 #ifdef MPI
        call mympi_reduce_real_array(minuv, (numslv + 1), mpi_min, 0)
        call mympi_reduce_real_array(maxuv, (numslv + 1), mpi_max, 0)
 #endif
     endif
 
-    if(myrank /= 0) return                                            ! MPI
+    if (myrank /= 0) return                                            ! MPI
     ! data to be stored; only the master node matters
 
     edens(:) = edens(:) / engnorm
-    if(corrcal == YES) then
+    if (corrcal == YES) then
        !$acc parallel present(ecorr)
        do concurrent (i = 1:ermax, j = 1:ermax)
           ecorr(i, j) = ecorr(i, j) / engnorm
        end do
        !$acc end parallel
     end if
-    if(selfcal == YES) eself(:) = eself(:) / engnorm
+    if (selfcal == YES) eself(:) = eself(:) / engnorm
 
     avslf = avslf / engnorm
     avediv(division, 1) = engnorm / engsmpl
@@ -612,8 +611,8 @@ contains
        avediv(division, 2) = voffset + temp * log(avslf)
     end select
     !
-    if(division == engdiv) then
-       if(slttype == SLT_SOLN) then
+    if (division == engdiv) then
+       if (slttype == SLT_SOLN) then
           open(unit = ave_io, file = 'aveuv.tt', action = 'write')
           do k = 1, engdiv
              write(ave_io, 751) k, aveuv(k, 1:numslv)
@@ -643,7 +642,7 @@ contains
        open(uvr_io, file = 'uvrange.tt', action = 'write')
        write(uvr_io,'(A)') ' species     minimum        maximum'
        do pti = 0, numslv
-          if(maxuv(pti) < 1.0e5) then
+          if (maxuv(pti) < 1.0e5) then
              write(uvr_io, '(i5,2f15.5)') pti, minuv(pti), maxuv(pti)
           else
              write(uvr_io, '(i5,f15.5,g18.5)') pti, minuv(pti), maxuv(pti)
@@ -653,7 +652,7 @@ contains
        close(uvr_io)
     endif
 
-    if(engdiv == 1) then
+    if (engdiv == 1) then
        suffeng = '.tt'
     else
        j = division / 10
@@ -680,7 +679,7 @@ contains
     close(eng_io)
     !
     ! storing the solvent-solvent correlation matrix in energy representation
-    if(corrcal == YES) then
+    if (corrcal == YES) then
        select case(slttype)
        case(SLT_SOLN)
           engfile = 'corsln' // suffeng
@@ -695,7 +694,7 @@ contains
     endif
     !
     ! storing the distribution function of the self-energy of solute
-    if(selfcal == YES) then
+    if (selfcal == YES) then
        engfile = 'slfeng' // suffeng
        open(unit = slf_io, file = engfile, form = "FORMATTED", action = 'write')
        do iduv = 1, esmax
@@ -739,13 +738,13 @@ contains
        tagslt = sltlist(cntdst)
        stat_weight_solute = 1.0
        call check_mol_configuration(out_of_range)
-       if(out_of_range) return
+       if (out_of_range) return
     case(SLT_REFS_RIGID, SLT_REFS_FLEX)
        tagslt = sltlist(1)
-       if(.not. initialized) call instslt('init')
+       if (.not. initialized) call instslt('init')
        initialized = .true.
        call instslt('proc', cntdst, stat_weight_solute)
-       if((stnum == (maxcnf / skpcnf)) .and. (cntdst == maxdst)) call instslt('last')
+       if ((stnum == (maxcnf / skpcnf)) .and. (cntdst == maxdst)) call instslt('last')
     end select
 
     ! At this moment all coordinate in the system is determined
@@ -755,7 +754,7 @@ contains
     uvengy = 0.0
     !$acc end parallel
     ! Calculate system-wide values
-    if(cltype == EL_PME .or. cltype == EL_PPPM) then
+    if (cltype == EL_PME .or. cltype == EL_PPPM) then
        call recpcal_prepare_solute(tagslt)
        call realcal_acc(tagslt, tagpt, slvmax, uvengy)
        call recpcal_energy(tagslt, tagpt, slvmax, uvengy)
@@ -770,8 +769,8 @@ contains
     pairep = 0.0
     residual = 0.0
     current_solute_hash = get_solute_hash() ! FIXME: if this tuns into a bottleneck, add conditionals
-    if(current_solute_hash == solute_hash .or. &
-       (slttype == SLT_REFS_RIGID .and. solute_hash /= 0)) then 
+    if (current_solute_hash == solute_hash .or. &
+         (slttype == SLT_REFS_RIGID .and. solute_hash /= 0)) then 
        ! For refs calculation, the configuration of solute may change with
        ! random translation and/or rotation upon insertion, 
        ! though the self energy will not change.
@@ -804,7 +803,7 @@ contains
     real(kind=8) :: engnmfc
     logical, save :: initialized = .false.
 
-    if(.not. initialized) then
+    if (.not. initialized) then
        allocate( insdst(ermax) )
        !$acc enter data create(insdst)
        initialized = .true.
@@ -814,7 +813,7 @@ contains
     case(NO)
        engnmfc = 1.0
     case(YES)
-       if(.not. voffset_initialized) then
+       if (.not. voffset_initialized) then
           voffset = uvengy(0)
           voffset_initialized = .true.
        endif
@@ -829,7 +828,7 @@ contains
        stop "Unknown wgtslf"
     end select
     total_weight = stat_weight_system * stat_weight_solute
-    if(estype == ES_NPT) call volcorrect(total_weight)
+    if (estype == ES_NPT) call volcorrect(total_weight)
     engnmfc = engnmfc * total_weight
     !
     engnorm = engnorm + engnmfc      ! normalization factor
@@ -837,7 +836,7 @@ contains
     avslf = avslf + total_weight     ! normalization without solute self-energy
 
     ! self energy histogram
-    if(selfcal == YES) then
+    if (selfcal == YES) then
        call getiduv(0, uvengy(0), iduv)
        eself(iduv) = eself(iduv) + engnmfc
     endif
@@ -849,9 +848,9 @@ contains
     flceng_stored(cntdst) = .true.
     do k = 1, slvmax
        i = tagpt(k)
-       if(i == tagslt) cycle
+       if (i == tagslt) cycle
        pti = uvspec(i)
-       if(pti <= 0) call halt_with_error('eng_cns')
+       if (pti <= 0) call halt_with_error('eng_cns')
 
        pairep = uvengy(k)
        call getiduv(pti, pairep, iduv)
@@ -866,24 +865,24 @@ contains
        maxuv(pti) = max(maxuv(pti), pairep)
     enddo
 
-    if(slttype == SLT_SOLN) then
+    if (slttype == SLT_SOLN) then
        slnuv(:) = slnuv(:) + flceng(:, cntdst) * engnmfc
     endif
 
     do iduv = 1, ermax
        k = insdst(iduv)
-       if(k == 0) cycle
+       if (k == 0) cycle
        edens(iduv) = edens(iduv) + engnmfc * real(k)
     enddo
-    if(corrcal == YES) then
+    if (corrcal == YES) then
        !$acc update device(insdst)
        !$acc parallel loop present(insdst, ecorr)
        do iduv = 1, ermax
           k = insdst(iduv)
-          if(k == 0) cycle
+          if (k == 0) cycle
           do iduvp = 1, ermax
              q = insdst(iduvp)
-             if(q == 0) cycle
+             if (q == 0) cycle
              ecorr(iduvp,iduv) = ecorr(iduvp,iduv) &
                   + engnmfc * real(k) * real(q)
           enddo
@@ -900,7 +899,7 @@ contains
     integer, intent(in) :: i
     real, intent(inout) :: pairep
     real :: epcl
-    if(cltype == EL_COULOMB) return
+    if (cltype == EL_COULOMB) return
     epcl = PI * mol_charge(i) * mol_charge(i) / screen / screen / volume
     epcl = epcl / 2.0   ! self-interaction
     pairep = pairep - epcl
@@ -919,7 +918,7 @@ contains
     !$acc parallel loop gang vector present(uvengy, mol_charge)
     do k = 1, slvmax
        i = tagpt(k)
-       if(i == tagslt) cycle
+       if (i == tagslt) cycle
 
        epcl = PI * mol_charge(tagslt) * mol_charge(i) &
             / screen / screen / volume
@@ -935,7 +934,7 @@ contains
     real, intent(inout) :: weight
     real :: total_charge, factor
     weight = weight * volume
-    if((cltype == EL_EWALD) .or. (cltype == EL_PME) &
+    if ((cltype == EL_EWALD) .or. (cltype == EL_PME) &
          .or. (cltype == EL_PPPM)) then  ! Ewald, PME and PPPM
        ! sum of charges over physical particles
        total_charge = sum( mol_charge, mask = ((sluvid == PT_SOLVENT) &
@@ -991,11 +990,11 @@ contains
     real, intent(in) :: v
     integer, intent(out) :: ret
     integer :: rmin, rmax, rmid
-    if(v < coord(1)) then
+    if (v < coord(1)) then
        ret = 0
        return
     endif
-    if(v > coord(n)) then
+    if (v > coord(n)) then
        ret = n
        return
     endif
@@ -1003,11 +1002,11 @@ contains
     rmin = 1
     rmax = n + 1
     do
-       if(rmax - rmin <= 1) then
+       if (rmax - rmin <= 1) then
           exit
        endif
        rmid = ishft((rmin + rmax - 1), -1)
-       if(v > coord(rmid)) then
+       if (v > coord(rmid)) then
           rmin = rmid + 1
        else
           rmax = rmid + 1
@@ -1029,17 +1028,17 @@ contains
     real, parameter :: warn_threshold = 1.0e3
     logical, save :: warn_bin_firsttime = .true.
 
-    if(pti >  0) then            ! solute-solvent interaction
-       if(pti == 1) then         ! first solvent species
+    if (pti >  0) then            ! solute-solvent interaction
+       if (pti == 1) then         ! first solvent species
           idmin = 0
-       elseif(pti > 1) then      ! second and later solvent species
+       elseif (pti > 1) then      ! second and later solvent species
           idmin = sum( uvmax(1:(pti - 1)) )
        else                      ! bug --- pti must not be smaller than 1
           call halt_with_error('eng_bug')
        endif
        idnum = uvmax(pti)
        call binsearch(uvcrd((idmin + 1):(idmin + idnum)), idnum, engval, idpti)
-    elseif(pti == 0) then        ! solute self-energy
+    elseif (pti == 0) then        ! solute self-energy
        idmin = 0
        idnum = esmax
        call binsearch(escrd(1:idnum), idnum, engval, idpti)
@@ -1049,16 +1048,16 @@ contains
 
     ! inappropriate setting of energy coordinate
     ! smaller than the minimum energy mesh
-    if(idpti <= 0) then
+    if (idpti <= 0) then
        write(stdout, '(A,g12.4,A,i3,A)') '  energy of ', engval, ' for ', pti, '-th species'
        call halt_with_error('eng_min')
     endif
     ! larger than the maximum energy mesh
-    if(idpti > idnum) call halt_with_error('eng_bug')
+    if (idpti > idnum) call halt_with_error('eng_bug')
     ! only for solute-solvent interaction in solution system
     ! larger than the maximum of soft part (linear-graduation part)
-    if((slttype == SLT_SOLN) .and. (pti > 0)) then
-       if(idpti > uvsoft(pti)) then
+    if ((slttype == SLT_SOLN) .and. (pti > 0)) then
+       if (idpti > uvsoft(pti)) then
           write(stdout, '(A,g12.4,A,i3,A)') '  energy of ', engval, ' for ', pti, '-th species'
           call halt_with_error('eng_sft')
        endif
@@ -1067,7 +1066,7 @@ contains
     ! Warning if the energy exceeds the maximum binning region and pecore = 0
     ! Since it is hard to see the pecore value at this point,
     ! the energy value is simply shown as a warning
-    if((idpti == idnum) .and. (engval < warn_threshold) &
+    if ((idpti == idnum) .and. (engval < warn_threshold) &
                         .and. (warn_bin_firsttime)) then
        write(stdout, '(A,g12.4,A,i3,A)') '  energy of ', engval, ' for ', pti, '-th species'
        call warning('mbin')
@@ -1086,20 +1085,20 @@ contains
     implicit none
 
     ! sanity check
-    if(any(sluvid(:) < 0) .or. any(sluvid(:) > 3)) call halt_with_error('eng_bug')
+    if (any(sluvid(:) < 0) .or. any(sluvid(:) > 3)) call halt_with_error('eng_bug')
     select case(slttype)
     case(SLT_SOLN)
        ! sluvid should be 0 (solvent) or 1 (solute)
-       if(any(sluvid(:) >= 2)) call halt_with_error('eng_par')
+       if (any(sluvid(:) >= 2)) call halt_with_error('eng_par')
     case(SLT_REFS_RIGID, SLT_REFS_FLEX)
        ! sluvid should be 0 (solvent), 2, 3 (test particles)
-       if(any(sluvid(:) == 1)) call halt_with_error('eng_par')
+       if (any(sluvid(:) == 1)) call halt_with_error('eng_par')
        ! solvent must exist
-       if(all(sluvid(:) /= 0)) call halt_with_error('eng_par')
+       if (all(sluvid(:) /= 0)) call halt_with_error('eng_par')
     end select
 
     ! solute / test particle must exist
-    if(all(sluvid(:) == 0)) call halt_with_error('eng_par')
+    if (all(sluvid(:) == 0)) call halt_with_error('eng_par')
   end subroutine sanity_check_sluvid
 
   ! Check whether molecule is within specified region
@@ -1137,7 +1136,7 @@ contains
        ! in the set_shift_com subroutine within insertion.F90
        call relative_com(tagslt, dx)
        distance = sqrt(dot_product(dx, dx))
-       if((lwreg > distance) .or. (distance > upreg)) then
+       if ((lwreg > distance) .or. (distance > upreg)) then
           out_of_range = .true.     ! configuration is rejected
           return
        endif
@@ -1145,20 +1144,20 @@ contains
        ! constrained to z-axis
        ! The following has the same structure as the corresponding part
        ! in the set_shift_com subroutine within insertion.F90
-       if(boxshp == SYS_NONPERIODIC) call halt_with_error('eng_slb')
+       if (boxshp == SYS_NONPERIODIC) call halt_with_error('eng_slb')
        call relative_com(tagslt, dx)
        distance = dot_product(invcl(3,:), dx(:)) * celllen(3)
-       if(insposition == INSPOS_SLAB_SYMMETRIC) then  ! symmetric bilayer
+       if (insposition == INSPOS_SLAB_SYMMETRIC) then  ! symmetric bilayer
           distance = abs(distance)
        endif
-       if((lwreg > distance) .or. (distance > upreg)) then
+       if ((lwreg > distance) .or. (distance > upreg)) then
           out_of_range = .true.     ! configuration is rejected
           return
        endif
     case(INSPOS_RMSD)                                 ! comparison to reference
        ptb = mol_begin_index(tagslt)
        pte = mol_end_index(tagslt)
-       if(numsite(tagslt) /= refslt_natom) call halt_with_error('eng_bug')
+       if (numsite(tagslt) /= refslt_natom) call halt_with_error('eng_bug')
        allocate( hostcrd(3, refhost_natom), refslt_bestfit(3, refslt_natom) )
        ! The following has the same structure as the corresponding part
        ! in the reffit subroutine within insertion.F90
@@ -1173,7 +1172,7 @@ contains
        distance = rmsd_nofit(refslt_natom, refslt_bestfit, &
                              sitepos(1:3, ptb:pte), refslt_weight)
        deallocate( hostcrd, refslt_bestfit )
-       if((lwreg > distance) .or. (distance > upreg)) then
+       if ((lwreg > distance) .or. (distance > upreg)) then
           out_of_range = .true.     ! configuration is rejected
           return
        endif
@@ -1191,10 +1190,10 @@ contains
        ! in the getsolute subroutine within insertion.F90
        ptb = mol_begin_index(tagslt)
        pte = mol_end_index(tagslt)
-       if(numsite(tagslt) /= refslt_natom) call halt_with_error('eng_bug')
+       if (numsite(tagslt) /= refslt_natom) call halt_with_error('eng_bug')
        distance = rmsd_bestfit(refslt_natom, refslt_crd, &
                                sitepos(1:3, ptb:pte), refslt_weight)
-       if((lwstr > distance) .or. (distance > upstr)) then
+       if ((lwstr > distance) .or. (distance > upstr)) then
           out_of_range = .true.     ! structure is rejected
           return
        endif
@@ -1247,9 +1246,9 @@ contains
     implicit none
     integer, intent(in) :: iduv
     real :: engcoord
-    if(iduv <  esmax) engcoord = (escrd(iduv) + escrd(iduv+1)) / 2.0
-    if(iduv == esmax) engcoord = escrd(esmax)
-    if(iduv >  esmax) call halt_with_error('eng_ecd')
+    if (iduv <  esmax) engcoord = (escrd(iduv) + escrd(iduv+1)) / 2.0
+    if (iduv == esmax) engcoord = escrd(esmax)
+    if (iduv >  esmax) call halt_with_error('eng_ecd')
   end function representative_bin_selfenergy
 
   subroutine representative_bin_info(iduv, engleft, engmiddle, enginvwidth, solvent_spec)
@@ -1263,23 +1262,23 @@ contains
     idmin = 0
     do cnt = 1, numslv
        idpt = idmin + uvmax(cnt)
-       if(iduv <= idpt) exit
+       if (iduv <= idpt) exit
        idmin = idpt
     enddo
     solvent_spec = cnt
     idsoft = uvsoft(solvent_spec)
     idmax = uvmax(solvent_spec)
     idpt = iduv - idmin
-    if((idpt < 1) .or. (idpt > idmax)) call halt_with_error('eng_ecd')
+    if ((idpt < 1) .or. (idpt > idmax)) call halt_with_error('eng_ecd')
     engleft = uvcrd(iduv)
-    if(idpt <= idsoft) then   ! linear graduation
+    if (idpt <= idsoft) then   ! linear graduation
        engmiddle = (uvcrd(iduv) + uvcrd(iduv+1)) / 2.0
        enginvwidth = 1. / (uvcrd(iduv + 1) - uvcrd(iduv))
     else                      ! logarithmic graduation
-       if(idpt <  idmax) then
+       if (idpt <  idmax) then
           engmiddle = sqrt(uvcrd(iduv) * uvcrd(iduv+1))
           enginvwidth = 1. / (uvcrd(iduv + 1) - uvcrd(iduv))
-       elseif(idpt == idmax) then
+       elseif (idpt == idmax) then
           engmiddle = uvcrd(iduv)
           enginvwidth = 0.
        end if

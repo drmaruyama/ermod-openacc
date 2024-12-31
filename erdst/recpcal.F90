@@ -44,7 +44,7 @@ contains
     use spline, only: spline_init
     use fft_iface, only: fft_init_ctr, fft_init_rtc, fft_set_size
     implicit none
-    integer, intent(in) :: slvmax, tagpt(slvmax)
+    integer, intent(in) :: slvmax, tagpt(:)
     integer :: m, k
     integer :: gridsize(3), ptrnk
     real :: dummy
@@ -459,19 +459,19 @@ contains
     end do
   end subroutine calc_spline_molecule
 
-  subroutine recpcal_self_energy(pairep)
+  function recpcal_self_energy() result(pairep)
     implicit none
-    real, intent(out) :: pairep
+    real :: pairep
 
     pairep = solute_self_energy
-  end subroutine recpcal_self_energy
+  end function recpcal_self_energy
 
   subroutine recpcal_energy(tagslt, tagpt, slvmax, uvengy)
     use engmain, only: ms1max, ms2max, ms3max, splodr, numsite, sluvid, charge, mol_begin_index
     use mpiproc, only: halt_with_error
     implicit none
     integer, intent(in) :: tagslt, tagpt(:), slvmax
-    real, intent(inout) :: uvengy(0:slvmax)
+    real, intent(inout) :: uvengy(:, :)
 
     real :: pairep
     integer :: cg1, cg2, cg3, i, k
@@ -521,7 +521,7 @@ contains
              end do
           end do
        end do
-       uvengy(k) = uvengy(k) + pairep
+       uvengy(k, 1) = uvengy(k, 1) + pairep
     end do
     !$acc end parallel
   end subroutine recpcal_energy

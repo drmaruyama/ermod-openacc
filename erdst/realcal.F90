@@ -54,7 +54,7 @@ contains
          LJSWT_POT_CHM, LJSWT_POT_GMX, LJSWT_FRC_CHM, LJSWT_FRC_GMX
     implicit none
     integer, intent(in) :: tagslt, tagpt(:), slvmax
-    real, intent(inout) :: uvengy(0:slvmax)
+    real, intent(inout) :: uvengy(:, :)
 
     integer :: i, k, is, js, ismax, jsmax, ati, atj
     real :: reelcut, pairep, rst, dis2, invr2, invr3, invr6
@@ -195,7 +195,7 @@ contains
              pairep = pairep + eplj + epcl
           end do
           !$acc atomic update
-          uvengy(k) = uvengy(k) + pairep
+          uvengy(k, 1) = uvengy(k, 1) + pairep
        end do
     end do
     !$acc end parallel
@@ -211,7 +211,7 @@ contains
          LJSWT_POT_CHM, LJSWT_POT_GMX, LJSWT_FRC_CHM, LJSWT_FRC_GMX
     implicit none
     integer, intent(in) :: tagslt, tagpt(:), slvmax
-    real, intent(inout) :: uvengy(0:slvmax)
+    real, intent(inout) :: uvengy(:, :)
 
     integer :: i, k, is, js, ismax, jsmax, ati, atj
     real :: reelcut, pairep, rst, dis2, invr2, invr3, invr6
@@ -345,7 +345,7 @@ contains
              pairep = pairep + eplj + epcl
           end do
           !$acc atomic update
-          uvengy(k) = uvengy(k) + pairep
+          uvengy(k, 1) = uvengy(k, 1) + pairep
        end do
     end do
     !$acc end parallel

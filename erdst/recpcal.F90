@@ -466,11 +466,11 @@ contains
     pairep = solute_self_energy
   end function recpcal_self_energy
 
-  subroutine recpcal_energy(tagslt, tagpt, slvmax, uvengy)
+  subroutine recpcal_energy(tagslt, tagpt, slvmax, uvengy, cnt)
     use engmain, only: ms1max, ms2max, ms3max, splodr, numsite, sluvid, charge, mol_begin_index
     use mpiproc, only: halt_with_error
     implicit none
-    integer, intent(in) :: tagslt, tagpt(:), slvmax
+    integer, intent(in) :: tagslt, tagpt(:), slvmax, cnt
     real, intent(inout) :: uvengy(:, :)
 
     real :: pairep
@@ -521,7 +521,7 @@ contains
              end do
           end do
        end do
-       uvengy(k, 1) = uvengy(k, 1) + pairep
+       uvengy(k, cnt) = uvengy(k, cnt) + pairep
     end do
     !$acc end parallel
   end subroutine recpcal_energy

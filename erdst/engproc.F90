@@ -22,7 +22,7 @@ module engproc
   character(len=10), parameter :: numbers='0123456789'
   real, parameter :: tiny = 1.0e-30
   integer :: cntdst, slvmax
-  integer :: maxdst
+  integer :: maxdst, maxcnt
   integer :: tagslt
   integer, allocatable :: tagpt(:)
 
@@ -367,13 +367,12 @@ contains
     integer :: i, k, irank
     real :: stat_weight_solute
     integer, allocatable, save :: tplst(:)
-    real :: uvengy0
+    real, allocatable, save :: uvengy0(:)
     real, allocatable, save :: uvengy(:, :)
     logical, allocatable :: flceng_stored_g(:,:)
     real, allocatable :: flceng_g(:,:,:)
     integer :: flceng_mpikind
     real, save :: prevcl(3,3)
-    logical :: skipcond
     logical, save :: initialized = .false.
     logical, save :: pme_initialized = .false. ! NOTE: this variable is also used when PPPM is selected.
 
@@ -400,7 +399,8 @@ contains
     enddo
     if(.not. initialized) then
        allocate( tagpt(slvmax) )
-       allocate( uvengy(slvmax, 1) )
+       allocate( uvengy0(maxdst) )
+       allocate( uvengy(slvmax, maxdst) )
        !$acc enter data create(tagpt, uvengy)
        initialized = .true.
     end if
@@ -438,12 +438,13 @@ contains
 
        ! cntdst is the pick-up no. of solute molecule from plural solutes (soln)
        ! cntdst is the iteration no. of insertion (refs)
-       do cntdst = 1, maxdst
-          call get_uv_energy(stnum, stat_weight_solute, uvengy0, uvengy, skipcond)
-!       end do
-       !          if (skipcond) cycle
-!       do cntdst = 1, maxdst
-          call update_histogram(stat_weight_solute, uvengy0, uvengy)
+       !$acc parallel present(uvengy)
+       uvengy = 0.0
+       !$acc end parallel
+       call get_uv_energy(stnum, stat_weight_solute, uvengy0, uvengy, maxcnt)
+       !$acc update self(uvengy)
+       do cntdst = 1, maxcnt
+          call update_histogram(stat_weight_solute, uvengy0, uvengy, cntdst)
        enddo
 
        select case(slttype)
@@ -714,7 +715,7 @@ contains
   end subroutine engstore
 
   ! Calculate interaction energy between solute and solvent
-  subroutine get_uv_energy(stnum, stat_weight_solute, uvengy0, uvengy, out_of_range)
+  subroutine get_uv_energy(stnum, stat_weight_solute, uvengy0, uvengy, cnt)
     use engmain, only: maxcnf, skpcnf, slttype, sltlist, cltype, &
                        EL_COULOMB, EL_PME, EL_PPPM, &
                        SLT_SOLN, SLT_REFS_RIGID, SLT_REFS_FLEX
@@ -726,15 +727,19 @@ contains
     use mpiproc                                                      ! MPI
     implicit none
     integer, intent(in) :: stnum
-    real, intent(out) :: uvengy0, uvengy(:,:), stat_weight_solute
-    logical, intent(out) :: out_of_range
+    integer, intent(inout) :: cnt
+    real, intent(out) :: uvengy0(:), uvengy(:,:), stat_weight_solute
 
     integer :: i, k
     integer(8) :: current_solute_hash
     integer(8) :: solute_hash = 0
     real :: pairep, residual, factor, uvrecp
     real, save :: usreal
+    logical :: out_of_range
     logical, save :: initialized = .false.
+
+    cnt = 0
+    do cntdst = 1, maxdst
 
     out_of_range = .false.
     ! determine / pick solute structure
@@ -743,7 +748,7 @@ contains
        tagslt = sltlist(cntdst)
        stat_weight_solute = 1.0
        call check_mol_configuration(out_of_range)
-       if (out_of_range) return
+       if (out_of_range) cycle
     case(SLT_REFS_RIGID, SLT_REFS_FLEX)
        tagslt = sltlist(1)
        if (.not. initialized) call instslt('init')
@@ -751,24 +756,21 @@ contains
        call instslt('proc', cntdst, stat_weight_solute)
        if ((stnum == (maxcnf / skpcnf)) .and. (cntdst == maxdst)) call instslt('last')
     end select
+    cnt = cnt + 1
 
     ! At this moment all coordinate in the system is determined
     call realcal_prepare
 
-    !$acc parallel present(uvengy)
-    uvengy = 0.0
-    !$acc end parallel
     ! Calculate system-wide values
     if (cltype == EL_PME .or. cltype == EL_PPPM) then
        call recpcal_prepare_solute(tagslt)
-       call realcal_acc(tagslt, tagpt, slvmax, uvengy)
-       call recpcal_energy(tagslt, tagpt, slvmax, uvengy)
-       call residual_ene(tagslt, tagpt, slvmax, uvengy)
+       call realcal_acc(tagslt, tagpt, slvmax, uvengy, cnt)
+       call recpcal_energy(tagslt, tagpt, slvmax, uvengy, cnt)
+       call residual_ene(tagslt, tagpt, slvmax, uvengy, cnt)
        uvrecp = recpcal_self_energy()
     else
-       call realcal_bare(tagslt, tagpt, slvmax, uvengy)
+       call realcal_bare(tagslt, tagpt, slvmax, uvengy, cnt)
     endif
-    !$acc update self(uvengy)
 
     ! solute-solute self energy
     pairep = 0.0
@@ -786,11 +788,12 @@ contains
     endif
     solute_hash = current_solute_hash
     call residual_self_ene(tagslt, residual)
-    uvengy0 = uvrecp + pairep + residual
+    uvengy0(cnt) = uvrecp + pairep + residual
 
+    end do
   end subroutine get_uv_energy
 
-  subroutine update_histogram(stat_weight_solute, uvengy0, uvengy)
+  subroutine update_histogram(stat_weight_solute, uvengy0, uvengy, cnt)
     use engmain, only: wgtslf, estype, slttype, corrcal, selfcal, ermax, &
          volume, temp, uvspec, &
          slnuv, avslf, minuv, maxuv, &
@@ -801,7 +804,8 @@ contains
          ES_NVT, ES_NPT, NO, YES
     use mpiproc
     implicit none
-    real, intent(in) :: uvengy0, uvengy(:, :), stat_weight_solute
+    real, intent(in) :: uvengy0(:), uvengy(:, :), stat_weight_solute
+    integer, intent(in) :: cnt
     integer, allocatable, save :: insdst(:)
     integer :: i, k, q, iduv, iduvp, pti
     real :: factor, pairep, total_weight
@@ -819,10 +823,10 @@ contains
        engnmfc = 1.0
     case(YES)
        if (.not. voffset_initialized) then
-          voffset = uvengy0
+          voffset = uvengy0(cnt)
           voffset_initialized = .true.
        endif
-       factor = uvengy0 - voffset  ! shifted by offset
+       factor = uvengy0(cnt) - voffset  ! shifted by offset
        select case(slttype)
        case(SLT_SOLN)
           engnmfc = dexp(factor / temp)
@@ -842,11 +846,11 @@ contains
 
     ! self energy histogram
     if (selfcal == YES) then
-       call getiduv(0, uvengy0, iduv)
+       call getiduv(0, uvengy0(cnt), iduv)
        eself(iduv) = eself(iduv) + engnmfc
     endif
-    minuv(0) = min(minuv(0), uvengy0)
-    maxuv(0) = max(maxuv(0), uvengy0)
+    minuv(0) = min(minuv(0), uvengy0(cnt))
+    maxuv(0) = max(maxuv(0), uvengy0(cnt))
 
     insdst(:) = 0                              ! instantaneous histogram
     flceng(:, cntdst) = 0.0                    ! sum of solute-solvent energy
@@ -857,7 +861,7 @@ contains
        pti = uvspec(i)
        if (pti <= 0) call halt_with_error('eng_cns')
 
-       pairep = uvengy(k, 1)
+       pairep = uvengy(k, cnt)
        call getiduv(pti, pairep, iduv)
 
        ! instantaneous histogram of solute-solvent energy
@@ -888,7 +892,7 @@ contains
           do iduvp = 1, ermax
              q = insdst(iduvp)
              if (q == 0) cycle
-             ecorr(iduvp,iduv) = ecorr(iduvp,iduv) &
+             ecorr(iduvp, iduv) = ecorr(iduvp, iduv) &
                   + engnmfc * real(k) * real(q)
           enddo
        enddo
@@ -910,10 +914,10 @@ contains
     pairep = pairep - epcl
   end subroutine residual_self_ene
   !
-  subroutine residual_ene(tagslt, tagpt, slvmax, uvengy)
+  subroutine residual_ene(tagslt, tagpt, slvmax, uvengy, cnt)
     use engmain, only: screen, volume, mol_charge, cltype, EL_COULOMB, PI
     implicit none
-    integer, intent(in) :: tagslt, tagpt(:), slvmax
+    integer, intent(in) :: tagslt, tagpt(:), slvmax, cnt
     real, intent(inout) :: uvengy(:, :)
 
     integer :: i, k
@@ -928,7 +932,7 @@ contains
        epcl = PI * mol_charge(tagslt) * mol_charge(i) &
             / screen / screen / volume
        !$acc atomic update
-       uvengy(k, 1) = uvengy(k, 1) - epcl
+       uvengy(k, cnt) = uvengy(k, cnt) - epcl
     end do
   end subroutine residual_ene
   !

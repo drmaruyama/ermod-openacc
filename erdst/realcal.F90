@@ -46,14 +46,14 @@ contains
   end subroutine realcal_prepare
 
   ! Calculate i-j interaction energy on GPU
-  subroutine realcal_acc(tagslt, tagpt, slvmax, uvengy)
+  subroutine realcal_acc(tagslt, tagpt, slvmax, uvengy, cnt)
     use engmain, only:  boxshp, numsite, &
          elecut, lwljcut, upljcut, cltype, screen, charge, mol_begin_index, &
          ljswitch, ljtype, ljtype_max, ljene_mat, ljlensq_mat, &
          SYS_NONPERIODIC, SYS_PERIODIC, EL_COULOMB, &
          LJSWT_POT_CHM, LJSWT_POT_GMX, LJSWT_FRC_CHM, LJSWT_FRC_GMX
     implicit none
-    integer, intent(in) :: tagslt, tagpt(:), slvmax
+    integer, intent(in) :: tagslt, tagpt(:), slvmax, cnt
     real, intent(inout) :: uvengy(:, :)
 
     integer :: i, k, is, js, ismax, jsmax, ati, atj
@@ -195,7 +195,7 @@ contains
              pairep = pairep + eplj + epcl
           end do
           !$acc atomic update
-          uvengy(k, 1) = uvengy(k, 1) + pairep
+          uvengy(k, cnt) = uvengy(k, cnt) + pairep
        end do
     end do
     !$acc end parallel
@@ -203,14 +203,14 @@ contains
   end subroutine realcal_acc
 
   ! Calculate i-j interaction energy in the bare 1/r form
-  subroutine realcal_bare(tagslt, tagpt, slvmax, uvengy)
+  subroutine realcal_bare(tagslt, tagpt, slvmax, uvengy, cnt)
     use engmain, only:  boxshp, numsite, &
          elecut, lwljcut, upljcut, cltype, screen, charge, mol_begin_index, &
          ljswitch, ljtype, ljtype_max, ljene_mat, ljlensq_mat, &
          SYS_NONPERIODIC, SYS_PERIODIC, EL_COULOMB, &
          LJSWT_POT_CHM, LJSWT_POT_GMX, LJSWT_FRC_CHM, LJSWT_FRC_GMX
     implicit none
-    integer, intent(in) :: tagslt, tagpt(:), slvmax
+    integer, intent(in) :: tagslt, tagpt(:), slvmax, cnt
     real, intent(inout) :: uvengy(:, :)
 
     integer :: i, k, is, js, ismax, jsmax, ati, atj
@@ -345,7 +345,7 @@ contains
              pairep = pairep + eplj + epcl
           end do
           !$acc atomic update
-          uvengy(k, 1) = uvengy(k, 1) + pairep
+          uvengy(k, cnt) = uvengy(k, cnt) + pairep
        end do
     end do
     !$acc end parallel
@@ -526,13 +526,6 @@ contains
        ! shift X
        sitepos_normal(1:3, i) = sitepos_normal(1:3, i) - &
             cell_normal(:, 1) * floor(invcell_normal(1) * sitepos_normal(1, i))
-
-!       if (sitepos_normal(1, i) < 0 .or. sitepos_normal(1, i) > cell_len_normal(1) .or.&
-!          sitepos_normal(2, i) < 0 .or. sitepos_normal(2, i) > cell_len_normal(2) .or.&
-!          sitepos_normal(3, i) < 0 .or. sitepos_normal(3, i) > cell_len_normal(3)) then
-!          print *, sitepos_normal(:, i), cell_len_normal
-!          stop "INVALID sitepos"
-!       endif
     end do
   end subroutine normalize_periodic
 

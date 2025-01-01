@@ -373,6 +373,7 @@ contains
     real, allocatable :: flceng_g(:,:,:)
     integer :: flceng_mpikind
     real, save :: prevcl(3,3)
+    logical, allocatable, save :: skipcond(:)
     logical, save :: initialized = .false.
     logical, save :: pme_initialized = .false. ! NOTE: this variable is also used when PPPM is selected.
 
@@ -401,6 +402,7 @@ contains
        allocate( tagpt(slvmax) )
        allocate( uvengy0(maxdst) )
        allocate( uvengy(slvmax, maxdst) )
+       allocate( skipcond(maxdst) )
        !$acc enter data create(tagpt, uvengy)
        initialized = .true.
     end if
@@ -441,9 +443,11 @@ contains
        !$acc parallel present(uvengy)
        uvengy = 0.0
        !$acc end parallel
-       call get_uv_energy(stnum, stat_weight_solute, uvengy0, uvengy, maxcnt)
+       call get_uv_energy(stnum, stat_weight_solute, uvengy0, uvengy, skipcond)
        !$acc update self(uvengy)
-       do cntdst = 1, maxcnt
+
+       do cntdst = 1, maxdst
+          if (skipcond(cntdst)) cycle
           call update_histogram(stat_weight_solute, uvengy0, uvengy, cntdst)
        enddo
 
@@ -715,7 +719,7 @@ contains
   end subroutine engstore
 
   ! Calculate interaction energy between solute and solvent
-  subroutine get_uv_energy(stnum, stat_weight_solute, uvengy0, uvengy, cnt)
+  subroutine get_uv_energy(stnum, stat_weight_solute, uvengy0, uvengy, out_of_range)
     use engmain, only: maxcnf, skpcnf, slttype, sltlist, cltype, &
                        EL_COULOMB, EL_PME, EL_PPPM, &
                        SLT_SOLN, SLT_REFS_RIGID, SLT_REFS_FLEX
@@ -727,28 +731,27 @@ contains
     use mpiproc                                                      ! MPI
     implicit none
     integer, intent(in) :: stnum
-    integer, intent(inout) :: cnt
     real, intent(out) :: uvengy0(:), uvengy(:,:), stat_weight_solute
+    logical, intent(out) :: out_of_range(:)
 
     integer :: i, k
     integer(8) :: current_solute_hash
     integer(8) :: solute_hash = 0
     real :: pairep, residual, factor, uvrecp
     real, save :: usreal
-    logical :: out_of_range
     logical, save :: initialized = .false.
 
-    cnt = 0
+    out_of_range(:) = .false.
+
     do cntdst = 1, maxdst
 
-    out_of_range = .false.
     ! determine / pick solute structure
     select case(slttype) 
     case(SLT_SOLN)
        tagslt = sltlist(cntdst)
        stat_weight_solute = 1.0
-       call check_mol_configuration(out_of_range)
-       if (out_of_range) cycle
+       out_of_range(cntdst) = check_mol_configuration()
+       if (out_of_range(cntdst)) cycle
     case(SLT_REFS_RIGID, SLT_REFS_FLEX)
        tagslt = sltlist(1)
        if (.not. initialized) call instslt('init')
@@ -756,7 +759,6 @@ contains
        call instslt('proc', cntdst, stat_weight_solute)
        if ((stnum == (maxcnf / skpcnf)) .and. (cntdst == maxdst)) call instslt('last')
     end select
-    cnt = cnt + 1
 
     ! At this moment all coordinate in the system is determined
     call realcal_prepare
@@ -764,12 +766,12 @@ contains
     ! Calculate system-wide values
     if (cltype == EL_PME .or. cltype == EL_PPPM) then
        call recpcal_prepare_solute(tagslt)
-       call realcal_acc(tagslt, tagpt, slvmax, uvengy, cnt)
-       call recpcal_energy(tagslt, tagpt, slvmax, uvengy, cnt)
-       call residual_ene(tagslt, tagpt, slvmax, uvengy, cnt)
+       call realcal_acc(tagslt, tagpt, slvmax, uvengy, cntdst)
+       call recpcal_energy(tagslt, tagpt, slvmax, uvengy, cntdst)
+       call residual_ene(tagslt, tagpt, slvmax, uvengy, cntdst)
        uvrecp = recpcal_self_energy()
     else
-       call realcal_bare(tagslt, tagpt, slvmax, uvengy, cnt)
+       call realcal_bare(tagslt, tagpt, slvmax, uvengy, cntdst)
     endif
 
     ! solute-solute self energy
@@ -788,7 +790,7 @@ contains
     endif
     solute_hash = current_solute_hash
     call residual_self_ene(tagslt, residual)
-    uvengy0(cnt) = uvrecp + pairep + residual
+    uvengy0(cntdst) = uvrecp + pairep + residual
 
     end do
   end subroutine get_uv_energy
@@ -1111,7 +1113,7 @@ contains
   end subroutine sanity_check_sluvid
 
   ! Check whether molecule is within specified region
-  subroutine check_mol_configuration(out_of_range)
+  function check_mol_configuration() result(out_of_range)
     use engmain, only: insposition, insstructure, lwreg, upreg, lwstr, upstr, &
                        numsite, mol_begin_index, mol_end_index, &
                        sitepos, boxshp, invcl, celllen, &
@@ -1128,7 +1130,7 @@ contains
     use bestfit, only: fit_a_rotate_b, rmsd_nofit, rmsd_bestfit
     use mpiproc, only: halt_with_error
     implicit none
-    logical, intent(out) :: out_of_range
+    logical :: out_of_range
     real :: dx(3), distance
     integer :: i, ptb, pte
     real, dimension(:,:), allocatable :: hostcrd, refslt_bestfit
@@ -1238,7 +1240,7 @@ contains
       deallocate( ptmass, ptsite )
       return
     end subroutine relative_com
-  end subroutine check_mol_configuration
+  end function check_mol_configuration
 
   ! get the hashed function of solute coordinate
   integer(8) function get_solute_hash()

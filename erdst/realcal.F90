@@ -46,7 +46,7 @@ contains
   end subroutine realcal_prepare
 
   ! Calculate i-j interaction energy on GPU
-  subroutine realcal_acc(tagslt, tagpt, slvmax, uvengy, cnt)
+  subroutine realcal_soln(tagslt, tagpt, slvmax, uvengy, cnt)
     use engmain, only:  boxshp, numsite, &
          elecut, lwljcut, upljcut, cltype, screen, charge, mol_begin_index, &
          ljswitch, ljtype, ljtype_max, ljene_mat, ljlensq_mat, &
@@ -200,7 +200,159 @@ contains
     end do
     !$acc end parallel
     !$acc end data
-  end subroutine realcal_acc
+  end subroutine realcal_soln
+
+  subroutine realcal_refs(tagslt, slvmax, uvengy, cnt)
+    use engmain, only:  boxshp, numsite, &
+         elecut, lwljcut, upljcut, cltype, screen, charge, mol_begin_index, &
+         ljswitch, ljtype, ljtype_max, ljene_mat, ljlensq_mat, &
+         SYS_NONPERIODIC, SYS_PERIODIC, EL_COULOMB, &
+         LJSWT_POT_CHM, LJSWT_POT_GMX, LJSWT_FRC_CHM, LJSWT_FRC_GMX
+    implicit none
+    integer, intent(in) :: tagslt, slvmax, cnt
+    real, intent(inout) :: uvengy(:, :)
+
+    integer :: i, k, is, js, ismax, jsmax, ati, atj
+    real :: reelcut, pairep, rst, dis2, invr2, invr3, invr6
+    real :: eplj, epcl, xst(3), half_cell(3)
+    real :: lwljcut2, upljcut2
+    real, save :: lwljcut3, upljcut3, lwljcut6, upljcut6
+    real :: ljeps, ljsgm2, ljsgm3, ljsgm6, vdwa, vdwb, swth, swfac
+    real, save :: repA, repB, repC, attA, attB, attC
+    integer :: ljtype_i, ljtype_j
+    logical, save :: initialized = .false.
+    real, parameter :: infty = huge(infty)      ! essentially equal to infinity
+    !
+    if (boxshp == SYS_NONPERIODIC) reelcut = infty
+    if (boxshp == SYS_PERIODIC) then
+       reelcut = elecut
+       half_cell(:) = 0.5 * cell_len_normal(:)
+    else
+       ! suppress warnings
+       half_cell(:) = 0.0
+    endif
+
+    if (.not. initialized) then
+       if (ljswitch == LJSWT_FRC_CHM) then       ! force switch (CHARMM type)
+          lwljcut3 = lwljcut ** 3
+          upljcut3 = upljcut ** 3
+          lwljcut6 = lwljcut3 * lwljcut3
+          upljcut6 = upljcut3 * upljcut3
+       endif
+       if (ljswitch == LJSWT_FRC_GMX) then       ! force switch (GROMACS type)
+          call calc_gmx_switching_force_params(12, lwljcut, upljcut, &
+               repA, repB, repC)
+          call calc_gmx_switching_force_params(6,  lwljcut, upljcut, &
+               attA, attB, attC)
+       endif
+       initialized = .true.
+    end if
+
+    ! calculated only when PME or PPPM, non-self interaction
+    ismax = numsite(tagslt)
+    !$acc data pcreate(xst) copyin(half_cell, cell_normal, invcell_normal)
+    !$acc parallel loop collapse(2) gang vector present(uvengy, mol_begin_index, sitepos_normal, ljlensq_mat, ljene_mat, charge, ljtype, numsite)
+    do i = 1, slvmax
+       do is = 1, ismax
+
+          pairep = 0.0
+          do js = 1, numsite(i)
+             ati = mol_begin_index(tagslt) + (is - 1) ! = specatm(is, tagslt)
+             atj = mol_begin_index(i) + (js - 1)      ! = specatm(js, i)
+             ljtype_i = ljtype(ati)
+             ljtype_j = ljtype(atj)
+             xst(:) = sitepos_normal(:,ati) - sitepos_normal(:,atj)
+             if (boxshp == SYS_PERIODIC) then    ! when the system is periodic
+                if (is_cuboid) then
+                   xst(:) = half_cell(:) - abs(half_cell(:) - abs(xst(:)))
+                else
+                   ! Note some ops can be skipped because cell_normal
+                   ! is upper triangular
+                   xst(:) = xst(:) - cell_normal(:, 3) &
+                        * anint(xst(3) * invcell_normal(3))
+                   xst(:) = xst(:) - cell_normal(:, 2) &
+                        * anint(xst(2) * invcell_normal(2))
+                   xst(:) = xst(:) - cell_normal(:, 1) &
+                        * anint(xst(1) * invcell_normal(1))
+                end if
+             endif
+             dis2 = sum(xst(1:3) ** 2)
+             rst = sqrt(dis2)
+             if (rst > upljcut) then
+                eplj = 0.0
+             else
+                ljeps = ljene_mat(ljtype_i, ljtype_j)
+                ljsgm2 = ljlensq_mat(ljtype_i, ljtype_j)
+
+                invr2 = ljsgm2 / dis2
+                invr6 = invr2 * invr2 * invr2
+                select case(ljswitch)
+                case(LJSWT_POT_CHM, LJSWT_POT_GMX)    ! potential switch
+                   eplj = 4.0 * ljeps * invr6 * (invr6 - 1.0)
+                   if (rst > lwljcut) then
+                      select case(ljswitch)
+                      case(LJSWT_POT_CHM)                  ! CHARMM type
+                         lwljcut2 = lwljcut ** 2
+                         upljcut2 = upljcut ** 2
+                         swth = (2.0 * dis2 + upljcut2 - 3.0 * lwljcut2)      &
+                              * ((dis2 - upljcut2) ** 2)                      &
+                              / ((upljcut2 - lwljcut2) ** 3)
+                      case(LJSWT_POT_GMX)                  ! GROMACS type
+                         swfac = (rst - lwljcut) / (upljcut - lwljcut)
+                         swth = 1.0 - 10.0 * (swfac ** 3)                     &
+                              + 15.0 * (swfac ** 4) - 6.0 * (swfac ** 5)
+                      case default
+                         stop "Unknown ljswitch"
+                      end select
+                      eplj = swth * eplj
+                   endif
+                case(LJSWT_FRC_CHM)               ! force switch (CHARMM type)
+                   ljsgm6 = ljsgm2 * ljsgm2 * ljsgm2
+                   if (rst <= lwljcut) then
+                      vdwa = invr6 * invr6 &
+                           - ljsgm6 *ljsgm6 / (lwljcut6 * upljcut6)
+                      vdwb = invr6 - ljsgm6 / (lwljcut3 * upljcut3)
+                   else
+                      invr3 = sqrt(invr6)
+                      ljsgm3 = sqrt(ljsgm6)
+                      vdwa = upljcut6 / (upljcut6 - lwljcut6)                 &
+                           * ( (invr6 - ljsgm6 / upljcut6) ** 2 )
+                      vdwb = upljcut3 / (upljcut3 - lwljcut3)                 &
+                           * ( (invr3 - ljsgm3 / upljcut3) ** 2 )
+                   endif
+                   eplj = 4.0 * ljeps * (vdwa - vdwb)
+                case(LJSWT_FRC_GMX)               ! force switch (GROMACS type)
+                   ljsgm6 = ljsgm2 * ljsgm2 * ljsgm2
+                   if (rst <= lwljcut) then
+                      vdwa = invr6 * invr6 - ljsgm6 * ljsgm6 * repC
+                      vdwb = invr6 - ljsgm6 * attC
+                   else
+                      swfac = rst - lwljcut
+                      vdwa = invr6 * invr6 - ljsgm6 * ljsgm6 *                &
+                           (repA * (swfac ** 3) + repB * (swfac ** 4) + repC)
+                      vdwb = invr6 - ljsgm6 *                                 &
+                           (attA * (swfac ** 3) + attB * (swfac ** 4) + attC)
+                   endif
+                   eplj = 4.0 * ljeps * (vdwa - vdwb)
+                case default
+                   stop "Unknown ljswitch"
+                end select
+             endif
+             if (rst >= reelcut) then
+                epcl = 0.0
+             else
+                epcl = charge(ati) * charge(atj) &
+                     * (1.0 - erf(screen * rst)) / rst
+             endif
+             pairep = pairep + eplj + epcl
+          end do
+          !$acc atomic update
+          uvengy(i, cnt) = uvengy(i, cnt) + pairep
+       end do
+    end do
+    !$acc end parallel
+    !$acc end data
+  end subroutine realcal_refs
 
   ! Calculate i-j interaction energy in the bare 1/r form
   subroutine realcal_bare(tagslt, tagpt, slvmax, uvengy, cnt)

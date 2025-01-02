@@ -466,7 +466,7 @@ contains
     pairep = solute_self_energy
   end function recpcal_self_energy
 
-  subroutine recpcal_energy(tagslt, tagpt, slvmax, uvengy, cnt)
+  subroutine recpcal_energy_soln(tagslt, tagpt, slvmax, uvengy, cnt)
     use engmain, only: ms1max, ms2max, ms3max, splodr, numsite, sluvid, charge, mol_begin_index
     use mpiproc, only: halt_with_error
     implicit none
@@ -493,8 +493,7 @@ contains
        stmax = numsite(i)
        do sid = 1, stmax
           ptrnk = svi + sid - 1
-!          ati = specatm(sid, i)
-          ati = mol_begin_index(i) + (sid - 1)
+          ati = mol_begin_index(i) + (sid - 1) ! = specatm(sid, i)
           chr = charge(ati)
           do cg3 = 0, splodr - 1
              fac1 = chr * splslv(cg3, 3, ptrnk)
@@ -524,6 +523,63 @@ contains
        uvengy(k, cnt) = uvengy(k, cnt) + pairep
     end do
     !$acc end parallel
-  end subroutine recpcal_energy
+  end subroutine recpcal_energy_soln
+
+  subroutine recpcal_energy_refs(tagslt, slvmax, uvengy, cnt)
+    use engmain, only: ms1max, ms2max, ms3max, splodr, numsite, sluvid, charge, mol_begin_index
+    use mpiproc, only: halt_with_error
+    implicit none
+    integer, intent(in) :: tagslt, slvmax, cnt
+    real, intent(inout) :: uvengy(:, :)
+
+    real :: pairep
+    integer :: cg1, cg2, cg3, i, k
+    integer :: rc1, rc2, rc3, ptrnk, sid, ati, svi, stmax
+    real :: fac1, fac2, fac3, chr
+    integer :: grid1
+    complex :: rcpt
+
+    if (sluvid(tagslt) == 0) stop  ! call halt_with_error('rcp_fst')
+
+    !$acc parallel loop present(uvengy, mol_begin_index, charge, numsite, sluvid, slvtag, splslv, grdslv, cnvslt)
+    do i = 1, slvmax
+
+       pairep = 0.0
+       svi = slvtag(i)
+       if (svi <= 0) stop  ! call halt_with_error('rcp_cns')
+       stmax = numsite(i)
+       do sid = 1, stmax
+          ptrnk = svi + sid - 1
+          ati = mol_begin_index(i) + (sid - 1) ! = specatm(sid, i)
+          chr = charge(ati)
+          do cg3 = 0, splodr - 1
+             fac1 = chr * splslv(cg3, 3, ptrnk)
+             rc3 = modulo(grdslv(3, ptrnk) - cg3, ms3max)
+             do cg2 = 0, splodr - 1
+                fac2 = fac1 * splslv(cg2, 2, ptrnk)
+                rc2 = modulo(grdslv(2, ptrnk) - cg2, ms2max)
+                grid1 = grdslv(1, ptrnk)
+                if (grid1 >= splodr-1 .and. grid1 < ms1max) then
+                   !$acc loop seq
+                   do cg1 = 0, splodr - 1
+                      fac3 = fac2 * splslv(cg1, 1, ptrnk)
+                      rc1 = grid1 - cg1
+                      pairep = pairep + fac3 * real(cnvslt(rc1, rc2, rc3))
+                   enddo
+                else
+                   !$acc loop seq
+                   do cg1 = 0, splodr - 1
+                      fac3 = fac2 * splslv(cg1, 1, ptrnk)
+                      rc1 = mod(grid1 + ms1max - cg1, ms1max) ! speedhack
+                      pairep = pairep + fac3 * real(cnvslt(rc1, rc2, rc3))
+                   end do
+                endif
+             end do
+          end do
+       end do
+       uvengy(i, cnt) = uvengy(i, cnt) + pairep
+    end do
+    !$acc end parallel
+  end subroutine recpcal_energy_refs
 
 end module reciprocal

@@ -443,13 +443,20 @@ contains
        !$acc parallel present(uvengy)
        uvengy = 0.0
        !$acc end parallel
-       call get_uv_energy(stnum, stat_weight_solute, uvengy0, uvengy, skipcond)
-       !$acc update self(uvengy)
-
-       do cntdst = 1, maxdst
-          if (skipcond(cntdst)) cycle
-          call update_histogram(stat_weight_solute, uvengy0, uvengy, cntdst)
-       enddo
+       if (slttype == SLT_SOLN) then
+          call get_uv_energy_soln(stnum, stat_weight_solute, uvengy0, uvengy, skipcond)
+          !$acc update self(uvengy)
+          do cntdst = 1, maxdst
+             if (skipcond(cntdst)) cycle
+             call update_histogram(stat_weight_solute, uvengy0, uvengy, cntdst)
+          enddo
+       else
+          call get_uv_energy_refs(stnum, stat_weight_solute, uvengy0, uvengy)
+          !$acc update self(uvengy)
+          do cntdst = 1, maxdst
+             call update_histogram(stat_weight_solute, uvengy0, uvengy, cntdst)
+          enddo
+       end if
 
        select case(slttype)
        case(SLT_SOLN)                           ! for soln: output flceng
@@ -719,20 +726,72 @@ contains
   end subroutine engstore
 
   ! Calculate interaction energy between solute and solvent
-  subroutine get_uv_energy(stnum, stat_weight_solute, uvengy0, uvengy, out_of_range)
+  subroutine get_uv_energy_soln(stnum, stat_weight_solute, uvengy0, uvengy, out_of_range)
     use engmain, only: maxcnf, skpcnf, slttype, sltlist, cltype, &
                        EL_COULOMB, EL_PME, EL_PPPM, &
                        SLT_SOLN, SLT_REFS_RIGID, SLT_REFS_FLEX
     use ptinsrt, only: instslt
-    use realcal, only: realcal_prepare, realcal_acc, realcal_self, &
+    use realcal, only: realcal_prepare, realcal_soln, realcal_self, &
          realcal_bare
     use reciprocal, only: recpcal_prepare_solute, recpcal_self_energy, &
-         recpcal_energy
+         recpcal_energy_soln
     use mpiproc                                                      ! MPI
     implicit none
     integer, intent(in) :: stnum
     real, intent(out) :: uvengy0(:), uvengy(:,:), stat_weight_solute
     logical, intent(out) :: out_of_range(:)
+
+    integer :: i, k
+    real :: pairep, residual, factor, uvrecp
+    logical, save :: initialized = .false.
+
+    out_of_range(:) = .false.
+
+    do cntdst = 1, maxdst
+
+       ! determine / pick solute structure
+       tagslt = sltlist(cntdst)
+       stat_weight_solute = 1.0
+       out_of_range(cntdst) = check_mol_configuration()
+       if (out_of_range(cntdst)) cycle
+
+       ! At this moment all coordinate in the system is determined
+       call realcal_prepare
+
+       ! Calculate system-wide values
+       if (cltype == EL_PME .or. cltype == EL_PPPM) then
+          call recpcal_prepare_solute(tagslt)
+          call realcal_soln(tagslt, tagpt, slvmax, uvengy, cntdst)
+          call recpcal_energy_soln(tagslt, tagpt, slvmax, uvengy, cntdst)
+          call residual_ene(tagslt, tagpt, slvmax, uvengy, cntdst)
+          uvrecp = recpcal_self_energy()
+       else
+          call realcal_bare(tagslt, tagpt, slvmax, uvengy, cntdst)
+       endif
+
+       ! solute-solute self energy
+       pairep = 0.0
+       residual = 0.0
+       call realcal_self(tagslt, pairep) ! calculate self-interaction
+       call residual_self_ene(tagslt, residual)
+       uvengy0(cntdst) = uvrecp + pairep + residual
+
+    end do
+  end subroutine get_uv_energy_soln
+
+  subroutine get_uv_energy_refs(stnum, stat_weight_solute, uvengy0, uvengy)
+    use engmain, only: maxcnf, skpcnf, slttype, sltlist, cltype, &
+                       EL_COULOMB, EL_PME, EL_PPPM, &
+                       SLT_SOLN, SLT_REFS_RIGID, SLT_REFS_FLEX
+    use ptinsrt, only: instslt
+    use realcal, only: realcal_prepare, realcal_refs, realcal_self, &
+         realcal_bare
+    use reciprocal, only: recpcal_prepare_solute, recpcal_self_energy, &
+         recpcal_energy_refs
+    use mpiproc                                                      ! MPI
+    implicit none
+    integer, intent(in) :: stnum
+    real, intent(out) :: uvengy0(:), uvengy(:,:), stat_weight_solute
 
     integer :: i, k
     integer(8) :: current_solute_hash
@@ -741,59 +800,52 @@ contains
     real, save :: usreal
     logical, save :: initialized = .false.
 
-    out_of_range(:) = .false.
+    if (.not. initialized) then
+       call instslt('init')
+       initialized = .true.
+    end if
 
     do cntdst = 1, maxdst
 
-    ! determine / pick solute structure
-    select case(slttype) 
-    case(SLT_SOLN)
-       tagslt = sltlist(cntdst)
-       stat_weight_solute = 1.0
-       out_of_range(cntdst) = check_mol_configuration()
-       if (out_of_range(cntdst)) cycle
-    case(SLT_REFS_RIGID, SLT_REFS_FLEX)
+       ! determine / pick solute structure
        tagslt = sltlist(1)
-       if (.not. initialized) call instslt('init')
-       initialized = .true.
        call instslt('proc', cntdst, stat_weight_solute)
        if ((stnum == (maxcnf / skpcnf)) .and. (cntdst == maxdst)) call instslt('last')
-    end select
 
-    ! At this moment all coordinate in the system is determined
-    call realcal_prepare
+       ! At this moment all coordinate in the system is determined
+       call realcal_prepare
 
-    ! Calculate system-wide values
-    if (cltype == EL_PME .or. cltype == EL_PPPM) then
-       call recpcal_prepare_solute(tagslt)
-       call realcal_acc(tagslt, tagpt, slvmax, uvengy, cntdst)
-       call recpcal_energy(tagslt, tagpt, slvmax, uvengy, cntdst)
-       call residual_ene(tagslt, tagpt, slvmax, uvengy, cntdst)
-       uvrecp = recpcal_self_energy()
-    else
-       call realcal_bare(tagslt, tagpt, slvmax, uvengy, cntdst)
-    endif
+       ! Calculate system-wide values
+       if (cltype == EL_PME .or. cltype == EL_PPPM) then
+          call recpcal_prepare_solute(tagslt)
+          call realcal_refs(tagslt, slvmax, uvengy, cntdst)
+          call recpcal_energy_refs(tagslt, slvmax, uvengy, cntdst)
+          call residual_ene(tagslt, tagpt, slvmax, uvengy, cntdst)
+          uvrecp = recpcal_self_energy()
+       else
+          call realcal_bare(tagslt, tagpt, slvmax, uvengy, cntdst)
+       endif
 
-    ! solute-solute self energy
-    pairep = 0.0
-    residual = 0.0
-    current_solute_hash = get_solute_hash() ! FIXME: if this tuns into a bottleneck, add conditionals
-    if (current_solute_hash == solute_hash .or. &
-         (slttype == SLT_REFS_RIGID .and. solute_hash /= 0)) then 
-       ! For refs calculation, the configuration of solute may change with
-       ! random translation and/or rotation upon insertion, 
-       ! though the self energy will not change.
-       pairep = usreal ! reuse
-    else
-       call realcal_self(tagslt, pairep) ! calculate self-interaction
-       usreal = pairep
-    endif
-    solute_hash = current_solute_hash
-    call residual_self_ene(tagslt, residual)
-    uvengy0(cntdst) = uvrecp + pairep + residual
+       ! solute-solute self energy
+       pairep = 0.0
+       residual = 0.0
+       current_solute_hash = get_solute_hash() ! FIXME: if this tuns into a bottleneck, add conditionals
+       if (current_solute_hash == solute_hash .or. &
+            (slttype == SLT_REFS_RIGID .and. solute_hash /= 0)) then
+          ! For refs calculation, the configuration of solute may change with
+          ! random translation and/or rotation upon insertion,
+          ! though the self energy will not change.
+          pairep = usreal ! reuse
+       else
+          call realcal_self(tagslt, pairep) ! calculate self-interaction
+          usreal = pairep
+       endif
+       solute_hash = current_solute_hash
+       call residual_self_ene(tagslt, residual)
+       uvengy0(cntdst) = uvrecp + pairep + residual
 
     end do
-  end subroutine get_uv_energy
+  end subroutine get_uv_energy_refs
 
   subroutine update_histogram(stat_weight_solute, uvengy0, uvengy, cnt)
     use engmain, only: wgtslf, estype, slttype, corrcal, selfcal, ermax, &

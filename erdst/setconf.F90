@@ -517,7 +517,7 @@ contains
   subroutine setparam
     use engmain, only: numtype, nummol, numatm, maxcnf, &
          slttype, sltspec, ljformat, &
-         moltype, numsite, sluvid, &
+         moltype, numsite, sluvid, maxins, &
          bfcoord, sitemass, charge, &
          ljene_mat, ljlensq_mat, ljtype, ljtype_max, cmbrule, &
          specatm, sitepos, &

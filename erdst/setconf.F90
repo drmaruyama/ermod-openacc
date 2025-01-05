@@ -515,7 +515,7 @@ contains
 
   ! Calls OUTinitial / iniparam / OUT_MDinfo, and sets parameters
   subroutine setparam
-    use engmain, only: numtype, nummol, numatm, maxcnf, &
+    use engmain, only: numtype, nummol, numatm, numatm_ext, maxcnf, &
          slttype, sltspec, ljformat, &
          moltype, numsite, sluvid, maxins, &
          bfcoord, sitemass, charge, &
@@ -605,6 +605,11 @@ contains
     ! set max and total no. of atoms 
     nummol = sum( ptcnt(1:numtype) )
     numatm = sum( ptcnt(1:numtype) * ptsite(1:numtype) )
+    if (slttype == SLT_SOLN) then
+       numatm_ext = numatm
+    else
+       numatm_ext = numatm + (maxins - ptcnt(numtype)) * ptsite(numtype)
+    end if
 
     allocate( moltype(nummol), numsite(nummol), sluvid(nummol) )
     !$acc enter data create(moltype, numsite, sluvid)
@@ -645,7 +650,7 @@ contains
 
     allocate( bfcoord(3, stmax), sitemass(numatm) )
     allocate( charge(numatm), ljtype(numatm) )
-    allocate( sitepos(3, numatm))
+    allocate( sitepos(3, numatm_ext))
     allocate( mol_begin_index(nummol + 1) )
     allocate( belong_to(numatm) )
     allocate( mol_charge(nummol) )

@@ -763,10 +763,11 @@ contains
           call recpcal_prepare_solute(tagslt)
           call realcal_soln(tagslt, tagpt, slvmax, uvengy, cntdst)
           call recpcal_energy_soln(tagslt, tagpt, slvmax, uvengy, cntdst)
-          call residual_ene(tagslt, tagpt, slvmax, uvengy, cntdst)
+          call residual_ene(tagslt, cntdst, tagpt, slvmax, uvengy)
           uvrecp = recpcal_self_energy()
        else
           call realcal_bare(tagslt, tagpt, slvmax, uvengy, cntdst)
+          uvrecp = 0.0
        endif
 
        ! solute-solute self energy
@@ -782,11 +783,11 @@ contains
   subroutine get_uv_energy_refs(stnum, stat_weight_solute, uvengy0, uvengy)
     use engmain, only: maxcnf, skpcnf, slttype, sltlist, cltype, &
                        EL_COULOMB, EL_PME, EL_PPPM, &
-                       SLT_SOLN, SLT_REFS_RIGID, SLT_REFS_FLEX
+                       SLT_SOLN, SLT_REFS_RIGID, SLT_REFS_FLEX, sitepos
     use ptinsrt, only: instslt
-    use realcal, only: realcal_prepare, realcal_refs, realcal_self, &
-         realcal_bare
-    use reciprocal, only: recpcal_prepare_solute, recpcal_self_energy, &
+    use realcal, only: realcal_prepare, realcal_refs, realcal_self_refs, &
+         realcal_bare_refs
+    use reciprocal, only: recpcal_prepare_solute_refs, recpcal_self_energy, &
          recpcal_energy_refs
     use mpiproc                                                      ! MPI
     implicit none
@@ -805,31 +806,38 @@ contains
        initialized = .true.
     end if
 
+    ! determine / pick solute structure
+    tagslt = sltlist(1)
+    do cntdst = 1, maxdst
+       call instslt('proc', cntdst, stat_weight_solute)
+    end do
+    if (stnum == (maxcnf / skpcnf)) call instslt('last')
+
+    ! At this moment all coordinate in the system is determined
+    call realcal_prepare
+
+    ! Calculate system-wide values
+    if (cltype == EL_PME .or. cltype == EL_PPPM) then
+       call realcal_refs(tagslt, maxdst, slvmax, uvengy)
+       call residual_ene_refs(tagslt, maxdst, slvmax, uvengy)
+    else
+       call realcal_bare_refs(tagslt, maxdst, slvmax, uvengy)
+    end if
+
     do cntdst = 1, maxdst
 
-       ! determine / pick solute structure
-       tagslt = sltlist(1)
-       call instslt('proc', cntdst, stat_weight_solute)
-       if ((stnum == (maxcnf / skpcnf)) .and. (cntdst == maxdst)) call instslt('last')
-
-       ! At this moment all coordinate in the system is determined
-       call realcal_prepare
-
-       ! Calculate system-wide values
        if (cltype == EL_PME .or. cltype == EL_PPPM) then
-          call recpcal_prepare_solute(tagslt)
-          call realcal_refs(tagslt, slvmax, uvengy, cntdst)
-          call recpcal_energy_refs(tagslt, slvmax, uvengy, cntdst)
-          call residual_ene(tagslt, tagpt, slvmax, uvengy, cntdst)
+          call recpcal_prepare_solute_refs(tagslt, cntdst)
+          call recpcal_energy_refs(tagslt, cntdst, slvmax, uvengy)
           uvrecp = recpcal_self_energy()
        else
-          call realcal_bare(tagslt, tagpt, slvmax, uvengy, cntdst)
+          uvrecp = 0.0
        endif
 
        ! solute-solute self energy
        pairep = 0.0
        residual = 0.0
-       current_solute_hash = get_solute_hash() ! FIXME: if this tuns into a bottleneck, add conditionals
+       current_solute_hash = get_solute_hash_refs(cntdst) ! FIXME: if this tuns into a bottleneck, add conditionals
        if (current_solute_hash == solute_hash .or. &
             (slttype == SLT_REFS_RIGID .and. solute_hash /= 0)) then
           ! For refs calculation, the configuration of solute may change with
@@ -837,7 +845,8 @@ contains
           ! though the self energy will not change.
           pairep = usreal ! reuse
        else
-          call realcal_self(tagslt, pairep) ! calculate self-interaction
+          ! calculate self-interaction
+          call realcal_self_refs(tagslt, cntdst, pairep)
           usreal = pairep
        endif
        solute_hash = current_solute_hash
@@ -968,10 +977,10 @@ contains
     pairep = pairep - epcl
   end subroutine residual_self_ene
   !
-  subroutine residual_ene(tagslt, tagpt, slvmax, uvengy, cnt)
+  subroutine residual_ene(tagslt, cnt, tagpt, slvmax, uvengy)
     use engmain, only: screen, volume, mol_charge, cltype, EL_COULOMB, PI
     implicit none
-    integer, intent(in) :: tagslt, tagpt(:), slvmax, cnt
+    integer, intent(in) :: tagslt, cnt, tagpt(:), slvmax
     real, intent(inout) :: uvengy(:, :)
 
     integer :: i, k
@@ -989,6 +998,27 @@ contains
        uvengy(k, cnt) = uvengy(k, cnt) - epcl
     end do
   end subroutine residual_ene
+
+  subroutine residual_ene_refs(tagslt, maxdst, slvmax, uvengy)
+    use engmain, only: screen, volume, mol_charge, cltype, EL_COULOMB, PI
+    implicit none
+    integer, intent(in) :: tagslt, maxdst, slvmax
+    real, intent(inout) :: uvengy(:, :)
+
+    integer :: k, cnt
+    real :: epcl
+
+    ! called only when PME or PPPM, non-self interaction
+    !$acc parallel loop collapse(2) gang vector present(uvengy, mol_charge)
+    do cnt = 1, maxdst
+       do k = 1, slvmax
+          epcl = PI * mol_charge(tagslt) * mol_charge(k) &
+               / screen / screen / volume
+          !$acc atomic update
+          uvengy(k, cnt) = uvengy(k, cnt) - epcl
+       end do
+    end do
+  end subroutine residual_ene_refs
   !
   subroutine volcorrect(weight)
     use engmain, only:  sluvid, cltype, screen, mol_charge, volume, temp, &
@@ -1302,6 +1332,15 @@ contains
 
     get_solute_hash = hash(sitepos(1:3, mol_begin_index(tagslt):(mol_begin_index(tagslt+1) - 1)), numsite(tagslt) * 3)
   end function get_solute_hash
+
+  integer(8) function get_solute_hash_refs(cnt)
+    use utility, only: hash
+    use engmain, only: sitepos, mol_begin_index, numsite
+    implicit none
+    integer, intent(in) :: cnt
+
+    get_solute_hash_refs = hash(sitepos(1:3, (mol_begin_index(tagslt) + (cnt - 1) * numsite(tagslt)):(mol_begin_index(tagslt) + cnt * numsite(tagslt) - 1)), numsite(tagslt) * 3)
+  end function get_solute_hash_refs
 
   function representative_bin_selfenergy(iduv) result(engcoord)
     use engmain, only: esmax, escrd

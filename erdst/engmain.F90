@@ -251,6 +251,7 @@ module engmain
   real, parameter :: cal_per_joule = 4.1840   ! thermochemical cal / J
 !
   integer :: numtype, nummol, numatm, maxcnf, engdiv, skpcnf, corrcal, selfcal
+  integer :: numatm_ext
   integer :: slttype, wgtslf, wgtsys, wgtins, boxshp, estype
   integer, parameter :: max_for_spec = 100    ! maximum number of species
   integer :: sltspec, hostspec(max_for_spec), refspec(max_for_spec)

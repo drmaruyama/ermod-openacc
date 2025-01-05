@@ -423,6 +423,76 @@ contains
 
   end subroutine recpcal_prepare_solute
 
+  subroutine recpcal_prepare_solute_refs(tagslt, cntdst)
+    use engmain, only: ms1max, ms2max, ms3max, sitepos, invcl, numsite, splodr, charge, mol_begin_index
+    use fft_iface, only: fft_ctr, fft_rtc
+    implicit none
+    integer, intent(in) :: tagslt, cntdst
+    integer :: i, j, k
+    integer :: rc1, rc2, rc3, sid, ati, cg1, cg2, cg3, stmax
+    real :: factor, chr
+    real, allocatable, save :: splval(:,:,:)
+    integer, allocatable, save :: grdval(:,:)
+    logical, save :: initialized = .false.
+
+    stmax = numsite(tagslt)
+    if(.not. initialized) then
+       allocate( splval(0:splodr-1, 3, stmax), grdval(3, stmax) )
+       initialized = .true.
+    end if
+    call calc_spline_molecule_refs(tagslt, cntdst, stmax, &
+         splval(:,:,1:stmax), grdval(:,1:stmax))
+    cnvslt(:,:,:) = 0.0
+    !$acc update device(cnvslt)
+    !$acc parallel loop present(mol_begin_index, charge, cnvslt, rcpslt)
+    do sid = 1, stmax
+!       ati = specatm(sid, tagslt)
+       ati = mol_begin_index(tagslt) + (sid - 1)
+       chr = charge(ati)
+       do cg3 = 0, splodr - 1
+          do cg2 = 0, splodr - 1
+             do cg1 = 0, splodr - 1
+                rc1 = modulo(grdval(1, sid) - cg1, ms1max)
+                rc2 = modulo(grdval(2, sid) - cg2, ms2max)
+                rc3 = modulo(grdval(3, sid) - cg3, ms3max)
+                factor = chr * splval(cg1, 1, sid) * splval(cg2, 2, sid) &
+                     * splval(cg3, 3, sid)
+                !$acc atomic update
+                cnvslt(rc1, rc2, rc3) = cnvslt(rc1, rc2, rc3) + factor
+             end do
+          end do
+       end do
+    end do
+    !$acc end parallel
+
+    call fft_rtc(handle_r2c, cnvslt, rcpslt)                         ! 3D-FFT
+    !$acc update self(rcpslt)
+
+    ! original form is:
+    ! 0.5 * sum(engfac(:, :, :) * real(rcpslt_c(:, :, :)) * conjg(rcpslt_c(:, :, :)))
+    ! where rcpslt_c(rc1, rc2, rc3) = conjg(rcpslt_buf(ms1max - rc1, ms2max - rc2, ms3max - rc3))
+    ! Here we use symmetry of engfac to calculate efficiently
+    if (mod(ms1max, 2) == 0) then
+       solute_self_energy = &
+            sum(engfac(1:(ccemax-1), :, :) * real(rcpslt(1:(ccemax-1), :, :) * conjg(rcpslt(1:(ccemax-1), :, :)))) + &
+            0.5 * sum(engfac(0,      :, :) * real(rcpslt(0,      :, :) * conjg(rcpslt(0,      :, :)))) + &
+            0.5 * sum(engfac(ccemax, :, :) * real(rcpslt(ccemax, :, :) * conjg(rcpslt(ccemax, :, :))))
+    else
+       solute_self_energy = &
+            sum(engfac(1:ccemax, :, :) * real(rcpslt(1:ccemax, :, :) * conjg(rcpslt(1:ccemax, :, :)))) + &
+            0.5 * sum(engfac(0,      :, :) * real(rcpslt(0,      :, :) * conjg(rcpslt(0,      :, :))))
+    endif
+
+    !$acc parallel loop present (engfac, rcpslt)
+    do concurrent (i = rc1min:ccemax, j = rc2min:rc2max, k = rc3min:rc3max)
+       rcpslt(i, j, k) = engfac(i, j, k) * rcpslt(i, j, k)
+    end do
+    !$acc end parallel
+
+    call fft_ctr(handle_c2r, rcpslt, cnvslt)                    ! 3D-FFT
+
+  end subroutine recpcal_prepare_solute_refs
+
   subroutine calc_spline_molecule(imol, stmax, store_spline, store_grid)
     use engmain, only: ms1max, ms2max, ms3max, splodr, specatm, sitepos, invcl
     use spline, only: spline_value
@@ -458,6 +528,43 @@ contains
        end do
     end do
   end subroutine calc_spline_molecule
+
+  subroutine calc_spline_molecule_refs(imol, cntdst, stmax, store_spline, store_grid)
+    use engmain, only: ms1max, ms2max, ms3max, splodr, specatm, sitepos, invcl
+    use spline, only: spline_value
+    implicit none
+
+    integer, intent(in) :: imol, cntdst, stmax
+    real, intent(out) :: store_spline(0:splodr-1, 3, 1:stmax)
+    integer, intent(out) :: store_grid(3, 1:stmax)
+
+    integer :: sid, ati, ati_ext, rcimax, m, k, rci, spi
+    real :: xst(3), inm(3)
+    real :: factor, rtp2
+
+    do sid = 1, stmax
+       ati = specatm(sid, imol)
+       ati_ext = ati + (cntdst - 1) * stmax
+       xst(:) = sitepos(:, ati_ext)
+       do k = 1, 3
+          factor = dot_product(invcl(k,:), xst(:))
+          factor = factor - floor(factor)
+          inm(k) = factor
+       end do
+       do m = 1, 3
+          if (m == 1) rcimax = ms1max
+          if (m == 2) rcimax = ms2max
+          if (m == 3) rcimax = ms3max
+          factor = inm(m) * real(rcimax)
+          rci = int(factor)
+          do spi = 0, splodr - 1
+             rtp2 = factor - real(rci - spi)
+             store_spline(spi, m, sid) = spline_value(rtp2)
+          end do
+          store_grid(m, sid) = rci
+       end do
+    end do
+  end subroutine calc_spline_molecule_refs
 
   function recpcal_self_energy() result(pairep)
     implicit none
@@ -525,11 +632,11 @@ contains
     !$acc end parallel
   end subroutine recpcal_energy_soln
 
-  subroutine recpcal_energy_refs(tagslt, slvmax, uvengy, cnt)
+  subroutine recpcal_energy_refs(tagslt, cnt, slvmax, uvengy)
     use engmain, only: ms1max, ms2max, ms3max, splodr, numsite, sluvid, charge, mol_begin_index
     use mpiproc, only: halt_with_error
     implicit none
-    integer, intent(in) :: tagslt, slvmax, cnt
+    integer, intent(in) :: tagslt, cnt, slvmax
     real, intent(inout) :: uvengy(:, :)
 
     real :: pairep

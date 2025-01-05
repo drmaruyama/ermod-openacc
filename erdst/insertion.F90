@@ -86,9 +86,9 @@ contains
 
     reject = .true.
     do while(reject)
-       call set_solute_origin(insml)
-       call set_shift_com(insml, stat_weight_solute)
-       call apply_orientation(insml)
+       call set_solute_origin(insml, cntdst)
+       call set_shift_com(insml, cntdst, stat_weight_solute)
+       call apply_orientation(insml, cntdst)
        reject = .false.
        call check_solute_configuration(insml, reject)
        ! user-defined scheme to apply change / reject the solute configuration
@@ -98,29 +98,31 @@ contains
     return
   end subroutine instslt
 
-  subroutine set_solute_origin(insml)
+  subroutine set_solute_origin(insml, cntdst)
     use engmain, only: insorigin, numsite, mol_begin_index, mol_end_index, &
                    bfcoord, sitepos, &
                    INSORG_ORIGIN, INSORG_NOCHANGE, INSORG_AGGCEN, INSORG_REFSTR
     implicit none
-    integer, intent(in) :: insml
-    integer :: molb, mole, nsite
+    integer, intent(in) :: insml, cntdst
+    integer :: molb, mole, molb_ext, mole_ext, nsite
     real :: syscen(3)
 
     nsite = numsite(insml)
     molb = mol_begin_index(insml)
     mole = mol_end_index(insml) 
-    sitepos(1:3, molb:mole) = bfcoord(1:3, 1:nsite)
+    molb_ext = molb + (cntdst - 1) * nsite
+    mole_ext = mole + (cntdst - 1) * nsite
+    sitepos(1:3, molb_ext:mole_ext) = bfcoord(1:3, 1:nsite)
 
     select case(insorigin)
     case(INSORG_ORIGIN)
        syscen(:) = (/ 0., 0., 0. /)
-       call set_solute_com(insml, syscen)     ! set solute COM to (0,0,0)
+       call set_solute_com(insml, cntdst, syscen)   ! set solute COM to (0,0,0)
     case(INSORG_NOCHANGE)
        ! do nothing and use the coordinate as read from the file
     case(INSORG_AGGCEN)
        call com_aggregate(syscen)             ! get aggregate center (syscen)
-       call set_solute_com(insml, syscen)     ! set solute COM to syscen
+       call set_solute_com(insml, cntdst, syscen)   ! set solute COM to syscen
     case(INSORG_REFSTR)
        call reffit
     case default
@@ -128,7 +130,7 @@ contains
     end select
   end subroutine set_solute_origin
 
-  subroutine set_shift_com(insml, weight)
+  subroutine set_shift_com(insml, cntdst, weight)
     use engmain, only: insposition, lwreg, upreg, &
                        numsite, mol_begin_index, mol_end_index, &
                        sitemass, sitepos, &
@@ -140,10 +142,10 @@ contains
     use mpiproc, only: halt_with_error
     use bestfit, only: center_of_mass
     implicit none
-    integer, intent(in) :: insml
+    integer, intent(in) :: insml, cntdst
     real, intent(inout) :: weight
     
-    integer :: i, insb, inse
+    integer :: i, insb, inse, insb_ext, inse_ext
     real :: com(3), syscen(3), r(3), norm, dir, t, maxdis, dst, movmax
     real, parameter :: margin_factor = 3.0   ! see below for explanation
 
@@ -157,7 +159,7 @@ contains
           call urand(r(i))
        end do
        com(:) = matmul(cell(:, :), r(:))
-       call set_solute_com(insml, com)
+       call set_solute_com(insml, cntdst, com)
        return
     case(INSPOS_NOCHANGE)
        ! fixed position as read from the file
@@ -177,7 +179,7 @@ contains
        end do
        norm = sqrt(norm)
        com(:) = t * r(:) / norm
-       call shift_solute_com(insml, com)
+       call shift_solute_com(insml, cntdst, com)
        return
     case(INSPOS_SLAB_GENERIC, INSPOS_SLAB_SYMMETRIC)
        ! slab random position
@@ -197,16 +199,18 @@ contains
 
        r(3) = t / celllen(3)
        com(:) = matmul(cell(:, :), r(:))
-       call shift_solute_com(insml, com)
+       call shift_solute_com(insml, cntdst, com)
        return
     case(INSPOS_RMSD)
        ! random translation with upreg and molecular size
        insb = mol_begin_index(insml)
        inse = mol_end_index(insml)
-       call center_of_mass(numsite(insml), sitepos(1:3, insb:inse), &
+       insb_ext = insb + (cntdst - 1) * numsite(insml)
+       inse_ext = inse + (cntdst - 1) * numsite(insml)
+       call center_of_mass(numsite(insml), sitepos(1:3, insb_ext:inse_ext), &
                                            sitemass(insb:inse), com)
        maxdis = 0
-       do i = insb, inse
+       do i = insb_ext, inse_ext
           r(1:3) = sitepos(1:3, i) - com(1:3)
           dst = sum( r(1:3) ** 2 )
           if (dst > maxdis) maxdis = dst
@@ -220,28 +224,30 @@ contains
           call urand(r(i))
        end do
        com(:) = movmax * (2.0 * r(:) - 1.0)
-       call shift_solute_com(insml, com)
+       call shift_solute_com(insml, cntdst, com)
        return
     case(INSPOS_GAUSS)
        ! 50% mixture of uniform distribution and weighted distribution
        call uniform_gauss_mixture(com, weight)
-       call shift_solute_com(insml, com)
+       call shift_solute_com(insml, cntdst, com)
        return
     case default
        stop "Unknown insposition in set_shift_com"
     end select
 
   contains
-    subroutine shift_solute_com(insml, com)
-      use engmain, only: mol_begin_index, mol_end_index, sitepos
+    subroutine shift_solute_com(insml, cntdst, com)
+      use engmain, only: numsite, mol_begin_index, mol_end_index, sitepos
       implicit none
-      integer, intent(in) :: insml
+      integer, intent(in) :: insml, cntdst
       real, intent(in) :: com(3)
       integer :: insb, inse, m
       insb = mol_begin_index(insml)
       inse = mol_end_index(insml)
+      insb_ext = insb + (cntdst - 1) * numsite(insml)
+      inse_ext = inse + (cntdst - 1) * numsite(insml)
       do m = 1, 3
-         sitepos(m, insb:inse) = sitepos(m, insb:inse) + com(m)
+         sitepos(m, insb_ext:inse_ext) = sitepos(m, insb_ext:inse_ext) + com(m)
       end do
     end subroutine shift_solute_com
 
@@ -299,44 +305,50 @@ contains
     end subroutine uniform_gauss_mixture
   end subroutine set_shift_com
 
-  subroutine set_solute_com(insml, com)
+  subroutine set_solute_com(insml, cntdst, com)
     use engmain, only: numsite, mol_begin_index, mol_end_index, &
                        sitepos, sitemass
     use bestfit, only: com_shift, com_unshift
     implicit none
-    integer, intent(in) :: insml
+    integer, intent(in) :: insml, cntdst
     real, intent(in) :: com(3)
-    integer :: insb, inse, i, n
+    integer :: insb, inse, insb_ext, inse_ext, i, n
     real :: tempcom(3)
     
     n = numsite(insml)
     insb = mol_begin_index(insml)
     inse = mol_end_index(insml)
+    insb_ext = insb + (cntdst - 1) * n
+    inse_ext = inse + (cntdst - 1) * n
     
-    call com_shift(n, sitepos(1:3, insb:inse), sitemass(insb:inse), tempcom)
+    call com_shift(n, sitepos(1:3, insb_ext:inse_ext), sitemass(insb:inse), &
+         tempcom)
     do i = 1, 3
-       sitepos(i, insb:inse) = sitepos(i, insb:inse) + com(i)
+       sitepos(i, insb_ext:inse_ext) = sitepos(i, insb_ext:inse_ext) + com(i)
     end do
   end subroutine set_solute_com
 
-  subroutine apply_orientation(insml)
+  subroutine apply_orientation(insml, cntdst)
     use engmain, only: insorient, INSROT_RANDOM, INSROT_NOCHANGE, &
                        numsite, mol_begin_index, mol_end_index, &
                        sitepos, sitemass
     use quaternion, only: rotate_inplace
     use bestfit, only: com_shift, com_unshift
     implicit none
-    integer, intent(in) :: insml
-    integer :: insb, inse, i, n
+    integer, intent(in) :: insml, cntdst
+    integer :: insb, inse, insb_ext, inse_ext, i, n
     real :: com(3), randq(0:3)
     
     n = numsite(insml)
     insb = mol_begin_index(insml)
     inse = mol_end_index(insml)
+    insb_ext = insb + (cntdst - 1) * n
+    inse_ext = inse + (cntdst - 1) * n
 
     select case(insorient)
     case(INSROT_RANDOM)     ! random orientation
-       call com_shift(n, sitepos(1:3, insb:inse), sitemass(insb:inse), com)
+       call com_shift(n, sitepos(1:3, insb_ext:inse_ext), &
+            sitemass(insb:inse), com)
 
        ! get random quaternion (prob. success ~ 0.3)
        ! if this is really bad implement:
@@ -351,9 +363,10 @@ contains
        end do
 
        randq(:) = randq(:) / sqrt(sum(randq ** 2)) ! set on unit hyper-sphere surface
-       call rotate_inplace(numsite(insml), sitepos(1:3, insb:inse), randq)
+       call rotate_inplace(n, sitepos(1:3, insb_ext:inse_ext), randq)
 
-       call com_unshift(n, sitepos(1:3, insb:inse), sitemass(insb:inse), com)
+       call com_unshift(n, sitepos(1:3, insb_ext:inse_ext), &
+            sitemass(insb:inse), com)
        return
     case(INSROT_NOCHANGE)   ! no orientational change
        return

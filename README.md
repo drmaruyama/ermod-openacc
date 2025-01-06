@@ -9,9 +9,9 @@ ERmod (Energy Representation Module) is a program to calculate the solvation fre
 ## Typical Installation
 This package is built with autotools. To compile the program,
 1. cd erdst (or cd slvfe)
-2. aclocal
-3. autoconf
-4. automake (or automake --add-missing)
+(2. aclocal)
+3. autoreconf -fiv
+(4. automake (or automake --add-missing))
 5. configure the package with "configure" (see below)
 6. then compile the package with "make"
 

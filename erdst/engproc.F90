@@ -787,8 +787,8 @@ contains
     use ptinsrt, only: instslt
     use realcal, only: realcal_prepare, realcal_refs, realcal_self_refs, &
          realcal_bare_refs
-    use reciprocal, only: recpcal_prepare_solute_refs, recpcal_self_energy, &
-         recpcal_energy_refs
+    use reciprocal, only: recpcal_prepare_solute_refs, &
+         recpcal_self_energy_refs, recpcal_energy_refs
     use mpiproc                                                      ! MPI
     implicit none
     integer, intent(in) :: stnum
@@ -818,7 +818,9 @@ contains
 
     ! Calculate system-wide values
     if (cltype == EL_PME .or. cltype == EL_PPPM) then
+       call recpcal_prepare_solute_refs(tagslt, maxdst)
        call realcal_refs(tagslt, maxdst, slvmax, uvengy)
+       call recpcal_energy_refs(tagslt, maxdst, slvmax, uvengy)
        call residual_ene_refs(tagslt, maxdst, slvmax, uvengy)
     else
        call realcal_bare_refs(tagslt, maxdst, slvmax, uvengy)
@@ -827,9 +829,7 @@ contains
     do cntdst = 1, maxdst
 
        if (cltype == EL_PME .or. cltype == EL_PPPM) then
-          call recpcal_prepare_solute_refs(tagslt, cntdst)
-          call recpcal_energy_refs(tagslt, cntdst, slvmax, uvengy)
-          uvrecp = recpcal_self_energy()
+          uvrecp = recpcal_self_energy_refs(cntdst)
        else
           uvrecp = 0.0
        endif

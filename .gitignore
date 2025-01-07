@@ -1,8 +1,10 @@
+*.mod
+*.o
+*~
 erdst/erdst
 slvfe/slvfe
 Makefile
 Makefile.in
-.deps
 aclocal.m4
 autom4te.cache
 config.h
@@ -11,6 +13,4 @@ config.log
 config.status
 configure
 stamp-h1
-*.mod
-*.o
-*~
+.deps

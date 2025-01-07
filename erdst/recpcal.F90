@@ -449,55 +449,56 @@ contains
     cnvslt_r = 0.0
     !$acc end parallel
     do cnt = 1, maxdst
-    call calc_spline_molecule_refs(tagslt, cnt, stmax, &
-         splval(:,:,1:stmax), grdval(:,1:stmax))
-    !$acc parallel loop present(mol_begin_index, charge, cnvslt_r, rcpslt)
-    do sid = 1, stmax
-       ! ati = specatm(sid, tagslt)
-       ati = mol_begin_index(tagslt) + (sid - 1)
-       chr = charge(ati)
-       do cg3 = 0, splodr - 1
-          do cg2 = 0, splodr - 1
-             do cg1 = 0, splodr - 1
-                rc1 = modulo(grdval(1, sid) - cg1, ms1max)
-                rc2 = modulo(grdval(2, sid) - cg2, ms2max)
-                rc3 = modulo(grdval(3, sid) - cg3, ms3max)
-                factor = chr * splval(cg1, 1, sid) * splval(cg2, 2, sid) &
-                     * splval(cg3, 3, sid)
-                !$acc atomic update
-                cnvslt_r(rc1, rc2, rc3, cnt) = cnvslt_r(rc1, rc2, rc3, cnt) &
-                     + factor
+
+       call calc_spline_molecule_refs(tagslt, cnt, stmax, &
+            splval(:,:,1:stmax), grdval(:,1:stmax))
+       !$acc parallel loop present(mol_begin_index, charge, cnvslt_r, rcpslt)
+       do sid = 1, stmax
+          ! ati = specatm(sid, tagslt)
+          ati = mol_begin_index(tagslt) + (sid - 1)
+          chr = charge(ati)
+          do cg3 = 0, splodr - 1
+             do cg2 = 0, splodr - 1
+                do cg1 = 0, splodr - 1
+                   rc1 = modulo(grdval(1, sid) - cg1, ms1max)
+                   rc2 = modulo(grdval(2, sid) - cg2, ms2max)
+                   rc3 = modulo(grdval(3, sid) - cg3, ms3max)
+                   factor = chr * splval(cg1, 1, sid) * splval(cg2, 2, sid) &
+                        * splval(cg3, 3, sid)
+                   !$acc atomic update
+                   cnvslt_r(rc1, rc2, rc3, cnt) = &
+                        cnvslt_r(rc1, rc2, rc3, cnt) + factor
+                end do
              end do
           end do
        end do
-    end do
-    !$acc end parallel
+       !$acc end parallel
 
-    call fft_rtc(handle_r2c, cnvslt_r(:,:,:,cnt), rcpslt)             ! 3D-FFT
-    !$acc update self(rcpslt)
+       call fft_rtc(handle_r2c, cnvslt_r(:,:,:,cnt), rcpslt)
+       !$acc update self(rcpslt)
 
-    ! original form is:
-    ! 0.5 * sum(engfac(:, :, :) * real(rcpslt_c(:, :, :)) * conjg(rcpslt_c(:, :, :)))
-    ! where rcpslt_c(rc1, rc2, rc3) = conjg(rcpslt_buf(ms1max - rc1, ms2max - rc2, ms3max - rc3))
-    ! Here we use symmetry of engfac to calculate efficiently
-    if (mod(ms1max, 2) == 0) then
-       solute_self_energy_refs(cnt) = &
-            sum(engfac(1:(ccemax-1), :, :) * real(rcpslt(1:(ccemax-1), :, :) * conjg(rcpslt(1:(ccemax-1), :, :)))) + &
-            0.5 * sum(engfac(0,      :, :) * real(rcpslt(0,      :, :) * conjg(rcpslt(0,      :, :)))) + &
-            0.5 * sum(engfac(ccemax, :, :) * real(rcpslt(ccemax, :, :) * conjg(rcpslt(ccemax, :, :))))
-    else
-       solute_self_energy_refs(cnt) = &
-            sum(engfac(1:ccemax, :, :) * real(rcpslt(1:ccemax, :, :) * conjg(rcpslt(1:ccemax, :, :)))) + &
-            0.5 * sum(engfac(0,      :, :) * real(rcpslt(0,      :, :) * conjg(rcpslt(0,      :, :))))
-    endif
+       ! original form is:
+       ! 0.5 * sum(engfac(:, :, :) * real(rcpslt_c(:, :, :)) * conjg(rcpslt_c(:, :, :)))
+       ! where rcpslt_c(rc1, rc2, rc3) = conjg(rcpslt_buf(ms1max - rc1, ms2max - rc2, ms3max - rc3))
+       ! Here we use symmetry of engfac to calculate efficiently
+       if (mod(ms1max, 2) == 0) then
+          solute_self_energy_refs(cnt) = &
+               sum(engfac(1:(ccemax-1), :, :) * real(rcpslt(1:(ccemax-1), :, :) * conjg(rcpslt(1:(ccemax-1), :, :)))) + &
+               0.5 * sum(engfac(0,      :, :) * real(rcpslt(0,      :, :) * conjg(rcpslt(0,      :, :)))) + &
+               0.5 * sum(engfac(ccemax, :, :) * real(rcpslt(ccemax, :, :) * conjg(rcpslt(ccemax, :, :))))
+       else
+          solute_self_energy_refs(cnt) = &
+               sum(engfac(1:ccemax, :, :) * real(rcpslt(1:ccemax, :, :) * conjg(rcpslt(1:ccemax, :, :)))) + &
+               0.5 * sum(engfac(0,      :, :) * real(rcpslt(0,      :, :) * conjg(rcpslt(0,      :, :))))
+       endif
 
-    !$acc parallel loop present (engfac, rcpslt)
-    do concurrent (i = rc1min:ccemax, j = rc2min:rc2max, k = rc3min:rc3max)
-       rcpslt(i, j, k) = engfac(i, j, k) * rcpslt(i, j, k)
-    end do
-    !$acc end parallel
+       !$acc parallel loop present (engfac, rcpslt)
+       do concurrent (i = rc1min:ccemax, j = rc2min:rc2max, k = rc3min:rc3max)
+          rcpslt(i, j, k) = engfac(i, j, k) * rcpslt(i, j, k)
+       end do
+       !$acc end parallel
 
-    call fft_ctr(handle_c2r, rcpslt, cnvslt_r(:,:,:,cnt))             ! 3D-FFT
+       call fft_ctr(handle_c2r, rcpslt, cnvslt_r(:,:,:,cnt))
 
     end do
   end subroutine recpcal_prepare_solute_refs

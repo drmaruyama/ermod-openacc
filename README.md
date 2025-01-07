@@ -4,16 +4,13 @@ ERmod (Energy Representation Module) is a program to calculate the solvation fre
 
 ## Requirements
 - NVIDIA HPC SDK (https://developer.nvidia.com/hpc-sdk)
-- BLAS & LAPACK library (BLAS and LAPACK, OpenBLAS, MKL etc) for erdst
 
 ## Typical Installation
 This package is built with autotools. To compile the program,
 1. cd erdst (or cd slvfe)
-(2. aclocal)
-3. autoreconf -fiv
-(4. automake (or automake --add-missing))
-5. configure the package with "configure" (see below)
-6. then compile the package with "make"
+2. autoreconf -fiv
+3. configure the package with "configure" (see below)
+4. then compile the package with "make"
 
 ## Configuration
 ### erdst
@@ -24,15 +21,6 @@ $ ./configure FC=nvfortran CC=nvc MPIFC=mpif90
 or for single-GPU,
 ```
 $ ./configure --disable-mpi FC=nvfortran CC=nvc
-```
-
-If your computer has OpenBLAS library, try:
-```
-$ ./configure --with-openblas [other options]
-```
-If you have Intel MKL, configure program with:
-```
-$ ./configure --with-mkl [other options]
 ```
 
 It is set to single-precision calculations by default.

@@ -1,7 +1,6 @@
 ! -*- F90 -*-
-! ERmod - Eneregy Representation Module
-! Copyright (C) 2000-2019 Nobuyuki Matubayasi
-! Copyright (C) 2010-2019 Shun Sakuraba
+! ERmod - Energy Representation Module
+! Copyright (C) 2000- The ERmod authors
 ! 
 ! This program is free software; you can redistribute it and/or
 ! modify it under the terms of the GNU General Public License
@@ -64,10 +63,7 @@ program trjmain
 
   call mpi_setup('init')
   if (myrank == 0) then
-     print *, "ERmod " // PACKAGE_VERSION // ", Copyright (C) 2000-2024 Nobuyuki Matubayasi"
-     print *, "                           2010-2024 Shun Sakuraba"
-     print *, "                           2024-2024 Hidekazu Kojima"
-     print *, "                           2024-2024 Yutaka Maruyama"
+     print *, "ERmod " // PACKAGE_VERSION // ", Copyright (C) 2000- ERmod-OpenACC authors "
      print *, "ERmod comes with ABSOLUTELY NO WARRANTY."
      print *, "This is free software, and you can redistribute it"
      print *, "and/or modify it under certain conditions."

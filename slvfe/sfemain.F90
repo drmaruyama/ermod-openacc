@@ -30,7 +30,7 @@ module sysvars
   character(len=3) :: refmerge = 'yes'
   character(len=3) :: readwgtfl = 'yes' ! reading weight_soln and weight_refs
 
-  character(len=5) :: invmtrx = 'posv'  ! posv or syevr
+  character(len=5) :: invmtrx = 'reg'   ! gce, reg, or evd
   character(len=4) :: zerosft = 'eczr'
   character(len=3) :: wrtzrsft = 'not'  ! writing the zero shifts
   character(len=4) :: wgtfnform = 'harm'
@@ -56,11 +56,20 @@ module sysvars
 
   integer :: extthres_soln = 1, extthres_refs = 1
   integer :: minthres_soln = 0, minthres_refs = 0
-  real, parameter :: zero = 0.0
-  real :: error = 1.0e-8, tiny = 1.0e-8
+
+  ! iterative normalization of correlation matrix
+  real :: norm_error = 1.0e-8          ! allowed error
+  integer :: itrmax = 100              ! maximum number of iteration
+
+  ! maximum numbers of lines of engsln and engref
   integer :: ermax_limit = 15000
-  integer :: large = 500000, itrmax = 100
+
+  ! number of digits for suffixes of engsln, engref, and corref
   integer :: digits_of_suffix = 2
+
+  real, parameter :: zero = 0.0
+  real :: tiny = 1.0e-8
+  integer :: large = 500000
 
   character(len=1024) :: solndirec = 'soln'
   character(len=1024) :: refsdirec = 'refs'
@@ -87,20 +96,21 @@ module sysvars
   real, dimension(:),     allocatable :: wgtsln, wgtref
 
   logical :: force_calculation = .false., strict_ewald_parameters = .false.
-  logical :: suffix_of_engsln_is_tt = .false., suffix_of_engref_is_tt = .false.
   logical :: check_parameters_er = .true.
+  logical :: suffix_of_engsln_is_tt = .false., suffix_of_engref_is_tt = .false.
 
   namelist /fevars/ clcond, numprm, numsln, numref, numdiv, &
-       uvread, slfslt, infchk, meshread, invmtrx, zerosft, wgtfnform, &
-       refmerge, extsln, extthres_soln, extthres_refs, &
-       minthres_soln, minthres_refs, &
-       wgtf2smpl, slncor, normalize, showdst, wrtzrsft, readwgtfl, &
-       inptemp, pickgr, write_mesherror, msemin, msemax, mesherr, &
-       ljlrc, avevolume, &
+       uvread, slfslt, infchk, meshread, &
+       refmerge, extsln, slncor, readwgtfl, &
+       invmtrx, zerosft, wrtzrsft, wgtfnform, wgtf2smpl, &
+       inptemp, ljlrc, avevolume, &
+       pickgr, write_mesherror, msemin, msemax, mesherr, &
+       normalize, showdst, &
+       extthres_soln, extthres_refs, minthres_soln, minthres_refs, &
        solndirec, refsdirec, wgtslnfl, wgtreffl, &
        slndnspf, slncorpf, refdnspf, refcorpf, &
        aveuvfile, engmeshfile, cumuint, cumuintfl, &
-       ermax_limit, large, itrmax, error, tiny, &
+       ermax_limit, norm_error, itrmax, tiny, large, &
        force_calculation, strict_ewald_parameters, check_parameters_er
 
 contains

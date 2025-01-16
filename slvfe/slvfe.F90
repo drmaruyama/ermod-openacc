@@ -450,7 +450,7 @@ end module sysread
 
 module sfecalc
   use sysvars, only: invmtrx, zerosft, wgtfnform, slncor, &
-       numslv, ermax, nummol, kT, itrmax, zero, error, tiny, &
+       numslv, ermax, nummol, kT, norm_error, itrmax, zero, tiny, &
        rduvmax, rduvcore, &
        rdcrd, rddst, rddns, rdslc, rdcor, rdspec
   implicit none
@@ -476,6 +476,7 @@ contains
     real, allocatable :: input_mat(:, :)
     real, allocatable :: input_vec(:), residual(:)
     real, allocatable :: work(:)
+    real, parameter :: residual_error = 1.0e-6, abs_error = 1.0e6
 
     istat = cuSolverDnCreate(h)
 
@@ -520,7 +521,14 @@ contains
     if (info == 0) then
        residual(:) = matmul( input_mat(:, :), vec(:) )
        residual(:) = abs( residual(:) - input_vec(:) )
-       if (maxval( residual(:) ) > error) info = 1    ! invalid solution
+       ! Too large residual values = failure to solve the linear equation
+       if (maxval( residual(:) ) > residual_error) info = 1
+       ! Next line is for a pathological case.
+       ! In case that there are more null space than initially expected
+       ! and with a numerical error that it may have very small eigenvalues,
+       ! the solution from POSV call exhibits extremely large values.
+       ! Such a case is detected by taking the absolute of vector element.
+       if (maxval( abs( vec(:) ) ) > abs_error) info = 1
     endif
 
     deallocate( input_mat, input_vec, residual )
@@ -938,13 +946,11 @@ contains
                 endif
              enddo
              factor = sum( work, mask = (work > zero) )
-             do iduvp = 1, gemax
-                work(iduvp) = work(iduvp) / factor
-             enddo
-             mat11 = sum( work * uvcrd, mask = (work > zero) )
-             mat22 = sum( work * uvcrd * uvcrd, mask = (work > zero) )
-             mat12 = sum( work * slncv, mask = (work > zero) )
-             mat21 = sum( work * uvcrd * slncv, mask = (work > zero) )
+             work(:) = work(:) / factor
+             mat11 = sum( work(:) * uvcrd(:), mask = (work > zero) )
+             mat22 = sum( work(:) * uvcrd(:) * uvcrd(:), mask = (work > zero) )
+             mat12 = sum( work(:) * slncv(:), mask = (work > zero) )
+             mat21 = sum( work(:) * uvcrd(:) * slncv(:), mask = (work > zero) )
              work(1) = (mat22 * mat12 - mat11 * mat21) / (mat22 - mat11 ** 2)
              work(2) = (mat21 - mat11 * mat12) / (mat22 - mat11 ** 2)
              factor = work(1) + work(2) * uvcrd(iduv)
@@ -981,23 +987,36 @@ contains
   end subroutine getslncv
 
   subroutine getinscv
+    use iso_fortran_env, only: error_unit
     implicit none
     integer :: iduv, iduvp, pti, cnt, k, inv_info
-    real :: dns, dnsp, dmcr, ddiff, cvzero, factor
-    real, dimension(:),   allocatable :: edvec, work, zerouv, egnval
-    real, dimension(:,:), allocatable :: edmcr, edmcr_nonzeroec
+    real :: dns, dnsp, dmcr, cvzero, factor
+    real, dimension(:),   allocatable :: edvec, ddiff, work, zerouv
+    real, dimension(:),   allocatable :: regfac, regcnt, egnval    
+    real, dimension(:,:), allocatable :: edmcr, edmcr_invertible
     character(len=5) :: invmtrx_cnt
     logical, save :: first_time = .true.
     !
-    if (first_time) then
+    if(first_time) then
+       select case(invmtrx)
+       case('gce')         ! do nothing
+          ! correlation matrix treated in the grand canonical ensemble
+          !    by deleting the elements correponding to the zero energy
+       case('reg')         ! do nothing
+          ! correlation matrix regularized
+          !    by adding the matrix generated with the null vectors
+       case('evd')         ! do nothing
+          ! correlation matrix subject to eigenvalue decomposition
+       case default        ! default setting for invmtrx
+          invmtrx = 'reg'
+       end select
        first_time = .false.
-       if (invmtrx /= 'syevr') invmtrx = 'posv'    ! default is 'posv'
     endif
 
     do cnt = 1, 2     ! cnt = 1: solution   cnt = 2: reference solvent
        if ((cnt == 1) .and. (slncor /= 'yes')) cycle
        invmtrx_cnt = invmtrx
-       allocate( edvec(gemax), work(gemax), zerouv(numslv) )
+       allocate( edvec(gemax), ddiff(gemax), work(gemax), zerouv(numslv) )
        allocate( edmcr(gemax, gemax) )
 
        ! construction of the distribution and the correlation matrix
@@ -1011,6 +1030,7 @@ contains
        case default
           stop "Unknown type of the system"
        end select
+
        do iduv = 1, gemax
           do iduvp = 1, gemax
              dns  = edvec(iduv)
@@ -1029,57 +1049,90 @@ contains
           end do
        end do
 
-       if (invmtrx_cnt == 'posv') then
-          ! correlation matrix only for non-zero solute-solvent energy part
-          ! unit matrix and null vector for the zero energy part
-          ! matrix inversion over the non-zero energy part
-          allocate( edmcr_nonzeroec(gemax, gemax) )
-          edmcr_nonzeroec(:,:) = edmcr(:,:)
-          work(:) = - kT * ( edist(:) - edens(:) )
+       ! difference between soln and refs distributions multiplied by -kT
+       ddiff(:) = -kT * ( edist(:) - edens(:) )
+
+       if((invmtrx_cnt == 'gce') .or. (invmtrx_cnt == 'reg')) then
+          allocate( edmcr_invertible(gemax, gemax) )
+          edmcr_invertible(:,:) = edmcr(:,:)
+          work(:) = ddiff(:)
           where(edvec(:) <= zero) work(:) = 0.0
-          do pti = 1, numslv
-             k = zeroec(pti, cnt)        ! coordinate at which energy = 0
-             edmcr_nonzeroec(k, :) = 0.0
-             edmcr_nonzeroec(:, k) = 0.0
-             edmcr_nonzeroec(k, k) = 1.0
-             work(k) = 0.0
-          enddo
-          call posv_wrap(gemax, edmcr_nonzeroec, work, inv_info)
-          if (inv_info == 0) then
-             if (cnt == 1) then           ! solution
+
+          if(invmtrx_cnt == 'gce') then  ! grand canonical ensemble
+             ! correlation matrix only for non-zero solute-solvent energy part
+             ! unit matrix and null vector for the zero energy part
+             ! matrix inversion over the non-zero energy part
+             do pti = 1, numslv
+                k = zeroec(pti, cnt)     ! coordinate at which energy = 0
+                edmcr_invertible(k, :) = 0.0
+                edmcr_invertible(:, k) = 0.0
+                edmcr_invertible(k, k) = 1.0
+                work(k) = 0.0
+             enddo
+          else                           ! regularization
+             ! correlation matrix regularized
+             ! regularization factor for each solvent species
+             allocate( regfac(numslv), regcnt(numslv) )
+             regfac(:) = 0.0
+             regcnt(:) = 0.0
+             do iduv = 1, gemax
+                if(edvec(iduv) > zero) then
+                   pti = uvspec(iduv)
+                   regfac(pti) = regfac(pti) + edmcr(iduv, iduv)
+                   regcnt(pti) = regcnt(pti) + 1.0
+                endif
+             enddo
+             ! regularization factor averaged
+             !    and divided by the number of non-zero edvec elements
+             regfac(:) = regfac(:) / regcnt(:) / regcnt(:)
+             ! regularization factor added to the part with edvec > 0
+             do iduv = 1, gemax
+                if(edvec(iduv) > zero) then
+                   pti = uvspec(iduv)
+                   do iduvp = 1, gemax
+                      if((uvspec(iduvp) == pti) .and. &
+                           (edvec(iduvp) > zero)) then
+                         edmcr_invertible(iduvp, iduv) &
+                              = edmcr_invertible(iduvp, iduv) + regfac(pti)
+                      endif
+                   enddo
+                endif
+             enddo
+             deallocate( regfac, regcnt )
+          endif
+
+          call posv_wrap(gemax, edmcr_invertible, work, inv_info)
+          if(inv_info == 0) then
+             if(cnt == 1) then           ! solution
                 sdrcv(:) = work(:)
              else                        ! reference solvent
                 inscv(:) = work(:)
              endif
           else
-             ! write(6, *) "Failed in solving the linear equations"
-             invmtrx_cnt = 'syevr'       ! alternative solution with syevr
+             write(error_unit, *) "Cholesky-based linear solver failed to converge. Falling back to slower EVD-based solver."
+             invmtrx_cnt = 'evd'         ! alternative solution with evd
           endif
-          deallocate( edmcr_nonzeroec )
+          deallocate( edmcr_invertible )
        endif
 
-       if (invmtrx_cnt == 'syevr') then
+       if(invmtrx_cnt == 'evd') then     ! eigenvalue decomposition
           ! pseudoinversion to solve the linear equations
           allocate( egnval(gemax) )
           call syevr_wrap(gemax, edmcr, egnval, inv_info)
           if (inv_info /= 0) stop "Failed inversion of correlation matrix"
-          ! - kT * edmcr^(-1) * (edist - edens)
+          ! - kT * edmcr^(-1, pseudoinverse) * (edist - edens)
           ! first numslv eigenvalues skipped in the pseudoinversion
           pti = numslv + 1
           do iduv = pti, gemax
-             ! inner product between (edist - edens) and eigenvector
-             factor = 0.0
-             do iduvp = 1, gemax
-                if (edvec(iduvp) > zero) factor = factor &
-                     + (edist(iduvp) - edens(iduvp)) * edmcr(iduvp, iduv)
-             end do
-             ! multiplication by -kT and division by non-zero eigenvalue
-             work(iduv) = - kT * factor / egnval(iduv)
+             ! inner product between -kT * (edist - edens) and eigenvector
+             factor = sum( ddiff(:) * edmcr(:, iduv), mask = (edvec(:) > zero) )
+             ! division by non-zero eigenvalue
+             work(iduv) = factor / egnval(iduv)
           end do
           do iduv = 1, gemax
              ! sum over eigenvectors
              factor = dot_product( edmcr(iduv, pti:gemax), work(pti:gemax) )
-             if (cnt == 1) then           ! solution
+             if(cnt == 1) then           ! solution
                 sdrcv(iduv) = factor
              else                        ! reference solvent
                 inscv(iduv) = factor
@@ -1087,14 +1140,17 @@ contains
           end do
           deallocate( egnval )
        endif
-
+         
        ! reference solute-solvent energy to fix the additive constant below
        do pti = 1, numslv
           select case(zerosft)
           case('eczr', 'orig')
              k = zeroec(pti, cnt)        ! coordinate at which energy = 0
-             if (cnt == 1) cvzero = sdrcv(k)
-             if (cnt == 2) cvzero = inscv(k)
+             if (cnt == 1) then
+                cvzero = sdrcv(k)
+             else
+                cvzero = inscv(k)
+             end if
           case('mxco')
              cvzero = cvfcen(pti, cnt, 'inscv', 'smpl', 'yes')
           case default
@@ -1107,13 +1163,15 @@ contains
        do iduv = 1, gemax
           ! - kT (edist - edens) / edvec - (solute-solvent potential)
           if (edvec(iduv) > zero) then
-             ddiff = - kT * (edist(iduv) - edens(iduv)) / edvec(iduv)
-             if (cnt == 1) factor = ddiff - sdrcv(iduv)
-             if (cnt == 2) factor = ddiff - inscv(iduv)
+             if (cnt == 1) then
+                factor = ddiff(iduv) / edvec(iduv) - sdrcv(iduv)
+             else
+                factor = ddiff(iduv) / edvec(iduv) - inscv(iduv)
+             end if
           else
              factor = 0.0
           endif
-          if (cnt == 1) then              ! solution
+          if (cnt == 1) then             ! solution
              sdrcv(iduv) = factor
           else                           ! reference solvent
              inscv(iduv) = factor
@@ -1139,21 +1197,21 @@ contains
           end select
           do iduv = 1, gemax
              if (uvspec(iduv) == pti) then
-                if (cnt == 1) then        ! solution
+                if (cnt == 1) then       ! solution
                    sdrcv(iduv) = sdrcv(iduv) - cvzero
                 else                     ! reference solvent
                    inscv(iduv) = inscv(iduv) - cvzero
                 endif
              endif
           end do
-          if (cnt == 1) then              ! solution
+          if (cnt == 1) then             ! solution
              zrsdr(pti) = cvzero
           else                           ! reference solvent
              zrref(pti) = cvzero
           endif
        end do
 
-       deallocate( edvec, work, zerouv, edmcr )
+       deallocate( edvec, ddiff, work, zerouv, edmcr )
     end do
 
     return
@@ -1403,10 +1461,10 @@ contains
 
        if ((cnt == 1) .and. (slncor /= 'yes')) goto 5555
 
-       errtmp = error + 1.0
+       errtmp = norm_error + 1.0
        itrcnt = 0
        correc(:) = 1.0
-       do while((errtmp > error) .and. (itrcnt <= itrmax))
+       do while((errtmp > norm_error) .and. (itrcnt <= itrmax))
           do iduv = 1, gemax
              lcsln = 0.0
              do pti = 1, numslv

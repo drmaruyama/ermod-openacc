@@ -1008,7 +1008,7 @@ contains
     ! start of the extension for the method with the intermediate state
     if(do_intermediate == YES) then
        soln_total = soln_total + engnmfc
-       if(any( (insdst(:) > 0) .and. (zerodns_crd(:)) )) then
+       if(any( (insdst(:) > 0) .and. zerodns_crd(:) )) then
        else
           soln_intm = soln_intm + engnmfc
           norm_intm = norm_intm + engnmfc

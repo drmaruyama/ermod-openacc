@@ -1,4 +1,4 @@
-This is an EXPERIMENTAL version. For information about the original code, see https://sourceforge.net/projects/ermod/.
+This package is the OpenACC version of ERmod. For details on how to use it and information about the original code, see https://sourceforge.net/projects/ermod/.
 
 ERmod (Energy Representation Module) is a program to calculate the solvation free energy based on the energy representation method. The program allows users to calculate the solvation free energy in arbitrary solvent, including inhomogeneous systems, and runs in cooperation with state-of-art molecular simulation softwares, such as NAMD, GROMACS, and AMBER.
 

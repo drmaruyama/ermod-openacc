@@ -1,3 +1,10 @@
+version 1.0.0 (14 January 2025)
+* New features:
+    * erdst and slvfe were supported OpenACC.
+    * slvfe was significantly speed up ('invmtrx' in parameters_fe, two new solvers can be used with "gce" or "reg", default "reg").
+* Misc:
+    * Added --disable-double for single-precision calculation in erdst.
+
 version 0.3.8 (10 January 2023)
 * Energy Histogram Computation:
     * The tools scripts of gen_structure and gen_input are prepared for

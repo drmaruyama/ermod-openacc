@@ -1,25 +1,25 @@
---- engmain.F90	2020-08-27 19:36:10.397013743 +0900
-+++ extensions/Conditional/engmain.F90	2020-08-25 15:43:45.914751842 +0900
-@@ -349,6 +349,22 @@
-   real :: engnorm, engsmpl, voffset
-   logical :: voffset_initialized = .false.
+--- engmain.F90	2025-01-16 09:41:54
++++ extensions/Conditional/engmain.F90	2025-01-16 09:44:06
+@@ -350,6 +350,22 @@
+    real(kind=8) :: engnorm, engsmpl, voffset
+    logical :: voffset_initialized = .false.
  
-+  ! start of the extension for computing the conditional distributions
-+  integer :: do_conditional
-+  character(len=*), parameter :: OrderCrd_file = 'OrderPrmCoord'
-+  character(len=*), parameter :: OrderPrm_file = 'OrderPrmTraj'
-+  integer, parameter :: OrderCrd_io = 35
-+  integer, parameter :: OrderPrm_io = 37
-+  integer :: OrderPrm_read = 0     ! not reading 'OrderPrmTraj'
-+  integer :: order_species = 0     ! default = not the solute-solvent energy
-+  real :: order_min, order_max, order_binwidth
-+  integer :: order_size, OrderPrm_ArraySize
-+  real, dimension(:),     allocatable :: OrderPrm_Values
-+  real, dimension(:),     allocatable :: order_crd
-+  real, dimension(:,:),   allocatable :: edcnd, sluvcnd
-+  real, dimension(:,:,:), allocatable :: crcnd, avuvcnd
-+  real, dimension(:),     allocatable :: cndnorm
-+  ! end of the extension for computing the conditional distributions
++   ! start of the extension for computing the conditional distributions
++   integer :: do_conditional
++   character(len=*), parameter :: OrderCrd_file = 'OrderPrmCoord'
++   character(len=*), parameter :: OrderPrm_file = 'OrderPrmTraj'
++   integer, parameter :: OrderCrd_io = 35
++   integer, parameter :: OrderPrm_io = 37
++   integer :: OrderPrm_read = 0     ! not reading 'OrderPrmTraj'
++   integer :: order_species = 0     ! default = not the solute-solvent energy
++   real :: order_min, order_max, order_binwidth
++   integer :: order_size, OrderPrm_ArraySize
++   real, dimension(:),     allocatable :: OrderPrm_Values
++   real, dimension(:),     allocatable :: order_crd
++   real, dimension(:,:),   allocatable :: edcnd, sluvcnd
++   real, dimension(:,:,:), allocatable :: crcnd, avuvcnd
++   real, dimension(:),     allocatable :: cndnorm
++   ! end of the extension for computing the conditional distributions
  
-   ! numeric constants reference
-   integer, parameter :: NO = 0, YES = 1
+    ! numeric constants reference
+    integer, parameter :: NO = 0, YES = 1

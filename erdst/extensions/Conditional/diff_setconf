@@ -1,85 +1,84 @@
---- setconf.F90	2020-08-27 19:36:10.417013159 +0900
-+++ extensions/Conditional/setconf.F90	2020-08-25 15:38:51.077343411 +0900
-@@ -817,6 +817,11 @@
+--- setconf.F90	2025-01-16 09:41:54
++++ extensions/Conditional/setconf.F90	2025-01-16 09:44:06
+@@ -840,6 +840,10 @@
  ! returns number of frames read (EXCLUDING skipped frames)
-   subroutine getconf_parallel(maxread, actual_read)
-     use engmain, only: skpcnf, boxshp, numsite, sluvid, stdout, &
-+    ! start of the extension for computing the conditional distributions
-+                       do_conditional, OrderPrm_io, OrderPrm_read, &
-+                       OrderPrm_Values, OrderPrm_ArraySize, &
-+                       YES, &
-+    ! end of the extension for computing the conditional distributions
-                        sitepos, cell, stat_weight_system, &
-                        perm_file, perm_io, &
-                        PT_SOLVENT, PT_SOLUTE
-@@ -836,6 +841,12 @@
-     integer, allocatable, save :: permutation(:)
-     integer, allocatable :: count_perm(:)
-     integer :: stat
-+    ! start of the extension for computing the conditional distributions
-+    integer :: cnt_Order, dummy_i, check_i
-+    integer, parameter :: tag_order = 17
-+    real, dimension(:), allocatable :: read_order(:)
-+    if(myrank == 0) allocate( read_order(OrderPrm_ArraySize) )
-+    ! end of the extension for computing the conditional distributions
+    subroutine getconf_parallel(maxread, actual_read)
+       use engmain, only: skpcnf, boxshp, numsite, sluvid, stdout, &
++   ! start of the extension for computing the conditional distributions
++         do_conditional, OrderPrm_io, OrderPrm_read, &
++         OrderPrm_Values, OrderPrm_ArraySize, YES, &
++   ! end of the extension for computing the conditional distributions
+          sitepos, cell, stat_weight_system, &
+          perm_file, perm_io, &
+          PT_SOLVENT, PT_SOLUTE
+@@ -859,6 +863,12 @@
+       integer, allocatable, save :: permutation(:)
+       integer, allocatable :: count_perm(:)
+       integer :: stat
++   ! start of the extension for computing the conditional distributions
++      integer :: cnt_Order, dummy_i, check_i
++      integer, parameter :: tag_order = 17
++      real, dimension(:), allocatable :: read_order(:)
++      if(myrank == 0) allocate( read_order(OrderPrm_ArraySize) )
++   ! end of the extension for computing the conditional distributions
  
-     ! sum over solvent & solute in trajectory file (HISTORY); no test particle
-     OUTatm = sum( numsite, &
-@@ -907,6 +918,16 @@
-                 call OUTconfig(readpos, readcell, OUTatm, boxshp, &
-                                                   'system','trjfl_read')
-                 call read_weight(readweight)
-+    ! start of the extension for computing the conditional distributions
+       ! sum over solvent & solute in trajectory file (HISTORY); no test particle
+       OUTatm = sum( numsite, &
+@@ -932,6 +942,16 @@
+                   call OUTconfig(readpos, readcell, OUTatm, boxshp, &
+                      'system','trjfl_read')
+                   call read_weight(readweight)
++   ! start of the extension for computing the conditional distributions
 +      ! note the consistency with getsolute subroutine in insertion.F90
 +      ! caution: program will not work as expected when skpcnf > 1
-+                if((do_conditional == YES) .and. (OrderPrm_read == YES)) then
-+                   do cnt_Order = 1, OrderPrm_ArraySize
-+                      read(OrderPrm_io, *, iostat = stat) dummy_i, check_i, read_order(cnt_Order)
-+                      if((check_i /= cnt_Order) .or. (stat /= 0)) call halt_with_error('set_bug')
-+                   enddo
-+                endif
-+    ! end of the extension for computing the conditional distributions
-              end do
-              
-              if(iproc /= 1) then         ! send the data to other rank
-@@ -918,12 +939,19 @@
-                               iproc - 1, tag_cell, mpi_comm_world, ierror)
-                 call mpi_send(readweight, 1, system_mpikind, &
-                               iproc - 1, tag_weight, mpi_comm_world, ierror)
-+    ! start of the extension for computing the conditional distributions
-+                call mpi_send(read_order, OrderPrm_ArraySize, system_mpikind, &
-+                              iproc - 1, tag_order, mpi_comm_world, ierror)
-+    ! end of the extension for computing the conditional distributions
- #endif
-              else                        ! rank-0 to use the data as read
-                 ! if this causes memory bottleneck, rewrite with in-place permutation
-                 OUTpos(:, :) = readpos(:, :)
-                 OUTcell(:, :) = readcell(:, :)
-                 weight = readweight
-+    ! start of the extension for computing the conditional distributions
-+                OrderPrm_Values(:) = read_order(:)
-+    ! end of the extension for computing the conditional distributions
-              endif
-           end do
-        else                              ! non-0 rank to receive the data
-@@ -934,6 +962,10 @@
-                         0, tag_cell, mpi_comm_world, mpistatus, ierror)
-           call mpi_recv(weight, 1, system_mpikind, &
-                         0, tag_weight, mpi_comm_world, mpistatus, ierror)
-+    ! start of the extension for computing the conditional distributions
-+          call mpi_recv(OrderPrm_Values, OrderPrm_ArraySize, system_mpikind, &
-+                        0, tag_order, mpi_comm_world, mpistatus, ierror)
-+    ! end of the extension for computing the conditional distributions
- #endif
-        endif
++                  if((do_conditional == YES) .and. (OrderPrm_read == YES)) then
++                     do cnt_Order = 1, OrderPrm_ArraySize
++                        read(OrderPrm_io, *, iostat = stat) dummy_i, check_i, read_order(cnt_Order)
++                        if((check_i /= cnt_Order) .or. (stat /= 0)) call halt_with_error('set_bug')
++                     enddo
++                  endif
++   ! end of the extension for computing the conditional distributions
+                end do
  
-@@ -946,6 +978,9 @@
-        stat_weight_system = weight
-     endif
+                if(iproc /= 1) then         ! send the data to other rank
+@@ -943,12 +963,19 @@
+                      iproc - 1, tag_cell, mpi_comm_world, ierror)
+                   call mpi_send(readweight, 1, system_mpikind, &
+                      iproc - 1, tag_weight, mpi_comm_world, ierror)
++   ! start of the extension for computing the conditional distributions
++                  call mpi_send(read_order, OrderPrm_ArraySize, system_mpikind, &
++                     iproc - 1, tag_order, mpi_comm_world, ierror)
++   ! end of the extension for computing the conditional distributions
+ #endif
+                else                        ! rank-0 to use the data as read
+                   ! if this causes memory bottleneck, rewrite with in-place permutation
+                   OUTpos(:, :) = readpos(:, :)
+                   OUTcell(:, :) = readcell(:, :)
+                   weight = readweight
++   ! start of the extension for computing the conditional distributions
++                  OrderPrm_Values(:) = read_order(:)
++   ! end of the extension for computing the conditional distributions
+                endif
+             end do
+          else                              ! non-0 rank to receive the data
+@@ -959,6 +986,10 @@
+                0, tag_cell, mpi_comm_world, mpistatus, ierror)
+             call mpi_recv(weight, 1, system_mpikind, &
+                0, tag_weight, mpi_comm_world, mpistatus, ierror)
++   ! start of the extension for computing the conditional distributions
++            call mpi_recv(OrderPrm_Values, OrderPrm_ArraySize, system_mpikind, &
++               0, tag_order, mpi_comm_world, mpistatus, ierror)
++   ! end of the extension for computing the conditional distributions
+ #endif
+          endif
  
-+    ! start of the extension for computing the conditional distributions
-+    if(myrank == 0) deallocate( read_order )
-+    ! end of the extension for computing the conditional distributions
-     if(myrank == 0) deallocate( readpos )
-     deallocate( OUTpos, OUTcell )
-     actual_read = nread
+@@ -971,6 +1002,9 @@
+          stat_weight_system = weight
+       endif
+ 
++   ! start of the extension for computing the conditional distributions
++      if(myrank == 0) deallocate( read_order )
++   ! end of the extension for computing the conditional distributions
+       if(myrank == 0) deallocate( readpos )
+       deallocate( OUTpos, OUTcell )
+       actual_read = nread

@@ -1,26 +1,26 @@
---- insertion.F90	2020-08-27 19:36:10.410013364 +0900
-+++ extensions/Conditional/insertion.F90	2020-08-25 15:42:42.466600722 +0900
-@@ -383,6 +383,9 @@
-     use engmain, only: slttype, maxins, numsite, bfcoord, stdout, slttrj, &
-                        wgtins, sltwgt_file, sltwgt_io, &
-                        insstructure, lwstr, upstr, &
-+    ! start of the extension for computing the conditional distributions
-+                       do_conditional, OrderPrm_read, &
-+    ! end of the extension for computing the conditional distributions
-                        SLT_REFS_FLEX, INSSTR_NOREJECT, INSSTR_RMSD, YES
-     use OUTname, only: OUTconfig, solute_trajectory
-     use mpiproc
-@@ -410,6 +413,13 @@
-     if((.not. present(cntdst)) .and. (.not. present(stat_weight))) then
-        select case(caltype)
-        case('init')
-+    ! start of the extension for computing the conditional distributions
+--- insertion.F90	2025-01-16 09:41:54
++++ extensions/Conditional/insertion.F90	2025-01-16 09:44:06
+@@ -385,6 +385,9 @@
+       use engmain, only: slttype, maxins, numsite, bfcoord, stdout, slttrj, &
+          wgtins, sltwgt_file, sltwgt_io, &
+          insstructure, lwstr, upstr, &
++   ! start of the extension for computing the conditional distributions
++         do_conditional, OrderPrm_read, &
++   ! end of the extension for computing the conditional distributions
+          SLT_REFS_FLEX, INSSTR_NOREJECT, INSSTR_RMSD, YES
+       use OUTname, only: OUTconfig, solute_trajectory
+       use mpiproc
+@@ -415,6 +418,13 @@
+       if((.not. present(cntdst)) .and. (.not. present(stat_weight))) then
+          select case(caltype)
+           case('init')
++   ! start of the extension for computing the conditional distributions
 +      ! note the consistency with getconf_parallel subroutine in setconf.F90
 +      ! caution: program will not work as expected when skpcnf > 1
 +          if((do_conditional == YES) .and. (OrderPrm_read == YES)) then
 +             consecutive_read = .true.
 +          endif
-+    ! end of the extension for computing the conditional distributions
-           if(wgtins == YES) then
-              read_weight = .true.
-           else
++   ! end of the extension for computing the conditional distributions
+             if(wgtins == YES) then
+                read_weight = .true.
+             else

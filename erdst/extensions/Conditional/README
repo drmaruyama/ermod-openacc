@@ -1,16 +1,11 @@
-The programs contained in this directory are to be used by
-replacing the original program files distributed.
-They compute the distribution functions conditioned by an order parameter.
+The programs contained in this directory are to be used by replacing the original program files distributed. They compute the distribution functions conditioned by an order parameter.
 
-The program set is still under development,
-and should not be used unless user is very familiar with ERmod.
-All the additions to the original program files are closed by
+The program set is still under development, and should not be used unless user is familiar with ERmod. All the additions to the original program files are closed by
     ! start of the extension for computing the conditional distributions
 and
     ! end of the extension for computing the conditional distributions
 
-To use the executable program of ermod,
-there needs another section of "&conditional" in parameters_er read as;
+To use the executable program of erdst, there needs another section of "&conditional" in parameters_er read as;
 
 &ene_param
 ...
@@ -26,55 +21,26 @@ there needs another section of "&conditional" in parameters_er read as;
    order_binwidth = ...,
 /
 
-The ermod executable with the modified programs in this directory
-requires the presence of the &conditional section in parameters_er.
-Still, when do_conditional is set to a value other than 1
-or when the line of "do_intermediate = X" is not present,
-the outputs from the modified ermod
-are identical to those from the original one.
+The erdst executable with the modified programs in this directory requires the presence of the &conditional section in parameters_er. Still, when do_conditional is set to a value other than 1 or when the line of "do_conditional = X" is not present, the outputs from the modified erdst are identical to those from the original one.
 
-If order_species = 0, the user-defined order parameter
-needs to be calculated in the update_histogram subroutine.
-The scheme of particle insertion may be necessary to be devised, in addition.
-If order_species is equal to the index of one of the solvent species,
-the value of order parameter is the sum of the interaction energy between
-the solute and the order_species-th solvent species.
-See the relevant parts of engproc.F90 for the details about order_species.
+If order_species = 0, the user-defined order parameter needs to be calculated in the update_histogram subroutine. The scheme of particle insertion may be necessary to be devised, in addition. If order_species is equal to the index of one of the solvent species, the value of order parameter is the sum of the interaction energy between the solute and the order_species-th solvent species. See the relevant parts of engproc.F90 for the details about order_species.
 
-If user prepares a file OrderPrmTraj,
-he does not need to set a value to order_species
-and the program reads the value of order parameter from OrderPrmTraj.
+If user prepares a file OrderPrmTraj, he/she does not need to set a value to order_species and the program reads the value of order parameter from OrderPrmTraj.
 The format of OrderPrmTraj is
   (snapshot number of MD)   (solute number)  (value of order parameter)
 The first column corresponds to the snapshot number of the trajectory (HISTORY).
-The second column varies from 1 to numslt (the number of solute molecules)
-when the system is the solution (soln),
-and from 1 to maxins (the number of particle insertions)
-when the system is the reference solvent (refs).
-The second column is always 1
-when the system is soln and the number of solute molecules is 1.
+The second column varies from 1 to numslt (the number of solute molecules) when the system is the solution (soln), and from 1 to maxins (the number of particle insertions) when the system is the reference solvent (refs).
+The second column is always 1 when the system is soln and the number of solute molecules is 1.
 The first and second columns are integers, and the third is real.
 
-Often the OrderPrmTraj file is prepared directly by
-using the solute-solvent configurations treated with the ermod program.
-In this case, the solute configuration read from SltConf is used as is
-and it is necessary to set insposition = 1 and insorient = 1 in parameters_er
+Often the OrderPrmTraj file is prepared directly by using the solute-solvent configurations treated with the erdst program. In this case, the solute configuration read from SltConf is used as is and it is necessary to set insposition = 1 and insorient = 1 in parameters_er.
 
-The minimum and maximum values of the order parameter
-are order_min and order_max, respectively,
-and in numerical treatment, the order parameter
-is binned with order_binwidth at equal intervals.
-Within the program, the number of bins for order parameter is order_size.
-If user prepares a file OrderPrmCoord, it is not necessary to
-set values to order_min, order_max, and order_binwidth;
-they will be simply ingnored.
+The minimum and maximum values of the order parameter are order_min and order_max, respectively, and in numerical treatment, the order parameter is binned with order_binwidth at equal intervals.
+Within the program, the number of bins for order parameter is order_size. If user prepares a file OrderPrmCoord, it is not necessary to set values to order_min, order_max, and order_binwidth; they will be simply ingnored.
 The format of OrderPrmCoord is
   (line number, integer)  (boundary of bin for order parameter, real)
-The value of the first column is not used in the ermod program.
-The boundary in the second column is the minimum of each bin.
-When its i-th and (i+1)-th values are a(i) and a(i+1), respectively,
-the data is to be added to the i-th bin
-when the corresponding value x of order parameter is a(i) <= x < a(i+1).
+The value of the first column is not used in the erdst program.
+The boundary in the second column is the minimum of each bin. When its i-th and (i+1)-th values are a(i) and a(i+1), respectively, the data is to be added to the i-th bin when the corresponding value x of order parameter is a(i) <= x < a(i+1).
 
 
 The outputs for the conditional calculations are as follows

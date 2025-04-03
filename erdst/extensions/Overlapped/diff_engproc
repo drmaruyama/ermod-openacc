@@ -1,195 +1,208 @@
---- engproc.F90	2020-08-21 22:21:55.079412279 +0900
-+++ extensions/Intermediate/engproc.F90	2020-08-21 22:33:59.018316685 +0900
+--- engproc.F90	2025-01-16 22:28:02
++++ extensions/Overlapped/engproc.F90	2025-01-17 12:08:24
 @@ -30,6 +30,15 @@
-   logical, allocatable :: flceng_stored(:)
-   real, allocatable :: flceng(:, :)
+    logical, allocatable :: flceng_stored(:)
+    real, allocatable :: flceng(:, :)
  
-+  ! start of the extension for the method with the intermediate state
-+  integer :: do_intermediate
-+  character(len=1024) :: refs_filename = '../refs/engref'
-+  logical, dimension(:), allocatable :: zerodns_crd
-+  real, dimension(:),    allocatable :: edintm, uvintm
-+  real, dimension(:,:),  allocatable :: avintm
-+  real :: soln_total, soln_intm, norm_intm
-+  ! end of the extension for the method with the intermediate state
++   ! start of the extension for the method with the overlapped state
++   integer :: do_overlapped
++   character(len=1024) :: refs_filename = '../refs/engref'
++   logical, dimension(:), allocatable :: zerodns_crd
++   real, dimension(:),    allocatable :: edovlp, uvovlp
++   real, dimension(:,:),  allocatable :: avovlp
++   real :: soln_total, soln_ovlp, norm_ovlp
++   ! end of the extension for the method with the overlapped state
 +
  contains
-   !
-   !  procedure for constructing energy distribution functions
-@@ -66,6 +75,14 @@
-     !
-     integer :: param_err
-     logical :: check_ok, start_line
-+    ! start of the extension for the method with the intermediate state
-+    logical :: edens_exist
-+    character(len=1024) :: opnfile
-+    integer, parameter :: sufmax = 99, refs_io = 81
-+    character(len=3), parameter :: default_suf = '.tt'
-+    character(len=3) :: count_suf
-+    namelist /intermediate/ do_intermediate, refs_filename
-+    ! end of the extension for the method with the intermediate state
-     namelist /hist/ ecdmin, ecfmns, ecdcen, eccore, ecdmax, &
-                     eclbin, ecfbin, ec0bin, finfac, pecore, &
-                     ecprread, meshread, peread
-@@ -302,6 +319,48 @@
-     enddo
-     voffset = -infty
+    !
+    !  procedure for constructing energy distribution functions
+@@ -66,6 +75,15 @@
+       !
+       integer :: param_err
+       logical :: check_ok, start_line
++      ! start of the extension for the method with the overlapped state
++      logical :: edens_exist
++      logical, dimension(:), allocatable :: exist_total
++      character(len=1024) :: opnfile
++      integer, parameter :: sufmax = 99, refs_io = 81
++      character(len=3), parameter :: suffix_tt = '.tt'
++      character(len=3) :: count_suf
++      namelist /overlapped/ do_overlapped, refs_filename
++      ! end of the extension for the method with the overlapped state
+       namelist /hist/ ecdmin, ecfmns, ecdcen, eccore, ecdmax, &
+          eclbin, ecfbin, ec0bin, finfac, pecore, &
+          ecprread, meshread, peread
+@@ -303,6 +321,54 @@
+       enddo
+       voffset = -infty
  
-+    ! start of the extension for the method with the intermediate state
-+    do_intermediate = NO                 ! default = don't do it
-+    if(slttype == SLT_SOLN) then
-+       open(unit = io_paramfile, file = ene_confname, action = "read", iostat = param_err)
-+       if(param_err == 0) then
-+          read(io_paramfile, nml = intermediate)
-+          close(io_paramfile)
-+       endif
-+       if(do_intermediate == YES) then
-+          allocate( zerodns_crd(ermax), edintm(ermax) )
-+          allocate( avintm(engdiv, numslv), uvintm(numslv) )
-+          zerodns_crd(:) = .true.
-+          soln_total = 0.0
-+          soln_intm = 0.0
-+          opnfile = trim(refs_filename) // default_suf
-+          inquire(file = opnfile, exist = edens_exist)
-+          if( edens_exist ) then
-+             regn = 1
-+          else
-+             regn = sufmax
-+          endif
-+          do pti = 1, regn
-+             if(regn == sufmax) then
-+                i = pti / 10
-+                q = mod(pti, 10)
-+                count_suf = '.' // numbers(i+1:i+1) // numbers(q+1:q+1)
-+                opnfile = trim(refs_filename) // count_suf
-+                inquire(file = opnfile, exist = edens_exist)
-+             endif
-+             if( edens_exist ) then
-+                open(unit = refs_io, file = opnfile, action = "read")
-+                do iduv = 1, ermax
-+                   read(refs_io, *) factor, i, factor
-+                   if(factor > tiny) zerodns_crd(iduv) = .false.
-+                enddo
-+                close(refs_io)
-+             endif
-+          enddo
-+       endif
-+    endif
-+    ! end of the extension for the method with the intermediate state
++      ! start of the extension for the method with the overlapped state
++      do_overlapped = NO                 ! default = don't do it
++      if(slttype == SLT_SOLN) then
++         open(unit = io_paramfile, file = ene_confname, action = "read", iostat = param_err)
++         if(param_err == 0) then
++            read(io_paramfile, nml = overlapped, iostat = param_err)
++            close(io_paramfile)
++         endif
++         if(do_overlapped == YES) then
++            allocate( zerodns_crd(ermax), edovlp(ermax) )
++            allocate( avovlp(engdiv, numslv), uvovlp(numslv) )
++            zerodns_crd(:) = .true.
++            soln_total = 0.0
++            soln_ovlp = 0.0
++            opnfile = trim(refs_filename) // suffix_tt
++            inquire(file = opnfile, exist = edens_exist)
++            if( edens_exist ) then
++               regn = 1
++            else
++               regn = sufmax
++            endif
++            allocate( exist_total(regn) )
++            exist_total(:) = .false.
++            do pti = 1, regn
++               if(regn == sufmax) then
++                  i = pti / 10
++                  q = mod(pti, 10)
++                  count_suf = '.' // numbers(i+1:i+1) // numbers(q+1:q+1)
++                  opnfile = trim(refs_filename) // count_suf
++                  inquire(file = opnfile, exist = edens_exist)
++               endif
++               if( edens_exist ) then
++                  open(unit = refs_io, file = opnfile, action = "read")
++                  read(refs_io, *)    ! skip the comment line
++                  do iduv = 1, ermax
++                     read(refs_io, *) factor, factor, i, factor
++                     if(factor > tiny) zerodns_crd(iduv) = .false.
++                  enddo
++                  close(refs_io)
++                  exist_total(pti) = .true.
++               endif
++            enddo
++            if( all(exist_total(:) == .false.) ) stop 'engref files did not exist'
++            deallocate( exist_total )
++         endif
++      endif
++      ! end of the extension for the method with the overlapped state
 +
-     call engclear
+       call engclear
  
-     ! Output for energy fluctuation
-@@ -329,6 +388,13 @@
-     avslf = 0.0
-     engnorm = 0.0
-     engsmpl = 0.0
-+    ! start of the extension for the method with the intermediate state
-+    if(do_intermediate == YES) then
-+       edintm(:) = 0.0
-+       uvintm(:) = 0.0
-+       norm_intm = 0.0
-+    endif
-+    ! end of the extension for the method with the intermediate state
-     return
-   end subroutine engclear
+       ! Output for energy fluctuation
+@@ -330,6 +396,13 @@
+       avslf = 0.0
+       engnorm = 0.0
+       engsmpl = 0.0
++      ! start of the extension for the method with the overlapped state
++      if(do_overlapped == YES) then
++         edovlp(:) = 0.0
++         uvovlp(:) = 0.0
++         norm_ovlp = 0.0
++      endif
++      ! end of the extension for the method with the overlapped state
+       return
+    end subroutine engclear
  
-@@ -517,6 +583,7 @@
-     integer, parameter :: ave_io = 54, wgt_io = 55, uvr_io = 56
-     real :: voffset_local, voffset_scale
-     real :: factor
-+    integer, parameter :: prb_io = 81  ! extension with the intermediate state
-     call mpi_rank_size_info                                          ! MPI
+@@ -519,6 +592,9 @@
+       real(kind=8) :: voffset_local, voffset_scale
+       real :: factor
+       real(kind=8) :: invwt, leftbin, middlebin
++      ! start of the extension for the method with the overlapped state
++      integer, parameter :: prb_io = 81
++      ! end of the extension for the method with the overlapped state
+       call mpi_rank_size_info                                          ! MPI
  
-     ! synchronize voffset
-@@ -574,6 +641,67 @@
- #endif
-     endif
- 
-+    ! start of the extension for the method with the intermediate state
-+    if(do_intermediate == YES) then
-+#ifdef MPI
-+       if(wgtslf == YES) then
-+          soln_total = soln_total * voffset_scale
-+          soln_intm = soln_intm * voffset_scale
-+          norm_intm = norm_intm * voffset_scale
-+          edintm(:) = edintm(:) * voffset_scale
-+          uvintm(:) = uvintm(:) * voffset_scale
-+       endif
-+
-+       call mympi_reduce_real_scalar(norm_intm, mpi_sum, 0)
-+       call mympi_reduce_real_array(uvintm, numslv, mpi_sum, 0)
-+       call mympi_reduce_real_array(edintm, ermax, mpi_sum, 0)
-+       if(division == engdiv) then
-+          call mympi_reduce_real_scalar(soln_total, mpi_sum, 0)
-+          call mympi_reduce_real_scalar(soln_intm, mpi_sum, 0)
-+       endif
+       ! synchronize voffset
+@@ -573,8 +649,70 @@
+ #ifdef MPI
+          call mympi_reduce_real_array(minuv, (numslv + 1), mpi_min, 0)
+          call mympi_reduce_real_array(maxuv, (numslv + 1), mpi_max, 0)
 +#endif
-+       if(myrank == 0) then
-+          if(engdiv == 1) then
-+             suffeng = '.tt'
-+          else
-+             j = division / 10
-+             k = mod(division, 10)
-+             suffeng = '.' // numbers(j+1:j+1) // numbers(k+1:k+1)
-+          endif
++      endif
 +
-+          edintm(:) = edintm(:) / norm_intm
++      ! start of the extension for the method with the overlapped state
++      if(do_overlapped == YES) then
++#ifdef MPI
++         if(wgtslf == YES) then
++            soln_total = soln_total * voffset_scale
++            soln_ovlp = soln_ovlp * voffset_scale
++            norm_ovlp = norm_ovlp * voffset_scale
++            edovlp(:) = edovlp(:) * voffset_scale
++            uvovlp(:) = uvovlp(:) * voffset_scale
++         endif
 +
-+          engfile = 'engint' // suffeng
-+          open(unit = eng_io, file = engfile, form = "FORMATTED", action = 'write')
-+          do iduv = 1, ermax
-+             call repval('intn', iduv, factor, pti)
-+             write(eng_io, '(g15.7,i5,g25.15)') factor, pti, edintm(iduv)
-+          enddo
-+          endfile(eng_io)
-+          close(eng_io)
++         call mympi_reduce_real_scalar(norm_ovlp, mpi_sum, 0)
++         call mympi_reduce_real_array(uvovlp, numslv, mpi_sum, 0)
++         call mympi_reduce_real_array(edovlp, ermax, mpi_sum, 0)
++         if(division == engdiv) then
++            call mympi_reduce_real_scalar(soln_total, mpi_sum, 0)
++            call mympi_reduce_real_scalar(soln_ovlp, mpi_sum, 0)
++         endif
+ #endif
++         if(myrank == 0) then
++            if(engdiv == 1) then
++               suffeng = '.tt'
++            else
++               j = division / 10
++               k = mod(division, 10)
++               suffeng = '.' // numbers(j+1:j+1) // numbers(k+1:k+1)
++            endif
 +
-+          avintm(division, :) = uvintm(:) / norm_intm
++            edovlp(:) = edovlp(:) / norm_ovlp
 +
-+          if(division == engdiv) then
-+             factor = soln_intm / soln_total
-+             open(unit = prb_io, file = 'Prob_Result', action = 'write')
-+             write(prb_io, '(a,f12.6)') ' Probability to find the system in the intermediate state = ', factor
-+             write(prb_io, '(a)') ' Free-energy change from the intermediate state to the simulated state'
-+             write(prb_io, '(a,f12.6,a)') '                                                = ', temp * log(factor), ' kcal/mol'
-+             endfile(prb_io)
-+             close(prb_io)
++            engfile = 'engovl' // suffeng
++            open(unit = eng_io, file = engfile, form = "FORMATTED", action = 'write')
++            write(eng_io, '(A2,A13,A15,A5,A25,A25)') "# ", "bin_left", "bin_middle", "spec", "ratio", "dens"
++            do iduv = 1, ermax
++               call representative_bin_info(iduv, leftbin, middlebin, invwt, pti)
++               write(eng_io, '(g15.7,g15.7,i5,g25.15,g25.15)') leftbin, middlebin, pti, edovlp(iduv), edovlp(iduv) * invwt
++            enddo
++            endfile(eng_io)
++            close(eng_io)
 +
-+             open(unit = ave_io, file = 'avint.tt', action = 'write')
-+             do k = 1, engdiv
-+                write(ave_io, 751) k, avintm(k, 1:numslv)
-+             enddo
-+             endfile(ave_io)
-+             close(ave_io)
-+          endif
-+       endif
-+    endif
-+    ! end of the extension for the method with the intermediate state
++            avovlp(division, :) = uvovlp(:) / norm_ovlp
 +
-     if(myrank /= 0) return                                            ! MPI
-     ! data to be stored; only the master node matters
++            if(division == engdiv) then
++               factor = soln_ovlp / soln_total
++               open(unit = prb_io, file = 'Prob_Result', action = 'write')
++               write(prb_io, '(a,f12.6)') ' Probability to find the system in the overlapped state = ', factor
++               write(prb_io, '(a)') ' Free-energy change from the overlapped state to the solution state'
++               write(prb_io, '(a,f12.6,a)') '                                                = ', temp * log(factor), ' kcal/mol'
++               endfile(prb_io)
++               close(prb_io)
++
++               open(unit = ave_io, file = 'avovl.tt', action = 'write')
++               do k = 1, engdiv
++                  write(ave_io, 751) k, avovlp(k, 1:numslv)
++               enddo
++               endfile(ave_io)
++               close(ave_io)
++            endif
++         endif
+       endif
++      ! end of the extension for the method with the overlapped state
  
-@@ -877,6 +1005,22 @@
-        enddo
-     endif
- 
-+    ! start of the extension for the method with the intermediate state
-+    if(do_intermediate == YES) then
-+       soln_total = soln_total + engnmfc
-+       if(any( (insdst(:) > 0) .and. zerodns_crd(:) )) then
-+       else
-+          soln_intm = soln_intm + engnmfc
-+          norm_intm = norm_intm + engnmfc
-+          do iduv = 1, ermax
-+             k = insdst(iduv)
-+             if(k > 0) edintm(iduv) = edintm(iduv) + engnmfc * real(k)
-+          enddo
-+          uvintm(:) = uvintm(:) + flceng(:, cntdst) * engnmfc
-+       endif
-+    endif
-+    ! end of the extension for the method with the intermediate state
+       if(myrank /= 0) return                                            ! MPI
+       ! data to be stored; only the master node matters
+@@ -882,7 +1020,23 @@
+                ecorr(iduvp,iduv) = ecorr(iduvp,iduv) + engnmfc * real(k) * real(q)
+             enddo
+          enddo
++      endif
 +
-     deallocate( insdst )
-   end subroutine update_histogram
++      ! start of the extension for the method with the overlapped state
++      if(do_overlapped == YES) then
++         soln_total = soln_total + engnmfc
++         if(any( (insdst(:) > 0) .and. zerodns_crd(:) )) then
++         else
++            soln_ovlp = soln_ovlp + engnmfc
++            norm_ovlp = norm_ovlp + engnmfc
++            do iduv = 1, ermax
++               k = insdst(iduv)
++               if(k > 0) edovlp(iduv) = edovlp(iduv) + engnmfc * real(k)
++            enddo
++            uvovlp(:) = uvovlp(:) + flceng(:, cntdst) * engnmfc
++         endif
+       endif
++      ! end of the extension for the method with the overlapped state
  
+       deallocate( insdst )
+    end subroutine update_histogram

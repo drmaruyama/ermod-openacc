@@ -1,23 +1,25 @@
-The engproc.F90 contained in this directory
-implements the method using the intermediate state introduced in Refs 1 and 2.
+The engproc.F90 contained in this directory implements the method using the overlapped state introduced in Refs 1, 2, and 3.
 
 Ref 1: T. Kawakami, I. Shigemoto, and N. Matubayasi,
        J. Chem. Phys., 137, 234903 (9 pages) (2012) (see Appendix A).
 Ref 2: S. Sakuraba and N. Matubayasi
        J Comput. Chem., 35, 1592-1608 (2014) (see Appendix C).
+Ref 3: K. Okita, Y. Maruyama, K. Kasahara, N. Matubayasi
+       J. Chem. Phys., 162, 034103 (12 pages) (2025).
 
-This method is a cure for treating a problematic low-energy tail if present.
+This method is a cure for treating a problematic low-energy tail if present. All the additions to the original program file are closed by
+    ! start of the extension for the method with the overlapped state
+and
+    ! end of the extension for the method with the overlapped state
 
-To use the engproc.F90 program contained in this directory,
-user simply does the followings in the parent directory of ERmod.
+To use the engproc.F90 program contained in this directory, user simply does the followings in the parent directory of ERmod.
 
 $ mv engproc.F90 engproc_original.F90
-$ cp extensions/Intermediate/engproc.F90 ./
+$ cp extensions/overlapped/engproc.F90 ./
 $ make
 $ make install
 
-To use the executable program of ermod,
-there needs another section of "&intermediate" in parameters_er read as;
+To use the executable program of erdst, there needs another section of "&overlapped" in parameters_er read as;
 
 &ene_param
 ...
@@ -25,66 +27,29 @@ there needs another section of "&intermediate" in parameters_er read as;
 &hist
 ...
 /
-&intermediate
-do_intermediate = 1
+&overlapped
+do_overlapped = 1
 refs_filename = '../refs/engref'
 /
 
-do_intermediate and refs_filename are the variables
-contained in the &intermediate section and will be described below.
+do_overlapped and refs_filename are the variables contained in the &overlapped section and will be described below.
 
-As described in Appendix C of Ref 2,
-the method with the intermediate state
-is effective only for the solution system.
-For the reference-solvent system, the outputs
-from the ermod executable with the modified engproc.F90 in this directory
-are actually identical to those from the original one
-even when any values are set to do_intermediate and refs_filename
-or when the section of &intermediate is absent.
+The method with the overlapped state is effective only for the solution system. For the reference-solvent system, the outputs from the erdst executable with the modified engproc.F90 in this directory are actually identical to those from the original one even when any values are set to do_overlapped and refs_filename or when the section of &overlapped is absent.
 
-For the solution system,
-the ermod executable with the modified engproc.F90 in this directory
-requires the presence of the &intermediate section in parameters_er.
-Still, when do_intermediate is set to a value other than 1
-or when the line of "do_intermediate = X" is not present,
-the outputs from the modified ermod
-are identical to those from the original one.
+For the solution system, the erdst executable with the modified engproc.F90 in this directory requires the presence of the &overlapped section in parameters_er. Still, when do_overlapped is set to a value other than 1 or when the line of "do_overlapped = X" is not present, the outputs from the modified erdst are identical to those from the original one.
 
-The method of intermediate state works only when do_intermediate = 1.
-As noted in Appendix C of Ref 2,
-the calculation of the reference-solvent system needs to be done
-before that of the solution when the method of intermediate state is to be used.
-The refs_filename parameter specifies
-the filename for the one-body energy distribution in the reference solvent.
-Its default value is '../refs/engref'
-and can be modified within parameters_er
-in accordance with user's output name convention for the reference solvent.
+The method of overlapped state works only when do_overlapped = 1. The calculation of the reference-solvent system needs to be done before that of the solution when the method of overlapped state is to be used. The refs_filename parameter specifies the filename for the one-body energy distribution in the reference solvent. Its default value is '../refs/engref' and can be modified within parameters_er in accordance with user's output name convention for the reference solvent.
 
-When the modified ermod executable is used for the solution system
-at do_intermediate = 1,
-there are additional outputs of Prob_Result, avint.tt, and engint.XX.
-The other outputs are also produced from the run with the original ermod
-and are identical between the modified and original ermod executables.
+When the modified erdst executable is used for the solution system at do_overlapped = 1, there are additional outputs of Prob_Result, avovl, and engovl.XX. The other outputs are also produced from the run with the original erdst and are identical between the modified and original erdst executables.
 
-Prob_Result provides the free-energy change from the intermediate state
-to the solution system of interest.
-This free-energy change is \Delta G_2 in Appendix A of Ref 1
-and \Delta \mu_2 in Appendix C of Ref 2.
+Prob_Result provides the free-energy change from the overlapped state to the solution system of interest. This free-energy change is equal to \Delta G_2 in Appendix A of Ref 1, \Delta \mu_2 in Appendix C of Ref 2, and \Delta \mu_G^{OR -> B} in Ref 3.
 
-The free-energy change from the reference solvent to the intermediate state
-is denoted as \Delta G_1 in Appendix A of Ref 1
-and \Delta \mu_1 in Appendix C of Ref 2.
-To obtain this free-energy change, the slvfe executable is used by setting
+The free-energy change from the reference solvent to the overlapped state is denoted as \Delta G_1 in Appendix A of Ref 1, \Delta \mu_1 in Appendix C of Ref 2, and \Delta \mu_G^OR in Ref 3. To obtain this free-energy change, the slvfe executable is used by setting
 
-slndnspf  = 'engint'
-aveuvfile = 'avint.tt'
+slndnspf  = 'engovl'
+aveuvfile = 'avovl.tt'
 
 in parameters_fe (user does not need to set aveuvfile when uvread = 'not').
-If user modifies the filenames of avint.tt and engint.XX,
-the lines for slndnspf and aveuvfile in parameters_fe
-need to be changed as such.
+If user modifies the filenames of avovl.tt and engovl.XX, the lines for slndnspf and aveuvfile in parameters_fe need to be changed as such.
 
-The resulting free energy of solvation is the sum of
-the two free-energy changes computed above.
-When this sum agrees well with the value from the original engproc.F90 program,
-the problematic low-energy tail is in fact of no harm.
+The resulting free energy of solvation is the sum of the two free-energy changes computed above. When this sum agrees well with the value from the original engproc.F90 program, the problematic low-energy tail is in fact of no harm.

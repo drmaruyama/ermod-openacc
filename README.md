@@ -47,3 +47,9 @@ $ make
 to start compilation.
 
 Current configuration script only supports nvfortran as a compiler.
+
+## Reference
+ERmod-OpenACC: GPU Acceleration of Solvation Free Energy Calculation with Energy-Representation Theory
+Yutaka Maruyama, Hidekazu Kojima, Nobuyuki Matubayasi
+J. Comput. Chem. (in press)
+https://doi.org/10.1002/jcc.70152

@@ -189,8 +189,8 @@ contains
     if (errtype == 'eng_par') write(stdout, "(A)") " The input parameter is incorrectly set"
     if (errtype == 'eng_siz') write(stdout, "(A)") " The number of energy-coordinate meshes is too large"
     if (errtype == 'eng_min') then
-       write(stdout, "(A)") " The minimum of the energy coordinate is too large; " // &
-            "the ecdmin parameter needs to be smaller"
+       write(stdout, "(A)") " The minimum of the energy coordinate is too high; " // &
+            "the ecdmin parameter needs to be lower"
        if (slttype == SLT_REFS_FLEX) then
           write(stdout, '(A)') " If ecdmin seems unphysically negative, the solute structure in SltConf could be fragmented. " &
                // "If so, unwrap the trajectory for the isolated solute and link SltConf to the unwrapped trajectory"

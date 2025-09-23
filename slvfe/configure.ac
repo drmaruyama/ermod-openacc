@@ -2,7 +2,7 @@
 
 # autoconf <= 2.64 has a bug in AC_OPENMP
 AC_PREREQ([2.65])
-AC_INIT(slvfe, 0.6.0, Matubayasi Laboratory)
+AC_INIT(slvfe, 1.0.0, Matubayasi Laboratory)
 AC_CONFIG_MACRO_DIR(m4)
 AC_CONFIG_SRCDIR([slvfe.F90])
 AM_INIT_AUTOMAKE

@@ -1,0 +1,41 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Chodera's estimation for MD simulation for solution
+
+Requirement: 
+- Python3
+- NumPy
+- pymbar
+
+Reference:
+Chodera, J. D. 
+A Simple Method for Automated Equilibration Detection 
+in Molecular Simulations.
+J. Chem. Theory Comput. 2016, 12, 1799−1805.
+"""
+import sys
+import numpy as np
+from pymbar import timeseries
+
+def main():
+    if len(sys.argv) < 2:
+        print(f"Usage: {sys.argv[0]} file1 [file2 ...]")
+        sys.exit(1)
+
+    arrays = []
+    for fname in sys.argv[1:]:
+        data = np.loadtxt(fname, usecols=1)
+        arrays.append(data)
+    A_t = np.concatenate(arrays)
+
+    t0, g, Neff_max = timeseries.detect_equilibration(A_t)
+    A_t_equilibrated = A_t[t0:]
+
+    print("t0 =", t0)
+    print("statistical inefficiency g =", g)
+    print("Neff_max =", Neff_max)
+    print("length of equilibrated data =", len(A_t_equilibrated))
+
+if __name__ == "__main__":
+    main()

@@ -48,9 +48,16 @@ to start compilation.
 
 Current configuration script only supports nvfortran as a compiler.
 
-## Reference
+## Reference for ERmod-OpenACC
 ERmod-OpenACC: GPU Acceleration of Solvation Free Energy Calculation with Energy-Representation Theory.
 
 Yutaka Maruyama, Hidekazu Kojima, Nobuyuki Matubayasi,
 J. Comput. Chem. **46**, e70152 (2025). 
 https://doi.org/10.1002/jcc.70152
+
+## Reference for trancated HNC (tHNC) functional
+Truncated Hypernetted Chain Approximation: Accurate Functional for Energy Representation Theory
+
+Yutaka Maruyama, Ryoma Kaji, Nobuyuki Matubayasi,
+J. Chem. Theory Comput. (in press)
+https://doi.org/10.1021/acs.jctc.5c01239

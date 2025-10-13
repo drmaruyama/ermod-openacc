@@ -37,6 +37,8 @@ module sysvars
 
   character(len=3) :: normalize = 'yes', showdst= 'not'
 
+  logical :: functional = .false. 
+  
   integer :: numprm = 0                           ! initialized to 0
   integer :: numprm_def_inf_yes = 11   ! default numprm at infchk = 'yes'
   integer :: numprm_def_inf_not = 5    ! default numprm at infchk = 'not'
@@ -48,7 +50,8 @@ module sysvars
   real :: inptemp = 300.0              ! temperature in Kelvin, initialized
   real :: temp, kT, slfeng
   real :: avevolume = 0.0              ! average volume of system, initialized
-
+  real :: et = 0.0
+  
   integer :: pickgr = 3
   integer :: msemin = 1, msemax = 5
   real :: mesherr = 0.1                ! allowed mesh error in kcal/mol
@@ -110,7 +113,8 @@ module sysvars
        slndnspf, slncorpf, refdnspf, refcorpf, &
        aveuvfile, engmeshfile, cumuint, cumuintfl, &
        ermax_limit, norm_error, itrmax, tiny, large, &
-       force_calculation, strict_ewald_parameters, check_parameters_er
+       force_calculation, strict_ewald_parameters, check_parameters_er, &
+       et, functional
 
 contains
 
@@ -169,6 +173,8 @@ contains
     if (pickgr < msemin) stop " Incorrect setting: pickgr < msemin not allowed"
     if (pickgr > msemax) stop " Incorrect setting: pickgr > msemax not allowed"
     if (pickgr > numprm) stop " Incorrect setting: pickgr > numprm not allowed"
+
+    if (et /= 0.0) functional = .true.
 
   contains
 

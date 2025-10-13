@@ -590,7 +590,8 @@ contains
          minthres_soln, minthres_refs, &
          cumuint, cumuintfl, &
          get_suffix, &
-         numbers
+         numbers, &
+         et, functional
     use uvcorrect, only: ljcorrect
     implicit none
     integer, intent(in) :: prmcnt, cntrun
@@ -756,8 +757,13 @@ contains
              endif
              slvfe = slvfe + lcent * edist(iduv)
 
-             lcsln = pyhnc(slncv(iduv), 1)    ! solution
-             lcref = pyhnc(inscv(iduv), 2)    ! reference solvent
+             if (functional) then
+                lcsln = thnc(slncv(iduv), et, 1)    ! solution
+                lcref = thnc(inscv(iduv), et, 2)    ! reference solvent
+             else
+                lcsln = pyhnc(slncv(iduv), 1)    ! solution
+                lcref = pyhnc(inscv(iduv), 2)    ! reference solvent
+             endif
              if ((slncor == 'yes') .and. (edist(iduv) > soln_zero) &
                   .and. (edens(iduv) <= refs_zero)) then
                 ! special case to be examined and fixed later
@@ -1399,6 +1405,28 @@ contains
   end function sfewgt
 
 
+  real function thnc(indpmf, et, cnt)
+    implicit none
+    real, intent(in) :: indpmf, et
+    integer, intent(in) :: cnt
+    real :: intg, factor
+    factor = indpmf / kT
+    select case(cnt)
+    case(1)      ! solution  
+       intg = factor / 2.0
+    case(2)      ! referecen solvent 
+       if (indpmf < et) then
+          factor = 0.0
+       end if
+       intg = factor / 2.0
+    case default
+       stop "Incorrct cnt argument in pyhnc"
+    end select
+    thnc = intg
+    return
+  end function thnc
+
+  
   real function pyhnc(indpmf, cnt)
     implicit none
     real, intent(in) :: indpmf

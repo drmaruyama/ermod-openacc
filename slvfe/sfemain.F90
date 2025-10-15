@@ -37,7 +37,7 @@ module sysvars
 
   character(len=3) :: normalize = 'yes', showdst= 'not'
 
-  logical :: functional = .false. 
+  character(len=6) :: functional = 'py-hnc'
   
   integer :: numprm = 0                           ! initialized to 0
   integer :: numprm_def_inf_yes = 11   ! default numprm at infchk = 'yes'
@@ -174,7 +174,7 @@ contains
     if (pickgr > msemax) stop " Incorrect setting: pickgr > msemax not allowed"
     if (pickgr > numprm) stop " Incorrect setting: pickgr > numprm not allowed"
 
-    if (et /= 0.0) functional = .true.
+    if (et /= 0.0) functional = 'thnc'
 
   contains
 

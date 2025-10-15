@@ -757,13 +757,16 @@ contains
              endif
              slvfe = slvfe + lcent * edist(iduv)
 
-             if (functional) then
-                lcsln = thnc(slncv(iduv), et, 1)    ! solution
-                lcref = thnc(inscv(iduv), et, 2)    ! reference solvent
-             else
+             select case (functional)
+             case('py-hnc', 'PY-HNC')
                 lcsln = pyhnc(slncv(iduv), 1)    ! solution
                 lcref = pyhnc(inscv(iduv), 2)    ! reference solvent
-             endif
+             case('thnc', 'THNC')
+                lcsln = thnc(slncv(iduv), et, 1)    ! solution
+                lcref = thnc(inscv(iduv), et, 2)    ! reference solvent
+             case default
+                stop "Incorrct functional"
+             end select
              if ((slncor == 'yes') .and. (edist(iduv) > soln_zero) &
                   .and. (edens(iduv) <= refs_zero)) then
                 ! special case to be examined and fixed later
@@ -1420,7 +1423,7 @@ contains
        end if
        intg = factor / 2.0
     case default
-       stop "Incorrct cnt argument in pyhnc"
+       stop "Incorrct cnt argument in thnc"
     end select
     thnc = intg
     return

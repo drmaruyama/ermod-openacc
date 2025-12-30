@@ -761,6 +761,12 @@ contains
              case('py-hnc', 'PY-HNC')
                 lcsln = pyhnc(slncv(iduv), 1)    ! solution
                 lcref = pyhnc(inscv(iduv), 2)    ! reference solvent
+             case('hnc', 'HNC')
+                lcsln = thnc(slncv(iduv), -HUGE(et), 1)    ! solution
+                lcref = thnc(inscv(iduv), -HUGE(et), 2)    ! reference solvent
+             case('none', 'NONE')
+                lcsln = 0.0    ! solution
+                lcref = 0.0    ! reference solvent
              case('thnc', 'THNC')
                 lcsln = thnc(slncv(iduv), et, 1)    ! solution
                 lcref = thnc(inscv(iduv), et, 2)    ! reference solvent

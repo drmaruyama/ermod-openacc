@@ -59,5 +59,5 @@ https://doi.org/10.1002/jcc.70152
 Truncated Hypernetted Chain Approximation: Accurate Functional for Energy Representation Theory
 
 Yutaka Maruyama, Ryoma Kaji, Nobuyuki Matubayasi,
-J. Chem. Theory Comput. (in press)
+J. Chem. Theory Comput.  **21**, 10503–10514 (2025)
 https://doi.org/10.1021/acs.jctc.5c01239

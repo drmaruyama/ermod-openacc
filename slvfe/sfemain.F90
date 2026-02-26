@@ -37,7 +37,7 @@ module sysvars
 
   character(len=3) :: normalize = 'yes', showdst= 'not'
 
-  character(len=6) :: functional = 'py-hnc'
+  character(len=6) :: functional = 'pyhnc'
   
   integer :: numprm = 0                           ! initialized to 0
   integer :: numprm_def_inf_yes = 11   ! default numprm at infchk = 'yes'

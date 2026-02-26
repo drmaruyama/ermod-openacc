@@ -758,18 +758,21 @@ contains
              slvfe = slvfe + lcent * edist(iduv)
 
              select case (functional)
-             case('py-hnc', 'PY-HNC')
+             case('pyhnc', 'PYHNC')
                 lcsln = pyhnc(slncv(iduv), 1)    ! solution
                 lcref = pyhnc(inscv(iduv), 2)    ! reference solvent
+             case('mpyhnc', 'MPYHNC')
+                lcsln = thnc(slncv(iduv), -HUGE(et), 1)
+                lcref = pyhnc(inscv(iduv), 2)
              case('hnc', 'HNC')
-                lcsln = thnc(slncv(iduv), -HUGE(et), 1)    ! solution
-                lcref = thnc(inscv(iduv), -HUGE(et), 2)    ! reference solvent
-             case('none', 'NONE')
-                lcsln = 0.0    ! solution
-                lcref = 0.0    ! reference solvent
+                lcsln = thnc(slncv(iduv), -HUGE(et), 1)
+                lcref = thnc(inscv(iduv), -HUGE(et), 2)
+             case('zero', 'ZERO')
+                lcsln = 0.0
+                lcref = 0.0
              case('thnc', 'THNC')
-                lcsln = thnc(slncv(iduv), et, 1)    ! solution
-                lcref = thnc(inscv(iduv), et, 2)    ! reference solvent
+                lcsln = thnc(slncv(iduv), et, 1)
+                lcref = thnc(inscv(iduv), et, 2)
              case default
                 stop "Incorrct functional"
              end select

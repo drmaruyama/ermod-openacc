@@ -22,7 +22,10 @@
       engdiv = 10
 /
 &hist
-      eclbin = 2.0e-1, ecfbin = 1.0e-2, ec0bin = 1.0e-3, finfac = 10.0,
-      ecdmin = -20.0,  ecfmns = -0.20,  ecdcen = 0.0,    eccore = 20.0,
-      ecdmax = 1.0e6, pecore = 200
+      eclbin = 5.0e-2, ecfbin = 2.0e-3, ec0bin = 2.0e-4, finfac = 10.0,
+      ecdmin = -80.0,  ecfmns = -0.20,  ecdcen = 0.0,    eccore = 20.0,
+      ecdmax = 1.0e11, pecore = 200
 /
+
+
+

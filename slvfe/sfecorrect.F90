@@ -18,7 +18,7 @@
 
 module uvcorrect
    implicit none
-   integer, dimension(:), allocatable :: ptsite
+   integer, allocatable :: ptsite(:)
 
    ! In the following, all the variables are copied from engmain.F90
    !                   and their names are all the same as in engmain.F90
@@ -37,12 +37,13 @@ module uvcorrect
       LJSWT_FRC_CHM = 2, LJSWT_FRC_GMX = 3
    integer, parameter :: LJCMB_ARITH = 0, LJCMB_GEOM = 1
 
-   integer                              :: ljtype_max
-   integer, dimension(:,:), allocatable :: ljtype
-   real, dimension(:,:),    allocatable :: ljlensq_mat, ljene_mat
+   integer              :: ljtype_max
+   integer, allocatable :: ljtype(:,:)
+   real,    allocatable :: ljlensq_mat(:,:), ljene_mat(:,:)
 
    ! Declarations of the variables listed in namelist
-   ! Only ljformat, ljswitch, cmbrule, lwljcut, and upljcut used in this program
+   ! Only ljformat, ljswitch, cmbrule, lwljcut, and upljcut used
+   ! in this program
    integer :: ljformat, ljswitch, cmbrule
    real :: lwljcut, upljcut
 
@@ -84,7 +85,7 @@ contains
    subroutine ljcorrect(cntrun)
       use sysvars, only: uvread, clcond, numslv, aveuv, blockuv
       implicit none
-      real, dimension(:), allocatable, save :: ljcorr
+      real,    allocatable, save :: ljcorr(:)
       integer, intent(in) :: cntrun
       logical, save :: first_time = .true.
       integer :: pti
@@ -178,8 +179,8 @@ contains
       integer :: pti, sid, stmax, maxsite, i, m
       real :: factor, xst(3), mass
       integer, allocatable :: ljtype_temp(:)
-      real, dimension(:), allocatable :: ljlen_temp, ljene_temp
-      real, dimension(:), allocatable :: ljlen_temp_table, ljene_temp_table
+      real,    allocatable :: ljlen_temp(:), ljene_temp(:)
+      real,    allocatable :: ljlen_temp_table(:), ljene_temp_table(:)
       integer :: ljtype_found
       logical :: lj_is_new
       character(len=12) :: atmtype

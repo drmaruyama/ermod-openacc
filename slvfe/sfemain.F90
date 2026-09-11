@@ -86,16 +86,16 @@ module sysvars
   character(len=1024) :: cumuintfl = 'cumsfe'
   character(len=10), parameter :: numbers='0123456789'
 
-  real, dimension(:),     allocatable :: nummol
-  integer, dimension(:),  allocatable :: rduvmax, rduvcore
-  real, dimension(:),     allocatable :: rdcrd, rddst, rddns
-  real, dimension(:,:),   allocatable :: rdslc, rdcor
-  integer, dimension(:),  allocatable :: rdspec
-  real, dimension(:,:,:), allocatable :: chmpt
-  real, dimension(:),     allocatable :: aveuv
-  real, dimension(:,:),   allocatable :: uvene, blockuv
-  integer, dimension(:),  allocatable :: svgrp, svinf
-  real, dimension(:),     allocatable :: wgtsln, wgtref
+  real,    allocatable :: nummol(:)
+  integer, allocatable :: rduvmax(:), rduvcore(:)
+  real,    allocatable :: rdcrd(:), rddst(:), rddns(:)
+  real,    allocatable :: rdslc(:,:), rdcor(:,:)
+  integer, allocatable :: rdspec(:)
+  real,    allocatable :: chmpt(:,:,:)
+  real,    allocatable :: aveuv(:)
+  real,    allocatable :: uvene(:,:), blockuv(:,:)
+  integer, allocatable :: svgrp(:), svinf(:)
+  real,    allocatable :: wgtsln(:), wgtref(:)
 
   logical :: force_calculation = .false., strict_ewald_parameters = .false.
   logical :: check_parameters_er = .true.

@@ -453,12 +453,12 @@ module sfecalc
        rduvmax, rduvcore, &
        rdcrd, rddst, rddns, rdslc, rdcor, rdspec
   implicit none
-  integer, dimension(:), allocatable :: idrduv, uvmax
-  real, dimension(:),    allocatable :: uvcrd, edist, edens
-  real, dimension(:,:),  allocatable :: edscr, ecorr
-  integer, dimension(:), allocatable :: uvspec
-  real, dimension(:),    allocatable :: slncv, inscv, sdrcv
-  real, dimension(:),    allocatable :: zrsln, zrref, zrsdr
+  integer, allocatable :: idrduv(:), uvmax(:)
+  real,    allocatable :: uvcrd(:), edist(:), edens(:)
+  real,    allocatable :: edscr(:,:), ecorr(:,:)
+  integer, allocatable :: uvspec(:)
+  real,    allocatable :: slncv(:), inscv(:), sdrcv(:)
+  real,    allocatable :: zrsln(:), zrref(:), zrsdr(:)
   integer gemax
 contains
   subroutine posv_wrap(n, mat, vec, info)
@@ -599,9 +599,9 @@ contains
     integer :: iduv, iduvp, pti, cnt, j, k, m, cntdiv, ge_perslv
     real :: factor, ampl, slvfe, uvpot, lcent, lcsln, lcref
     real :: soln_zero, refs_zero
-    integer, dimension(:), allocatable :: gpnum
-    real, dimension(:,:), allocatable, save :: cumsfe
-    real, dimension(:), allocatable :: cumu_coord, cumu_write
+    integer, allocatable :: gpnum(:)
+    real,    allocatable, save :: cumsfe(:,:)
+    real,    allocatable :: cumu_coord(:), cumu_write(:)
     logical :: cumu_process, cumu_homoform
     integer, parameter :: cumu_io = 51
     character(len=1024) :: opnfile
@@ -880,9 +880,9 @@ contains
     implicit none
     integer :: iduv, iduvp, pti, j, k, m
     real :: cvzero, factor, mat11, mat22, mat12, mat21, min_rddst, min_rddns
-    real, dimension(:), allocatable :: work
+    real, allocatable :: work(:)
     integer, parameter :: ofdmp = 10 ! factor to suppress the integer overflow
-    logical, dimension(:), allocatable :: ext_target
+    logical, allocatable :: ext_target(:)
 
     min_rddst = minval( rddst, mask = (rddst > zero) )
     min_rddns = minval( rddns, mask = (rddns > zero) )
@@ -1008,9 +1008,9 @@ contains
     implicit none
     integer :: iduv, iduvp, pti, cnt, k, inv_info
     real :: dns, dnsp, dmcr, cvzero, factor
-    real, dimension(:),   allocatable :: edvec, ddiff, work, zerouv
-    real, dimension(:),   allocatable :: regfac, regcnt, egnval    
-    real, dimension(:,:), allocatable :: edmcr, edmcr_invertible
+    real, allocatable :: edvec(:), ddiff(:), work(:), zerouv(:)
+    real, allocatable :: regfac(:), regcnt(:), egnval(:)
+    real, allocatable :: edmcr(:,:), edmcr_invertible(:,:)
     character(len=5) :: invmtrx_cnt
     logical, save :: first_time = .true.
     !
@@ -1254,7 +1254,7 @@ contains
     integer :: iduv
     logical :: errtag
     real :: factor, cvfnc
-    real, dimension(:), allocatable :: weight
+    real, allocatable :: weight(:)
     allocate( weight(gemax) )
     call getwght(weight, pti, cnt, systype, wgttype, engtype)
     factor = 0.0
@@ -1471,8 +1471,8 @@ contains
     implicit none
     integer :: iduv, iduvp, pti, cnt, itrcnt
     real :: factor, ampl, lcsln, lcref, errtmp
-    real, dimension(:), allocatable :: correc, edhst
-    real, dimension(:,:), allocatable :: edmcr
+    real, allocatable :: correc(:), edhst(:)
+    real, allocatable :: edmcr(:,:)
     allocate( correc(gemax), edhst(gemax), edmcr(gemax, gemax) )
     do cnt = 1, 2     ! cnt = 1: solution   cnt = 2: reference solvent
        if (cnt == 1) then
@@ -1548,7 +1548,7 @@ contains
     implicit none
     integer :: iduv, pti, cnt, ecmin, ecmax, k, ilist(gemax)
     real :: factor, ratio
-    real, dimension(:), allocatable :: edhst
+    real, allocatable :: edhst(:)
 
     allocate( edhst(gemax) )
     do iduv = 1, gemax
@@ -1619,7 +1619,7 @@ module opwrite
   implicit none
   integer :: grref
   real :: fe_stat_error     ! 95% error of the solvation free energy
-  real, dimension(:), allocatable :: mshdif
+  real, allocatable :: mshdif(:)
 contains
 
   subroutine wrtresl
@@ -1737,8 +1737,8 @@ contains
     implicit none
     integer :: prmcnt, cntrun, group, inft, pti, i, j, k, m
     real :: avecp, stdcp, avcp0, recnt, slvfe
-    real, dimension(:),   allocatable :: showcp
-    real, dimension(:,:), allocatable :: wrtdata
+    real, allocatable :: showcp(:)
+    real, allocatable :: wrtdata(:,:)
 
     allocate( showcp(numrun), wrtdata(0:numslv, numrun) )
     if (uvread /= 'not') then
@@ -1905,7 +1905,7 @@ contains
     real, intent(out), optional :: stat_error
     integer :: cntrun, pti
     real :: avecp, factor, slvfe, recnt
-    real, dimension(:), allocatable :: runcp, runer, wrtcp
+    real, allocatable :: runcp(:), runer(:), wrtcp(:)
 
     allocate( runcp(0:numslv), runer(0:numslv), wrtcp(2 * numslv + 2) )
     runcp(:) = 0.0

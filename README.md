@@ -65,5 +65,12 @@ https://doi.org/10.1002/jcc.70152
 Truncated Hypernetted Chain Approximation: Accurate Functional for Energy Representation Theory
 
 Yutaka Maruyama, Ryoma Kaji, Nobuyuki Matubayasi,
-J. Chem. Theory Comput.  **21**, 10503–10514 (2025)
+J. Chem. Theory Comput. **21**, 10503–10514 (2025)
 https://doi.org/10.1021/acs.jctc.5c01239
+
+## Reference for the Multi-Input Linear Correction method
+Extending Multi-Input Linear Correction to Energy Representation Theory: Accurate Solvation Free Energy Prediction Independent of Volume Information
+
+Yutaka Maruyama, Nobuyuki Matubayasi, Norio Yoshida,
+J. Phys. Chem. B. **130**, 6185-6197 (2026)
+https://doi.org/10.1021/acs.jpcb.6c02734

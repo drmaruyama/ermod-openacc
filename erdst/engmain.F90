@@ -311,20 +311,20 @@ module engmain
   integer, parameter :: perm_io = 75                      ! file IO
 
 
-  integer, dimension(:), allocatable :: moltype, numsite, sluvid
-  real, dimension(:,:),  allocatable :: bfcoord
-  real, dimension(:),    allocatable :: sitemass, charge, ljene, ljlen
+  integer, allocatable :: moltype(:), numsite(:), sluvid(:)
+  real,    allocatable :: bfcoord(:,:)
+  real,    allocatable :: sitemass(:), charge(:), ljene(:), ljlen(:)
 
-  integer                            :: ljtype_max
-  integer, dimension(:), allocatable :: ljtype
-  real, dimension(:,:),  allocatable :: ljlensq_mat, ljene_mat
+  integer              :: ljtype_max
+  integer, allocatable :: ljtype(:)
+  real,    allocatable :: ljlensq_mat(:,:), ljene_mat(:,:)
   
-  real, dimension(:,:),  allocatable :: sitepos
-  real, dimension(:),    allocatable :: mol_charge
-  integer, dimension(:), allocatable :: mol_begin_index, belong_to
-  real, dimension(3,3)               :: cell, invcl
-  real, dimension(3)                 :: celllen
-  real                               :: volume
+  real,    allocatable :: sitepos(:,:)
+  real,    allocatable :: mol_charge(:)
+  integer, allocatable :: mol_begin_index(:), belong_to(:)
+  real                 :: cell(3,3), invcl(3,3)
+  real                 :: celllen(3)
+  real                 :: volume
 
   real :: elecut, lwljcut, upljcut, screen, ewtoler
   character(len=8) :: scrtype
@@ -332,17 +332,17 @@ module engmain
   integer :: ew1max, ew2max, ew3max, ms1max, ms2max, ms3max
   
   integer :: ermax, numslv, esmax, maxins
-  integer, dimension(:), allocatable :: uvmax, uvsoft, uvspec
-  real(kind=8), dimension(:),    allocatable :: uvcrd, edens
-  real(kind=8), dimension(:,:),  allocatable :: ecorr
-  real(kind=8), dimension(:),    allocatable :: escrd, eself
-  real, dimension(:,:),  allocatable :: aveuv
-  real, dimension(:),    allocatable :: slnuv
-  real(kind=8), dimension(:,:),  allocatable :: avediv
+  integer,      allocatable :: uvmax(:), uvsoft(:), uvspec(:)
+  real(kind=8), allocatable :: uvcrd(:), edens(:)
+  real(kind=8), allocatable :: ecorr(:,:)
+  real(kind=8), allocatable :: escrd(:), eself(:)
+  real,         allocatable :: aveuv(:,:)
+  real,         allocatable :: slnuv(:)
+  real(kind=8), allocatable :: avediv(:,:)
   real(kind=8)                       :: avslf
-  real, dimension(:),    allocatable :: minuv, maxuv
+  real,         allocatable :: minuv(:), maxuv(:)
   integer                            :: numslt
-  integer, dimension(:), allocatable :: sltlist
+  integer,      allocatable :: sltlist(:)
   real :: stat_weight_system
   real(kind=8) :: engnorm, engsmpl, voffset
   logical :: voffset_initialized = .false.

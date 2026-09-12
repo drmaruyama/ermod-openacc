@@ -27,7 +27,7 @@ module OUTname
   real OUTtemp, OUTelc, OUTlwl, OUTupl, OUTscr
   integer OUTew1, OUTew2, OUTew3, OUTms1, OUTms2, OUTms3
   integer OUTnrun, OUTntype
-  integer, dimension(:), allocatable :: OUTnmol, OUTsite
+  integer, allocatable :: OUTnmol(:), OUTsite(:)
 
   type(handle) :: history_trajectory
   type(handle) :: solute_trajectory
@@ -539,14 +539,14 @@ contains
     integer :: pti, stmax, maxsite, uvtype, cmin, cmax, sid, i, ati, m
     integer :: solute_index, cur_solvent, prev_solvent_type, cur_atom
     real :: factor, xst(3)
-    real, dimension(:), allocatable :: sitemass_temp, charge_temp
+    real,    allocatable :: sitemass_temp(:), charge_temp(:)
     integer, allocatable :: ljtype_temp(:)
-    real, dimension(:), allocatable :: ljlen_temp, ljene_temp
-    real, dimension(:), allocatable :: ljlen_temp_table, ljene_temp_table
+    real,    allocatable :: ljlen_temp(:), ljene_temp(:)
+    real,    allocatable :: ljlen_temp_table(:), ljene_temp_table(:)
     integer :: ljtype_found
     logical :: lj_is_new
-    integer, dimension(:), allocatable :: pttype, ptcnt, ptsite
-    real, dimension(:,:), allocatable :: psite
+    integer, allocatable :: pttype(:), ptcnt(:), ptsite(:)
+    real,    allocatable :: psite(:,:)
     character(len=8) :: atmname
     character(len=12) :: atmtype
     character(len=80) :: molfile
@@ -857,7 +857,7 @@ contains
     integer, intent(in) :: maxread
     integer, intent(out) :: actual_read
     
-    real, dimension(:,:), allocatable :: OUTpos, OUTcell, readpos
+    real, allocatable :: OUTpos(:,:), OUTcell(:,:), readpos(:,:)
     real :: readcell(3, 3)
     real :: weight, readweight
     integer :: i, OUTatm, iproc, nread

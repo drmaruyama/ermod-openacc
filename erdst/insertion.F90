@@ -28,11 +28,11 @@ module ptinsrt
   !   refstr_file : filename for storing the reference structure
   !   refstr_io : IO for refstr_file
   ! variables for reference structure
-  integer                            :: refhost_natom,   refslt_natom
-  integer, dimension(:), allocatable :: refhost_specatm, refslt_specatm
-  real, dimension(:,:), allocatable  :: refhost_crd,     refslt_crd
-  real, dimension(:),   allocatable  :: refhost_weight,  refslt_weight
-  real, dimension(:,:), allocatable  ::                  refslt_bestfit
+  integer              :: refhost_natom,      refslt_natom
+  integer, allocatable :: refhost_specatm(:), refslt_specatm(:)
+  real,    allocatable :: refhost_crd(:,:),   refslt_crd(:,:)
+  real,    allocatable :: refhost_weight(:),  refslt_weight(:)
+  real,    allocatable ::                     refslt_bestfit(:,:)
   !
 contains
   subroutine instslt(caltype, cntdst, stat_weight_solute)
@@ -408,11 +408,11 @@ contains
     logical, save :: consecutive_read = .false.  ! .true. for special purpose
     integer, save :: stmax, readmax
     integer, save :: solute_mpikind
-    real, dimension(:,:,:), allocatable, save :: solute_crd
-    real, dimension(:),     allocatable, save :: solute_wgt
-    real, dimension(:,:,:), allocatable :: read_crd
-    real, dimension(:),     allocatable :: read_wgt
-    real, dimension(:,:),   allocatable :: psite
+    real, allocatable, save :: solute_crd(:,:,:)
+    real, allocatable, save :: solute_wgt(:)
+    real, allocatable :: read_crd(:,:,:)
+    real, allocatable :: read_wgt(:)
+    real, allocatable :: psite(:,:)
     integer :: dumint, readcnt, iproc, ioerr
     real :: dumcl(3, 3), weight, rmsd
     logical :: reject
@@ -590,8 +590,8 @@ contains
     use bestfit, only: center_of_mass
     implicit none
     real, intent(out) :: aggregate_center(3)
-    real, dimension(:), allocatable   :: agg_mass
-    real, dimension(:,:), allocatable :: agg_site
+    real, allocatable :: agg_mass(:)
+    real, allocatable :: agg_site(:,:)
     integer :: num_aggsite, molb, mole, nsite, cnt, i
     num_aggsite = 0
     do i = 1, nummol
@@ -649,7 +649,7 @@ contains
     implicit none
     integer :: i
     logical, save :: first_time = .true.
-    real, dimension(:,:), allocatable :: hostcrd, fit_sltcrd
+    real, allocatable :: hostcrd(:,:), fit_sltcrd(:,:)
     if (first_time) then
        allocate( refslt_bestfit(3, refslt_natom) )
        first_time = .false.

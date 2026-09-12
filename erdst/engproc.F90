@@ -27,7 +27,7 @@ module engproc
 
   ! flceng needs to be output in-order
   logical, allocatable :: flceng_stored(:)
-  real, allocatable :: flceng(:, :)
+  real,    allocatable :: flceng(:, :)
 
 contains
   !
@@ -60,8 +60,8 @@ contains
     real(kind=8) :: factor, incre, cdrgvl(0:rglmax+1), ecpmrd(large)
     integer :: solute_moltype
     integer :: iduv, i, q, pti, regn, minrg, maxrg, uprgcd(0:rglmax+1), dummy
-    integer, dimension(:), allocatable :: tplst
-    real(kind=8), dimension(:,:), allocatable  :: ercrd
+    integer,      allocatable :: tplst(:)
+    real(kind=8), allocatable :: ercrd(:,:)
     !
     integer :: param_err
     logical :: check_ok, start_line
@@ -1214,7 +1214,7 @@ contains
     logical :: out_of_range
     real :: dx(3), distance
     integer :: i, ptb, pte
-    real, dimension(:,:), allocatable :: hostcrd, refslt_bestfit
+    real, allocatable :: hostcrd(:,:), refslt_bestfit(:,:)
 
     out_of_range = .false.
 
@@ -1307,8 +1307,8 @@ contains
       real, intent(out) :: dx(3)
       integer ptb, pte, stmax
       real :: solute_com(3), aggregate_com(3)
-      real, dimension(:), allocatable   :: ptmass
-      real, dimension(:,:), allocatable :: ptsite
+      real, allocatable :: ptmass(:)
+      real, allocatable :: ptsite(:,:)
       stmax = numsite(tagpt)
       ptb = mol_begin_index(tagpt)
       pte = mol_end_index(tagpt)

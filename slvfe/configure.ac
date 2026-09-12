@@ -78,7 +78,7 @@ AC_LANG_POP(Fortran)
 ])])
 
 MY_FC_REAL_DOUBLE
-FCFLAGS="$FCFLAGS -DDP"
+FCFLAGS="$FCFLAGS"
 
 ################################
 

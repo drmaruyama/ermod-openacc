@@ -45,7 +45,7 @@ contains
     select case(clcond)
     case('basic', 'range', 'merge')
     case default
-       stop ' The clcond parameter is incorrect'
+       error stop ' The clcond parameter is incorrect'
     end select
     !
     select case(clcond)
@@ -482,13 +482,8 @@ contains
     lwork = -1
     !$acc data copyin(mat)
     !$acc host_data use_device(mat)
-#ifdef DP
     istat = cusolverDnDpotrf_bufferSize(h, CUBLAS_FILL_MODE_UPPER, &
          n, mat, n, lwork)
-#else
-    istat = cusolverDnDpotrf_bufferSize(h, CUBLAS_FILL_MODE_UPPER, &
-         n, mat, n, lwork)
-#endif
     !$acc end host_data
     !$acc end data
 
@@ -503,17 +498,10 @@ contains
     !$acc enter data create(work)
     !$acc data copy(mat, vec) copyout(info)
     !$acc host_data use_device(mat, vec, work, info)
-#ifdef DP
     istat = cusolverDnDpotrf(h, CUBLAS_FILL_MODE_UPPER, &
          n, mat, n, work, lwork, info)
     istat = cusolverDnDpotrs(h, CUBLAS_FILL_MODE_UPPER, &
          n, 1, mat, n, vec, n, info)
-#else
-    istat = cusolverDnSpotrf(h, CUBLAS_FILL_MODE_UPPER, &
-         n, mat, n, work, lwork, info)
-    istat = cusolverDnSpotrs(h, CUBLAS_FILL_MODE_UPPER, &
-         n, 1, mat, n, vec, n, info)
-#endif
     !$acc end host_data
     !$acc end data
 
@@ -550,13 +538,8 @@ contains
     lwork = -1
     !$acc data copyin(mat, eigval)
     !$acc host_data use_device(mat, eigval)
-#ifdef DP
     istat = cusolverDnDsyevd_bufferSize(h, CUSOLVER_EIG_MODE_VECTOR, &
          CUBLAS_FILL_MODE_UPPER, n, mat, n, eigval, lwork)
-#else
-    istat = cusolverDnSsyevd_bufferSize(h, CUSOLVER_EIG_MODE_VECTOR, &
-         CUBLAS_FILL_MODE_UPPER, n, mat, n, eigval, lwork)
-#endif
     !$acc end host_data
     !$acc end data
 
@@ -568,15 +551,9 @@ contains
     !$acc enter data create(work)
     !$acc data copy(mat) copyout(eigval, info)
     !$acc host_data use_device(mat, eigval, work, info)
-#ifdef DP
     istat = cusolverDnDsyevd(h, CUSOLVER_EIG_MODE_VECTOR, &
          CUBLAS_FILL_MODE_UPPER, n, mat, n, &
          eigval, work, lwork, info)
-#else
-    istat = cusolverDnSsyevd(h, CUSOLVER_EIG_MODE_VECTOR, &
-         CUBLAS_FILL_MODE_UPPER, n, mat, n, &
-         eigval, work, lwork, info)
-#endif
     !$acc end host_data
     !$acc end data
     !$acc exit data delete(work)

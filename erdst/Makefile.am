@@ -77,6 +77,9 @@ $(top_builddir)/erdst-recpcal.$(OBJEXT): $(top_srcdir)/recpcal.F90 \
     $(top_builddir)/erdst-fft_iface.$(OBJEXT) \
     $(top_builddir)/erdst-mpiproc.$(OBJEXT) \
     $(top_builddir)/erdst-engmain.$(OBJEXT)
+$(top_builddir)/erdst-fft_iface.$(OBJEXT): $(top_srcdir)/fft_iface.F90 \
+    $(top_builddir)/erdst-mpiproc.$(OBJEXT) \
+    $(top_builddir)/erdst-engmain.$(OBJEXT)
 $(top_builddir)/erdst-insertion.$(OBJEXT): $(top_srcdir)/insertion.F90 \
     $(top_builddir)/erdst-setconf.$(OBJEXT) \
     $(top_builddir)/erdst-bestfit.$(OBJEXT) \

@@ -416,9 +416,24 @@ contains
             0.5 * sum(engfac(0,      :, :) * real(rcpslt(0,      :, :) * conjg(rcpslt(0,      :, :))))
     endif
 
-    !$acc parallel loop present (engfac, rcpslt)
-    do concurrent (i = rc1min:ccemax, j = rc2min:rc2max, k = rc3min:rc3max)
-       rcpslt(i, j, k) = engfac(i, j, k) * rcpslt(i, j, k)
+    ! NOTE: this used to be written as a triple "do concurrent" under
+    ! "!$acc parallel loop". With the "parallel" construct, nvfortran
+    ! does not distribute a multi-index do-concurrent across gangs; it
+    ! only vectorizes one of the three indices and runs the other two
+    ! sequentially inside each vector lane (confirmed against nvfortran
+    ! 26.1; see NVIDIA developer forum thread 361662). That silently
+    ! collapses the whole ccemax x rc2 x rc3 volume onto a single
+    ! thread block, which is a severe (if easy to miss) slowdown, not
+    ! a correctness problem. Explicit nested loops with an explicit
+    ! collapse/gang/vector clause -- the same style used elsewhere in
+    ! this file -- get full gang+vector parallelism instead.
+    !$acc parallel loop collapse(3) gang vector present (engfac, rcpslt)
+    do k = rc3min, rc3max
+       do j = rc2min, rc2max
+          do i = rc1min, ccemax
+             rcpslt(i, j, k) = engfac(i, j, k) * rcpslt(i, j, k)
+          end do
+       end do
     end do
     !$acc end parallel
 
@@ -490,9 +505,14 @@ contains
                0.5 * sum(engfac(0,      :, :) * real(rcpslt(0,      :, :) * conjg(rcpslt(0,      :, :))))
        endif
 
-       !$acc parallel loop present (engfac, rcpslt)
-       do concurrent (i = rc1min:ccemax, j = rc2min:rc2max, k = rc3min:rc3max)
-          rcpslt(i, j, k) = engfac(i, j, k) * rcpslt(i, j, k)
+       ! see the comment at the equivalent loop in recpcal_prepare_solute
+       !$acc parallel loop collapse(3) gang vector present (engfac, rcpslt)
+       do k = rc3min, rc3max
+          do j = rc2min, rc2max
+             do i = rc1min, ccemax
+                rcpslt(i, j, k) = engfac(i, j, k) * rcpslt(i, j, k)
+             end do
+          end do
        end do
        !$acc end parallel
 

@@ -24,46 +24,76 @@
 !
 
 module utility
+  use, intrinsic :: iso_c_binding, only: c_int, c_int64_t, c_ptr, c_loc
+  use, intrinsic :: iso_fortran_env, only: real32, real64, int64
   implicit none
+
+#ifndef HAVE_TRANSFER
+  ! Explicit, checked interfaces to the C routines in hash_real.c.
+  ! The symbol names below (with the trailing underscore) are exactly
+  ! what is compiled into hash_real.c, so no change to that file is
+  ! required; this only replaces the old untyped "external" declarations
+  ! with a real interface.
+  !
+  ! NOTE: the dummy "v" is deliberately an untyped type(c_ptr), not
+  ! real(c_double)/real(c_float). hash() below is called at several
+  ! sites (see engproc.F90) by passing a 2D array section into a 1D
+  ! explicit-shape dummy via sequence association; that means hash()
+  ! itself has to stay a single, non-generic procedure taking a plain
+  ! "real" of whichever kind the build uses. If the two C entry points
+  ! were declared with explicit real(c_double)/real(c_float) dummies,
+  ! the *textual* call to whichever one doesn't match the build's real
+  ! kind would fail to compile, even though it is never executed.
+  ! Routing through type(c_ptr) sidesteps that: both calls type-check
+  ! unconditionally, and the correct one is chosen at run time exactly
+  ! as before.
+  interface
+     subroutine hash_double_c(v, elms, hash_out) bind(c, name="hash_double_")
+       import :: c_ptr, c_int, c_int64_t
+       type(c_ptr), value :: v
+       integer(c_int), intent(in) :: elms
+       integer(c_int64_t), intent(out) :: hash_out
+     end subroutine hash_double_c
+
+     subroutine hash_float_c(v, elms, hash_out) bind(c, name="hash_float_")
+       import :: c_ptr, c_int, c_int64_t
+       type(c_ptr), value :: v
+       integer(c_int), intent(in) :: elms
+       integer(c_int64_t), intent(out) :: hash_out
+     end subroutine hash_float_c
+  end interface
+#endif
 
 contains
 
+  integer(int64) function hash(arr, n) result(hash_out)
+    integer, intent(in) :: n
+    real, intent(in) :: arr(n)
 #ifdef HAVE_TRANSFER
-  integer(8) function hash(arr, size) 
-    implicit none
-    integer, intent(in) :: size
-    real, intent(in) :: arr(size)
-    integer(8) :: ret
+    integer(int64) :: ret
     integer :: i
-    ret = 0
-
-    do i = 1, size
+    ret = 0_int64
+    do i = 1, n
        ret = ishftc(ret, 7)
        ret = ieor(ret, transfer(arr(i), ret))
     end do
-
-    hash = ret
-  end function hash
-
+    hash_out = ret
 #else
-! (== not HAVE_TRANSFER)
-  integer(8) function hash(arr, size) 
-    implicit none
-    integer, intent(in) :: size
-    real, intent(in) :: arr(size)
-    integer(8) :: ret
-    external hash_double, hash_float
+    real, target :: local_arr(n)
+    integer(c_int64_t) :: ret
+
+    local_arr = arr
     select case(kind(arr))
-    case(4)
-       call hash_float(arr, size, ret)
-    case(8)
-       call hash_double(arr, size, ret)
+    case(real32)
+       call hash_float_c(c_loc(local_arr), int(n, c_int), ret)
+    case(real64)
+       call hash_double_c(c_loc(local_arr), int(n, c_int), ret)
     case default
        stop "Error: hash(): unknown real type"
     end select
-    hash = ret
-  end function hash
+    hash_out = ret
 #endif
+  end function hash
 
   ! The following function is a snippet from Fortran wiki and in public domain.
   ! 
@@ -73,6 +103,11 @@ contains
   ! argument. This allows the function to be used directly in an OPEN
   ! statement, and optionally save the result in a local variable.
   ! If no units are available, -1 is returned.
+  !
+  ! NOTE: modern compilers implement OPEN(..., newunit=lun, ...) natively
+  ! (Fortran 2008); this hand-rolled routine is kept only for source
+  ! compatibility with existing OPEN statements elsewhere and can be
+  ! retired once those call sites are migrated to newunit=.
   integer function newunit(unit)
     implicit none
     integer, intent(out), optional :: unit
@@ -140,4 +175,3 @@ contains
     itoa = buf
   end function itoa
 end module utility
-  

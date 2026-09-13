@@ -19,20 +19,61 @@
 ! module that governs trajectory I/O
 
 module trajectory
+  use, intrinsic :: iso_c_binding, only: c_ptr, c_null_ptr, c_char, c_float, c_int
+  implicit none
+
   type handle
-     integer(8) :: vmdhandle
+     ! Opaque handle to the VMD plugin's internal file-reader state.
+     ! type(c_ptr) is the portable, standards-guaranteed way to hold a
+     ! C pointer (it replaces the old integer(8), which only worked
+     ! because pointers happened to be 8 bytes on the target platforms).
+     type(c_ptr) :: vmdhandle = c_null_ptr
   end type handle
- 
+
+  ! Explicit, checked interfaces to the C routines in vmdfio.c.
+  ! Symbol names (with the trailing underscore) match exactly what is
+  ! already compiled into vmdfio.c, so no change to that file -- which
+  ! also deals with the VMD plugin ABI -- is required here.
+  interface
+     subroutine vmdfio_init_traj() bind(c, name="vmdfio_init_traj_")
+     end subroutine vmdfio_init_traj
+
+     subroutine vmdfio_fini_traj() bind(c, name="vmdfio_fini_traj_")
+     end subroutine vmdfio_fini_traj
+
+     subroutine vmdfio_open_traj(vmdhandle, fname, fnamelen, status) &
+          bind(c, name="vmdfio_open_traj_")
+       import :: c_ptr, c_char, c_int
+       type(c_ptr), intent(inout) :: vmdhandle
+       character(kind=c_char), intent(in) :: fname(*)
+       integer(c_int), intent(in) :: fnamelen
+       integer(c_int), intent(out) :: status
+     end subroutine vmdfio_open_traj
+
+     subroutine vmdfio_close_traj(vmdhandle) bind(c, name="vmdfio_close_traj_")
+       import :: c_ptr
+       type(c_ptr), intent(inout) :: vmdhandle
+     end subroutine vmdfio_close_traj
+
+     subroutine vmdfio_read_traj_step(vmdhandle, xout, box, natoms, status) &
+          bind(c, name="vmdfio_read_traj_step_")
+       import :: c_ptr, c_float, c_int
+       type(c_ptr), intent(in) :: vmdhandle
+       real(c_float), intent(out) :: xout(*)
+       real(c_float), intent(out) :: box(*)
+       integer(c_int), intent(in) :: natoms
+       integer(c_int), intent(out) :: status
+     end subroutine vmdfio_read_traj_step
+  end interface
+
 contains
   subroutine init_trajectory()
     implicit none
-    external vmdfio_init_traj
     call vmdfio_init_traj()
   end subroutine init_trajectory
 
   subroutine finish_trajectory()
     implicit none
-    external vmdfio_fini_traj
     call vmdfio_fini_traj()
   end subroutine finish_trajectory
 
@@ -43,10 +84,18 @@ contains
     type(handle), intent(inout) :: htraj
     character(len=*), intent(in) :: fname
 
-    integer :: status
-    external vmdfio_open_traj
+    character(kind=c_char) :: c_fname(len_trim(fname))
+    integer(c_int) :: status
+    integer :: i
 
-    call vmdfio_open_traj(htraj%vmdhandle, fname, len_trim(fname), status)
+    ! character(len=*) is not itself interoperable; marshal into a
+    ! plain array of C characters (no NUL terminator needed, since the
+    ! C side is given the explicit length and uses strncpy).
+    do i = 1, len_trim(fname)
+       c_fname(i) = fname(i:i)
+    end do
+
+    call vmdfio_open_traj(htraj%vmdhandle, c_fname, int(len_trim(fname), c_int), status)
     if (status /= 0) then
        stop "vmdfio_open_traj: unable to open trajectory. HISTORY must be a symlink"
     endif
@@ -57,7 +106,6 @@ contains
     implicit none
     type(handle), intent(inout) :: htraj
 
-    external vmdfio_close_traj
     call vmdfio_close_traj(htraj%vmdhandle)
   end subroutine close_trajectory
 
@@ -72,21 +120,21 @@ contains
     logical, intent(in) :: is_periodic
     real, intent(out) :: crd(3, natom)
     real, intent(out) :: cell(3, 3)
-#ifdef DP
-    real(kind=4) :: crd_tmp(3, natom)
-    real(kind=4) :: cell_tmp(3, 3)
-#endif
     integer, intent(out) :: status
-   
-    external vmdfio_read_traj_step
 
-#ifdef DP
-      call vmdfio_read_traj_step(htraj%vmdhandle, crd_tmp, cell_tmp, natom, status)
-      crd = real(crd_tmp, kind=8)
-      cell = real(cell_tmp, kind=8)
-#else
-      call vmdfio_read_traj_step(htraj%vmdhandle, crd, cell, natom, status)
-#endif
+    ! The VMD plugin ABI (vmdfio.c) always speaks single precision,
+    ! regardless of whether ERmod itself is built in single or double
+    ! precision. Marshalling unconditionally through a c_float buffer
+    ! here replaces the old "#ifdef DP" branch that duplicated this
+    ! logic for the double-precision build.
+    real(c_float) :: crd_tmp(3, natom)
+    real(c_float) :: cell_tmp(3, 3)
+    integer(c_int) :: c_status
+
+    call vmdfio_read_traj_step(htraj%vmdhandle, crd_tmp, cell_tmp, int(natom, c_int), c_status)
+    crd = real(crd_tmp, kind(crd))
+    cell = real(cell_tmp, kind(cell))
+    status = c_status
   end subroutine read_trajectory
 
 end module trajectory

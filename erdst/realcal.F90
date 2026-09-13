@@ -96,7 +96,7 @@ contains
 
     ! calculated only when PME or PPPM, non-self interaction
     ismax = numsite(tagslt)
-    !$acc data pcreate(xst) copyin(half_cell, cell_normal, invcell_normal)
+    !$acc data create(xst) copyin(half_cell, cell_normal, invcell_normal)
     !$acc parallel loop collapse(2) gang vector present(uvengy, mol_begin_index, tagpt, sitepos_normal, ljlensq_mat, ljene_mat, charge, ljtype, numsite)
     do k = 1, slvmax
        do is = 1, ismax
@@ -252,7 +252,7 @@ contains
 
     ! calculated only when PME or PPPM, non-self interaction
     ismax = numsite(tagslt)
-    !$acc data pcreate(xst) copyin(half_cell, cell_normal, invcell_normal)
+    !$acc data create(xst) copyin(half_cell, cell_normal, invcell_normal)
     !$acc parallel loop collapse(3) gang vector present(uvengy, mol_begin_index, sitepos_normal, ljlensq_mat, ljene_mat, charge, ljtype, numsite)
     do cnt = 1, maxdst
        do i = 1, slvmax
@@ -407,7 +407,7 @@ contains
 
     ! Bare coulomb solute-solvent interaction
     ismax = numsite(tagslt)
-    !$acc data pcreate(xst)
+    !$acc data create(xst)
     !$acc parallel loop collapse(2) gang vector present(uvengy, mol_begin_index, tagpt, sitepos_normal, charge, numsite)
     do k = 1, slvmax
        do is = 1, ismax
@@ -556,7 +556,7 @@ contains
 
     ! Bare coulomb solute-solvent interaction
     ismax = numsite(tagslt)
-    !$acc data pcreate(xst)
+    !$acc data create(xst)
     !$acc parallel loop collapse(3) gang vector present(uvengy, mol_begin_index, sitepos_normal, charge, numsite)
     do cnt = 1, maxdst
        do i = 1, slvmax

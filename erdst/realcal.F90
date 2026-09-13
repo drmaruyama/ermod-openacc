@@ -96,8 +96,8 @@ contains
 
     ! calculated only when PME or PPPM, non-self interaction
     ismax = numsite(tagslt)
-    !$acc data create(xst) copyin(half_cell, cell_normal, invcell_normal)
-    !$acc parallel loop collapse(2) gang vector present(uvengy, mol_begin_index, tagpt, sitepos_normal, ljlensq_mat, ljene_mat, charge, ljtype, numsite)
+    !$acc data copyin(half_cell, cell_normal, invcell_normal)
+    !$acc parallel loop collapse(2) gang vector private(xst) present(uvengy, mol_begin_index, tagpt, sitepos_normal, ljlensq_mat, ljene_mat, charge, ljtype, numsite)
     do k = 1, slvmax
        do is = 1, ismax
           i = tagpt(k)
@@ -252,8 +252,8 @@ contains
 
     ! calculated only when PME or PPPM, non-self interaction
     ismax = numsite(tagslt)
-    !$acc data create(xst) copyin(half_cell, cell_normal, invcell_normal)
-    !$acc parallel loop collapse(3) gang vector present(uvengy, mol_begin_index, sitepos_normal, ljlensq_mat, ljene_mat, charge, ljtype, numsite)
+    !$acc data copyin(half_cell, cell_normal, invcell_normal)
+    !$acc parallel loop collapse(3) gang vector private(xst) present(uvengy, mol_begin_index, sitepos_normal, ljlensq_mat, ljene_mat, charge, ljtype, numsite)
     do cnt = 1, maxdst
        do i = 1, slvmax
           do is = 1, ismax
@@ -407,8 +407,7 @@ contains
 
     ! Bare coulomb solute-solvent interaction
     ismax = numsite(tagslt)
-    !$acc data create(xst)
-    !$acc parallel loop collapse(2) gang vector present(uvengy, mol_begin_index, tagpt, sitepos_normal, charge, numsite)
+    !$acc parallel loop collapse(2) gang vector private(xst) present(uvengy, mol_begin_index, tagpt, sitepos_normal, charge, numsite)
     do k = 1, slvmax
        do is = 1, ismax
           i = tagpt(k)
@@ -510,7 +509,6 @@ contains
        end do
     end do
     !$acc end parallel
-    !$acc end data
   end subroutine realcal_bare
 
   subroutine realcal_bare_refs(tagslt, maxdst, slvmax, uvengy)
@@ -556,8 +554,7 @@ contains
 
     ! Bare coulomb solute-solvent interaction
     ismax = numsite(tagslt)
-    !$acc data create(xst)
-    !$acc parallel loop collapse(3) gang vector present(uvengy, mol_begin_index, sitepos_normal, charge, numsite)
+    !$acc parallel loop collapse(3) gang vector private(xst) present(uvengy, mol_begin_index, sitepos_normal, charge, numsite)
     do cnt = 1, maxdst
        do i = 1, slvmax
           do is = 1, ismax
@@ -662,7 +659,6 @@ contains
        end do
     end do
     !$acc end parallel
-    !$acc end data
   end subroutine realcal_bare_refs
 
   ! self-energy part, no LJ calculation performed

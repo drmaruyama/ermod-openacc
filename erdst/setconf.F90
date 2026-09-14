@@ -492,7 +492,7 @@ contains
   end subroutine check_param
 
 
-  real(wp) function getscrn(ewtoler, elecut, scrtype)
+  pure real(wp) function getscrn(ewtoler, elecut, scrtype)
     use precision_kinds, only: wp
     implicit none
     character(len=8), intent(in) :: scrtype

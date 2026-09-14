@@ -44,7 +44,7 @@ contains
   end subroutine spline_init
 
   ! FIXME: speed it up
-  real(wp) function spline_value(rst)
+  pure real(wp) function spline_value(rst)
     real(wp), intent(in) :: rst
     integer :: i, k
     real(wp) :: f

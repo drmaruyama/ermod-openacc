@@ -137,7 +137,7 @@ contains
 
   end subroutine angles_to_cell_vector
 
-  character(len=16) function itoa(x)
+  pure character(len=16) function itoa(x)
     integer, intent(in) :: x
     character(len=16) :: buf
     write(buf,"(I16)") x

@@ -145,7 +145,7 @@ contains
          intprm, elecut, lwljcut, upljcut, &
          cmbrule, cltype, screen, ewtoler, splodr, scrtype, &
          ew1max, ew2max, ew3max, ms1max, ms2max, ms3max, &
-         ermax_limit, force_calculation, &
+         ermax_limit, force_calculation, zero_solute_charge, &
          NO, YES, &
          SYS_NONPERIODIC, SYS_PERIODIC, &
          ES_NVT, ES_NPT, &
@@ -205,6 +205,7 @@ contains
     ! default settings
     ermax_limit = 15000          ! maximum size of the distribution functions
     force_calculation = .false.  ! program terminates when there is a warning
+    zero_solute_charge = .false. ! set solute's charge to zero (e.g. for LJ-only / discharged calculations)
 
     ! only part of constants set here
     call init_params()
@@ -519,6 +520,7 @@ contains
   subroutine setparam
     use engmain, only: numtype, nummol, numatm, numatm_ext, maxcnf, &
          slttype, sltspec, ljformat, &
+         zero_solute_charge, solute_charge_is_zero,&
          moltype, numsite, sluvid, maxins, &
          bfcoord, sitemass, charge, &
          ljene_mat, ljlensq_mat, ljtype, ljtype_max, cmbrule, &
@@ -751,6 +753,11 @@ contains
        end do
        close(mol_io)
 
+       ! Overwrite the solute's charges with zero (LJ parameters are left
+       ! untouched). This applies to every molecule of the solute species
+       ! (pti == solute_index), for both SLT_SOLN and SLT_REFS_*.
+       if (zero_solute_charge .and. pti == solute_index) charge_temp(1:stmax) = 0.0_wp
+
        if (ljformat == LJFMT_TABLE) then
           ! use numbers directly
           ! No sane system will have the problem with 
@@ -844,6 +851,22 @@ contains
     end do
     !$acc update device(mol_charge)
 
+    ! Is every solute atom's charge exactly zero? If so, the reciprocal-
+    ! space (PME/PPPM) calculation for the solute is provably a no-op and
+    ! can be skipped entirely (see get_uv_energy_soln/get_uv_energy_refs).
+    ! This is checked from the actual charge data -- not just from
+    ! zero_solute_charge -- so the same speedup applies whether the
+    ! charges were zeroed by that flag or SltInfo's charge column was
+    ! already all zero to begin with.
+    solute_charge_is_zero = .true.
+    do i = 1, nummol
+       if (moltype(i) == solute_index) then
+          if (any(charge(mol_begin_index(i):mol_end_index(i)) /= 0.0_wp)) then
+             solute_charge_is_zero = .false.
+             exit
+          end if
+       end if
+    end do
     deallocate( pttype, ptcnt, ptsite )
   end subroutine setparam
 

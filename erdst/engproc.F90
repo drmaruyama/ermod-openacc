@@ -729,7 +729,8 @@ contains
   subroutine get_uv_energy_soln(stnum, stat_weight_solute, uvengy0, uvengy, out_of_range)
     use engmain, only: maxcnf, skpcnf, slttype, sltlist, cltype, &
                        EL_COULOMB, EL_PME, EL_PPPM, &
-                       SLT_SOLN, SLT_REFS_RIGID, SLT_REFS_FLEX
+                       SLT_SOLN, SLT_REFS_RIGID, SLT_REFS_FLEX, &
+                       solute_charge_is_zero
     use ptinsrt, only: instslt
     use realcal, only: realcal_prepare, realcal_soln, realcal_self, &
          realcal_bare
@@ -762,11 +763,19 @@ contains
 
        ! Calculate system-wide values
        if (cltype == EL_PME .or. cltype == EL_PPPM) then
-          call recpcal_prepare_solute(tagslt)
           call realcal_soln(tagslt, tagpt, slvmax, uvengy, cntdst)
-          call recpcal_energy_soln(tagslt, tagpt, slvmax, uvengy, cntdst)
-          call residual_ene(tagslt, cntdst, tagpt, slvmax, uvengy)
-          uvrecp = recpcal_self_energy()
+          if (solute_charge_is_zero) then
+             ! The solute's charge is provably zero (see
+             ! setconf::setparam), so spreading it onto the PME grid and
+             ! transforming it can only produce zero: skip the
+             ! reciprocal-space calculation entirely.
+             uvrecp = 0.0_wp
+          else
+             call recpcal_prepare_solute(tagslt)
+             call recpcal_energy_soln(tagslt, tagpt, slvmax, uvengy, cntdst)
+             call residual_ene(tagslt, cntdst, tagpt, slvmax, uvengy)
+             uvrecp = recpcal_self_energy()
+          end if
        else
           call realcal_bare(tagslt, tagpt, slvmax, uvengy, cntdst)
           uvrecp = 0.0_wp
@@ -785,7 +794,8 @@ contains
   subroutine get_uv_energy_refs(stnum, stat_weight_solute, uvengy0, uvengy)
     use engmain, only: maxcnf, skpcnf, slttype, sltlist, cltype, &
                        EL_COULOMB, EL_PME, EL_PPPM, &
-                       SLT_SOLN, SLT_REFS_RIGID, SLT_REFS_FLEX, sitepos
+                       SLT_SOLN, SLT_REFS_RIGID, SLT_REFS_FLEX, sitepos, &
+                       solute_charge_is_zero
     use ptinsrt, only: instslt
     use realcal, only: realcal_prepare, realcal_refs, realcal_self_refs, &
          realcal_bare_refs
@@ -804,6 +814,7 @@ contains
     real(wp) :: residual, factor, uvrecp
     real(wp), save :: usreal
     logical, save :: initialized = .false.
+    logical :: do_recp
 
     if (.not. initialized) then
        call instslt('init')
@@ -820,19 +831,27 @@ contains
     ! At this moment all coordinate in the system is determined
     call realcal_prepare
 
+    do_recp = (cltype == EL_PME .or. cltype == EL_PPPM) .and. .not. solute_charge_is_zero
+
     ! Calculate system-wide values
     if (cltype == EL_PME .or. cltype == EL_PPPM) then
-       call recpcal_prepare_solute_refs(tagslt, maxdst)
        call realcal_refs(tagslt, maxdst, slvmax, uvengy)
-       call recpcal_energy_refs(tagslt, maxdst, slvmax, uvengy)
-       call residual_ene_refs(tagslt, maxdst, slvmax, uvengy)
+       if (do_recp) then
+          call recpcal_prepare_solute_refs(tagslt, maxdst)
+          call recpcal_energy_refs(tagslt, maxdst, slvmax, uvengy)
+          call residual_ene_refs(tagslt, maxdst, slvmax, uvengy)
+       end if
+       ! else: the solute's charge is provably zero (see
+       ! setconf::setparam), so spreading it onto the PME grid and
+       ! transforming it can only produce zero: skip the
+       ! reciprocal-space calculation entirely.
     else
        call realcal_bare_refs(tagslt, maxdst, slvmax, uvengy)
     end if
 
     do cntdst = 1, maxdst
 
-       if (cltype == EL_PME .or. cltype == EL_PPPM) then
+       if (do_recp) then
           uvrecp = recpcal_self_energy_refs(cntdst)
        else
           uvrecp = 0.0_wp

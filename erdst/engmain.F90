@@ -262,6 +262,21 @@ module engmain
   real(kind=8) :: inptemp, temp
   integer :: ermax_limit
   logical :: force_calculation
+  ! if set to .true., the solute's charges are overwritten to zero right
+  ! after being read from SltInfo, so that the electrostatic (real-space
+  ! and reciprocal-space) contribution of the solute vanishes -- e.g. to
+  ! obtain the LJ-only ("discharged") part of a solvation free energy
+  ! decomposition, without having to hand-edit SltInfo's charge column.
+  logical :: zero_solute_charge
+
+  ! set in setconf::setparam once charge(:) is known: .true. if every
+  ! solute atom's charge is exactly zero, whether because
+  ! zero_solute_charge above was used, or because SltInfo's charge
+  ! column was already all zero to begin with. Used to skip the
+  ! reciprocal-space (PME/PPPM) solute calculation entirely, since it is
+  ! provably a no-op (spreading an all-zero charge onto the grid and
+  ! transforming it) whenever this is .true.
+  logical :: solute_charge_is_zero
 
 
   ! IO units and files
@@ -386,7 +401,7 @@ module engmain
        intprm, elecut, lwljcut, upljcut, &
        cmbrule, cltype, screen, ewtoler, splodr, scrtype, &
        ew1max, ew2max, ew3max, ms1max, ms2max, ms3max, &
-       ermax_limit, force_calculation
+       ermax_limit, force_calculation, zero_solute_charge
 
 contains 
   subroutine init_params()

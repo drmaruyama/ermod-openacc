@@ -184,53 +184,91 @@ contains
     implicit none
     character(len=7), intent(in) :: errtype
 
-    if (errtype == 'eng_typ') write(stdout, "(A)") " The number of solute types is incorrectly set"
-    if (errtype == 'eng_num') write(stdout, "(A)") " The number of solute molecules is incorrectly set"
-    if (errtype == 'eng_ins') write(stdout, "(A)") " The solute numbering is incorrect for insertion"
-    if (errtype == 'eng_par') write(stdout, "(A)") " The input parameter is incorrectly set"
-    if (errtype == 'eng_siz') write(stdout, "(A)") " The number of energy-coordinate meshes is too large"
-    if (errtype == 'eng_min') then
+    select case(errtype)
+    case('eng_typ')
+       write(stdout, "(A)") " The number of solute types is incorrectly set"
+    case('eng_num')
+       write(stdout, "(A)") " The number of solute molecules is incorrectly set"
+    case('eng_ins')
+       write(stdout, "(A)") " The solute numbering is incorrect for insertion"
+    case('eng_par')
+       write(stdout, "(A)") " The input parameter is incorrectly set"
+    case('eng_siz')
+       write(stdout, "(A)") " The number of energy-coordinate meshes is too large"
+    case('eng_min')
        write(stdout, "(A)") " The minimum of the energy coordinate is too high; " // &
             "the ecdmin parameter needs to be lower"
        if (slttype == SLT_REFS_FLEX) then
           write(stdout, '(A)') " If ecdmin seems unphysically negative, the solute structure in SltConf could be fragmented. " &
                // "If so, unwrap the trajectory for the isolated solute and link SltConf to the unwrapped trajectory"
        endif
-    endif
-    if (errtype == 'eng_sft') write(stdout, "(A)") " The eccore parameter is too small; " // &
-         "there should be no distribution at energy coordinate larger than eccore in the solution system"
-    if (errtype == 'eng_pcr') write(stdout, "(A)") " The pecore parameter is incorrectly set"
-    if (errtype == 'eng_ecd') write(stdout, "(A)") " The energy-coordinate system is inconsistent"
-    if (errtype == 'eng_per') write(stdout, "(A)") " parameters_er file does not exist"
-    if (errtype == 'eng_eci') write(stdout, "(A)") " EcdInfo file does not exist"
-    if (errtype == 'eng_ecm') write(stdout, "(A)") " EcdMesh file does not exist"
-    if (errtype == 'eng_emf') write(stdout, "(A)") " EcdMesh file has wrong format"
-    if (errtype == 'eng_cns') write(stdout, "(A)") " Inconsistency is present in the engproc program"
-    if (errtype == 'eng_slb') write(stdout, "(A)") " Slab condition can only used in periodic system"
-    if (errtype == 'eng_bug') write(stdout, "(A)") " Bug in engproc.F90"
+    case('eng_sft')
+       write(stdout, "(A)") " The eccore parameter is too small; " // &
+            "there should be no distribution at energy coordinate larger than eccore in the solution system"
+    case('eng_pcr')
+       write(stdout, "(A)") " The pecore parameter is incorrectly set"
+    case('eng_ecd')
+       write(stdout, "(A)") " The energy-coordinate system is inconsistent"
+    case('eng_per')
+       write(stdout, "(A)") " parameters_er file does not exist"
+    case('eng_eci')
+       write(stdout, "(A)") " EcdInfo file does not exist"
+    case('eng_ecm')
+       write(stdout, "(A)") " EcdMesh file does not exist"
+    case('eng_emf')
+       write(stdout, "(A)") " EcdMesh file has wrong format"
+    case('eng_cns')
+       write(stdout, "(A)") " Inconsistency is present in the engproc program"
+    case('eng_slb')
+       write(stdout, "(A)") " Slab condition can only used in periodic system"
+    case('eng_bug')
+       write(stdout, "(A)") " Bug in engproc.F90"
 
-    if (errtype == 'rcp_fst') write(stdout, "(A)") " The first particle needs to be the solute"
-    if (errtype == 'rcp_cns') write(stdout, "(A)") " Inconsistency is present in the recpcal program"
+    case('rcp_fst')
+       write(stdout, "(A)") " The first particle needs to be the solute"
+    case('rcp_cns')
+       write(stdout, "(A)") " Inconsistency is present in the recpcal program"
 
-    if (errtype == 'ins_set') write(stdout, "(A)") " The solute specification is incorrectly set"
-    if (errtype == 'ins_siz') write(stdout, "(A)") " Inconsistency is present in the setting of the size of bfcoord"
-    if (errtype == 'ins_geo') write(stdout, "(A)") " The system geometry is incorrectly set"
-    if (errtype == 'ins_ref') write(stdout, "(A)") " RefInfo file is missing"
-    if (errtype == 'ins_str') write(stdout, "(A)") " Incorrect size for RefInfo file"
-    if (errtype == 'ins_bug') write(stdout, "(A)") " Bug in insertion.F90"
+    case('ins_set')
+       write(stdout, "(A)") " The solute specification is incorrectly set"
+    case('ins_siz')
+       write(stdout, "(A)") " Inconsistency is present in the setting of the size of bfcoord"
+    case('ins_geo')
+       write(stdout, "(A)") " The system geometry is incorrectly set"
+    case('ins_ref')
+       write(stdout, "(A)") " RefInfo file is missing"
+    case('ins_str')
+       write(stdout, "(A)") " Incorrect size for RefInfo file"
+    case('ins_bug')
+       write(stdout, "(A)") " Bug in insertion.F90"
 
-    if (errtype == 'set_slt') write(stdout, "(A)") " The solute type is incorrectly set"
-    if (errtype == 'set_num') write(stdout, "(A)") " The number of molecules or atoms is incorrectly set"
-    if (errtype == 'set_prs') write(stdout, "(A)") " The system parameters are incorrectly set"
-    if (errtype == 'set_ins') write(stdout, "(A)") " The insertion parameters are incorrectly set"
-    if (errtype == 'set_reg') write(stdout, "(A)") " The lwreg and/or upreg parameter is incorrectly set"
-    if (errtype == 'set_str') write(stdout, "(A)") " The lwstr and/or upstr parameter is incorrectly set"
-    if (errtype == 'set_ewa') write(stdout, "(A)") " The Ewald parameters are incorrectly set"
-    if (errtype == 'set_trj') write(stdout, "(A)") " Trajectory is shorter than specified in MDinfo"
-    if (errtype == 'set_pmt') write(stdout, "(A)") " Permutation index file is invalid"
-    if (errtype == 'set_bug') write(stdout, "(A)") " Bug in setconf.F90"
+    case('set_slt')
+       write(stdout, "(A)") " The solute type is incorrectly set"
+    case('set_num')
+       write(stdout, "(A)") " The number of molecules or atoms is incorrectly set"
+    case('set_prs')
+       write(stdout, "(A)") " The system parameters are incorrectly set"
+    case('set_ins')
+       write(stdout, "(A)") " The insertion parameters are incorrectly set"
+    case('set_reg')
+       write(stdout, "(A)") " The lwreg and/or upreg parameter is incorrectly set"
+    case('set_str')
+       write(stdout, "(A)") " The lwstr and/or upstr parameter is incorrectly set"
+    case('set_ewa')
+       write(stdout, "(A)") " The Ewald parameters are incorrectly set"
+    case('set_trj')
+       write(stdout, "(A)") " Trajectory is shorter than specified in MDinfo"
+    case('set_pmt')
+       write(stdout, "(A)") " Permutation index file is invalid"
+    case('set_bug')
+       write(stdout, "(A)") " Bug in setconf.F90"
 
-    if (errtype == 'bst_zrw') write(stdout, "(A)") " Division by zero due to inappropriate setting of mass or weight"
+    case('bst_zrw')
+       write(stdout, "(A)") " Division by zero due to inappropriate setting of mass or weight"
+
+    case default
+       write(stdout, "(A,A)") " Unknown error code passed to halt_with_error: ", errtype
+    end select
 
     call mpi_abend()                                                     ! MPI
     stop
@@ -240,9 +278,19 @@ contains
     use engmain, only: stdout, force_calculation
     implicit none
     character(len=4), intent(in) :: typ
-    if (typ == 'mbin') write(stdout, '(A)') " Warning: the maximum binning energy is too low for this species"
-    if (typ == 'emax') write(stdout, '(A)') " Warning: number of total bins in distribution function is too large" // &
-         " (and will presumably require large memory)"
+    select case(typ)
+    case('mbin')
+       write(stdout, '(A)') " Warning: the maximum binning energy is too low for this species"
+    case('emax')
+       write(stdout, '(A)') " Warning: number of total bins in distribution function is too large" // &
+            " (and will presumably require large memory)"
+    case('cell')
+       write(stdout, '(A)') " Warning: the simulation cell is not upper-triangular; " // &
+            "rotating the coordinate system so that it is"
+    case('cel2')
+       write(stdout, '(A)') " Warning: a cell vector is tilted more than half of another axis; " // &
+            "wrapping it back by an integer multiple of that axis"
+    end select
     if (force_calculation) return
     write(stdout, '(A)') "The program aborts because there is a warning"
     write(stdout, '(A,A)') "If you wish to force program running, specify 'force_calculation = .true.' in parameters_er, ", &

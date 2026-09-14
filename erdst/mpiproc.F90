@@ -75,7 +75,6 @@ contains
   end subroutine mpi_rank_size_info
 
   subroutine mpi_abend()
-    integer :: ierror
 #ifdef MPI
     call mpi_abort(mpi_comm_world, 1, ierror)
 #endif

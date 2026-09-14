@@ -17,9 +17,10 @@
 ! Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 module engproc
+  use precision_kinds, only: wp
   implicit none
   character(len=10), parameter :: numbers='0123456789'
-  real, parameter :: tiny = 1.0e-30
+  real(wp), parameter :: tiny = 1.0e-30_wp
   integer :: cntdst, slvmax
   integer :: maxdst, maxcnt
   integer :: tagslt
@@ -27,7 +28,7 @@ module engproc
 
   ! flceng needs to be output in-order
   logical, allocatable :: flceng_stored(:)
-  real,    allocatable :: flceng(:, :)
+  real(wp),    allocatable :: flceng(:, :)
 
 contains
   !
@@ -55,7 +56,7 @@ contains
     integer pemax, pesoft
     integer :: ecprread, meshread, peread
     !
-    real, parameter :: infty = huge(infty)      ! essentially equal to infinity
+    real(wp), parameter :: infty = huge(infty)      ! essentially equal to infinity
     integer, parameter :: rglmax = 5, large = 10000
     real(kind=8) :: factor, incre, cdrgvl(0:rglmax+1), ecpmrd(large)
     integer :: solute_moltype
@@ -364,14 +365,14 @@ contains
     implicit none
     integer, intent(in) :: stnum
     integer :: i, k, irank
-    real :: stat_weight_solute
+    real(wp) :: stat_weight_solute
     integer, allocatable, save :: tplst(:)
-    real, allocatable, save :: uvengy0(:)
-    real, allocatable, save :: uvengy(:, :)
+    real(wp), allocatable, save :: uvengy0(:)
+    real(wp), allocatable, save :: uvengy(:, :)
     logical, allocatable :: flceng_stored_g(:,:)
-    real, allocatable :: flceng_g(:,:,:)
+    real(wp), allocatable :: flceng_g(:,:,:)
     integer :: flceng_mpikind
-    real, save :: prevcl(3,3)
+    real(wp), save :: prevcl(3,3)
     logical, allocatable, save :: skipcond(:)
     logical, save :: initialized = .false.
     logical, save :: pme_initialized = .false. ! NOTE: this variable is also used when PPPM is selected.
@@ -737,11 +738,13 @@ contains
     use mpiproc                                                      ! MPI
     implicit none
     integer, intent(in) :: stnum
-    real, intent(out) :: uvengy0(:), uvengy(:,:), stat_weight_solute
+    real(wp), intent(out) :: uvengy0(:), uvengy(:,:)
+    real(wp), intent(out) :: stat_weight_solute
     logical, intent(out) :: out_of_range(:)
 
     integer :: i, k
-    real :: pairep, residual, factor, uvrecp
+    real(wp) :: pairep
+    real(wp) :: residual, factor, uvrecp
     logical, save :: initialized = .false.
 
     out_of_range(:) = .false.
@@ -750,7 +753,7 @@ contains
 
        ! determine / pick solute structure
        tagslt = sltlist(cntdst)
-       stat_weight_solute = 1.0
+       stat_weight_solute = 1.0_wp
        out_of_range(cntdst) = check_mol_configuration()
        if (out_of_range(cntdst)) cycle
 
@@ -766,12 +769,12 @@ contains
           uvrecp = recpcal_self_energy()
        else
           call realcal_bare(tagslt, tagpt, slvmax, uvengy, cntdst)
-          uvrecp = 0.0
+          uvrecp = 0.0_wp
        endif
 
        ! solute-solute self energy
        pairep = 0.0
-       residual = 0.0
+       residual = 0.0_wp
        call realcal_self(tagslt, pairep) ! calculate self-interaction
        call residual_self_ene(tagslt, residual)
        uvengy0(cntdst) = uvrecp + pairep + residual
@@ -791,13 +794,15 @@ contains
     use mpiproc                                                      ! MPI
     implicit none
     integer, intent(in) :: stnum
-    real, intent(out) :: uvengy0(:), uvengy(:,:), stat_weight_solute
+    real(wp), intent(out) :: uvengy0(:), uvengy(:,:)
+    real(wp), intent(out) :: stat_weight_solute
 
     integer :: i, k
     integer(8) :: current_solute_hash
     integer(8) :: solute_hash = 0
-    real :: pairep, residual, factor, uvrecp
-    real, save :: usreal
+    real(wp) :: pairep
+    real(wp) :: residual, factor, uvrecp
+    real(wp), save :: usreal
     logical, save :: initialized = .false.
 
     if (.not. initialized) then
@@ -830,12 +835,12 @@ contains
        if (cltype == EL_PME .or. cltype == EL_PPPM) then
           uvrecp = recpcal_self_energy_refs(cntdst)
        else
-          uvrecp = 0.0
+          uvrecp = 0.0_wp
        endif
 
        ! solute-solute self energy
        pairep = 0.0
-       residual = 0.0
+       residual = 0.0_wp
        current_solute_hash = get_solute_hash_refs(cntdst) ! FIXME: if this tuns into a bottleneck, add conditionals
        if (current_solute_hash == solute_hash .or. &
             (slttype == SLT_REFS_RIGID .and. solute_hash /= 0)) then
@@ -866,11 +871,14 @@ contains
          ES_NVT, ES_NPT, NO, YES
     use mpiproc
     implicit none
-    real, intent(in) :: uvengy0(:), uvengy(:, :), stat_weight_solute
+    real(wp), intent(in) :: uvengy0(:), uvengy(:, :)
+    real(wp), intent(in) :: stat_weight_solute
     integer, intent(in) :: cnt
     integer, allocatable, save :: insdst(:)
     integer :: i, k, q, iduv, iduvp, pti
-    real :: factor, pairep, total_weight
+    real :: factor
+    real(wp) :: pairep
+    real(wp) :: total_weight
     real(kind=8) :: engnmfc
     logical, save :: initialized = .false.
 
@@ -968,11 +976,11 @@ contains
     use engmain, only: screen, volume, mol_charge, cltype, EL_COULOMB, PI
     implicit none
     integer, intent(in) :: i
-    real, intent(inout) :: pairep
-    real :: epcl
+    real(wp), intent(inout) :: pairep
+    real(wp) :: epcl
     if (cltype == EL_COULOMB) return
     epcl = PI * mol_charge(i) * mol_charge(i) / screen / screen / volume
-    epcl = epcl / 2.0   ! self-interaction
+    epcl = epcl / 2.0_wp   ! self-interaction
     pairep = pairep - epcl
   end subroutine residual_self_ene
   !
@@ -980,10 +988,10 @@ contains
     use engmain, only: screen, volume, mol_charge, cltype, EL_COULOMB, PI
     implicit none
     integer, intent(in) :: tagslt, cnt, tagpt(:), slvmax
-    real, intent(inout) :: uvengy(:, :)
+    real(wp), intent(inout) :: uvengy(:, :)
 
     integer :: i, k
-    real :: epcl
+    real(wp) :: epcl
 
     ! called only when PME or PPPM, non-self interaction
     !$acc parallel loop gang vector present(uvengy, mol_charge)
@@ -1002,10 +1010,10 @@ contains
     use engmain, only: screen, volume, mol_charge, cltype, EL_COULOMB, PI
     implicit none
     integer, intent(in) :: tagslt, maxdst, slvmax
-    real, intent(inout) :: uvengy(:, :)
+    real(wp), intent(inout) :: uvengy(:, :)
 
     integer :: k, cnt
-    real :: epcl
+    real(wp) :: epcl
 
     ! called only when PME or PPPM, non-self interaction
     !$acc parallel loop collapse(2) gang vector present(uvengy, mol_charge)
@@ -1023,8 +1031,8 @@ contains
     use engmain, only:  sluvid, cltype, screen, mol_charge, volume, temp, &
                         EL_EWALD, EL_PME, EL_PPPM, PT_SOLVENT, PT_SOLUTE, PI
     implicit none
-    real, intent(inout) :: weight
-    real :: total_charge, factor
+    real(wp), intent(inout) :: weight
+    real(wp) :: total_charge, factor
     weight = weight * volume
     if ((cltype == EL_EWALD) .or. (cltype == EL_PME) &
          .or. (cltype == EL_PPPM)) then  ! Ewald, PME and PPPM
@@ -1079,7 +1087,7 @@ contains
     implicit none 
     real(kind=8), intent(in) :: coord(n)
     integer, intent(in) :: n
-    real, intent(in) :: v
+    real(wp), intent(in) :: v
     integer, intent(out) :: ret
     integer :: rmin, rmax, rmid
     if (v < coord(1)) then
@@ -1114,10 +1122,10 @@ contains
     use mpiproc, only: halt_with_error, warning
     implicit none
     integer, intent(in) :: pti
-    real, intent(in) :: engval 
+    real(wp), intent(in) :: engval 
     integer, intent(out) :: iduv
     integer :: idmin, idnum, idpti
-    real, parameter :: warn_threshold = 1.0e3
+    real(wp), parameter :: warn_threshold = 1.0e3_wp
     logical, save :: warn_bin_firsttime = .true.
 
     if (pti >  0) then            ! solute-solvent interaction
@@ -1212,9 +1220,9 @@ contains
     use mpiproc, only: halt_with_error
     implicit none
     logical :: out_of_range
-    real :: dx(3), distance
+    real(wp) :: dx(3), distance
     integer :: i, ptb, pte
-    real, allocatable :: hostcrd(:,:), refslt_bestfit(:,:)
+    real(wp), allocatable :: hostcrd(:,:), refslt_bestfit(:,:)
 
     out_of_range = .false.
 
@@ -1304,11 +1312,11 @@ contains
       use bestfit, only: center_of_mass
       implicit none
       integer, intent(in) :: tagpt
-      real, intent(out) :: dx(3)
+      real(wp), intent(out) :: dx(3)
       integer ptb, pte, stmax
-      real :: solute_com(3), aggregate_com(3)
-      real, allocatable :: ptmass(:)
-      real, allocatable :: ptsite(:,:)
+      real(wp) :: solute_com(3), aggregate_com(3)
+      real(wp), allocatable :: ptmass(:)
+      real(wp), allocatable :: ptsite(:,:)
       stmax = numsite(tagpt)
       ptb = mol_begin_index(tagpt)
       pte = mol_end_index(tagpt)

@@ -19,12 +19,13 @@
 !
 ! renaming outside parameters and parameters to avoid conflict
 module OUTname
+  use precision_kinds, only: wp
   use engmain, only: trjfile, inffile, io_MDinfo
   use trajectory, only: handle
 !
   implicit none
   integer OUTens, OUTbxs, OUTcmb, OUTclt, OUTspo
-  real OUTtemp, OUTelc, OUTlwl, OUTupl, OUTscr
+  real(wp) OUTtemp, OUTelc, OUTlwl, OUTupl, OUTscr
   integer OUTew1, OUTew2, OUTew3, OUTms1, OUTms2, OUTms3
   integer OUTnrun, OUTntype
   integer, allocatable :: OUTnmol(:), OUTsite(:)
@@ -35,11 +36,11 @@ module OUTname
 contains
 
   subroutine OUTinitial
-    real, save :: sgmcnv, chgcnv, engcnv, lencnv ! unit conversion factor
-    sgmcnv = 2.0 ** (5.0 / 6.0)                  ! from Rmin/2 to sigma
-    chgcnv = 1.0 / 1.60217653e-19                ! from C to elementary
-    engcnv = 6.0221415e23 / 4.184e3              ! from J to kcal/mol
-    lencnv = 10.0                                ! from nm to Angstrom
+    real(wp), save :: sgmcnv, chgcnv, engcnv, lencnv ! unit conversion factor
+    sgmcnv = 2.0_wp ** (5.0_wp / 6.0_wp)                  ! from Rmin/2 to sigma
+    chgcnv = 1.0_wp / 1.60217653e-19_wp                ! from C to elementary
+    engcnv = 6.0221415e23_wp / 4.184e3_wp              ! from J to kcal/mol
+    lencnv = 10.0_wp                                ! from nm to Angstrom
   end subroutine OUTinitial
 
   subroutine opentrj
@@ -85,7 +86,7 @@ contains
     integer, intent(in) :: OUTatm, OUTbox
     character*6, intent(in) :: particle_type
     character*10, intent(in) :: calc_type
-    real, intent(out) :: OUTpos(3, OUTatm), OUTcell(3, 3)
+    real(wp), intent(out) :: OUTpos(3, OUTatm), OUTcell(3, 3)
     integer :: status
     !
     select case(calc_type)
@@ -97,7 +98,7 @@ contains
        stop "Unknown calc_type in OUTconfig"
     end select
     !
-    OUTcell(:, :) = 0.0
+    OUTcell(:, :) = 0.0_wp
     !
     select case(particle_type)
     case('system')                  ! reading the HISTORY file
@@ -167,8 +168,9 @@ contains
          OUTew1, OUTew2, OUTew3, &               ! from outside
          OUTms1, OUTms2, OUTms3                  ! from outside
     use mpiproc, only: halt_with_error                               ! MPI
+    use precision_kinds, only: wp
     implicit none
-    real, parameter :: tiny = 1.0e-20
+    real(wp), parameter :: tiny = 1.0e-20_wp
     real(kind=8) :: real_seed
 
     intprm=1                                     ! trajectory reading
@@ -490,15 +492,16 @@ contains
   end subroutine check_param
 
 
-  real function getscrn(ewtoler, elecut, scrtype)
+  real(wp) function getscrn(ewtoler, elecut, scrtype)
+    use precision_kinds, only: wp
     implicit none
     character(len=8), intent(in) :: scrtype
-    real, intent(in) :: ewtoler, elecut
-    real :: ewasml, ewalrg, scrfac, factor
-    real, parameter :: error = 1.0e-15
-    factor = error + 1.0 ; ewasml = 0.0 ; ewalrg = 1.0e3
+    real(wp), intent(in) :: ewtoler, elecut
+    real(wp) :: ewasml, ewalrg, scrfac, factor
+    real(wp), parameter :: error = 1.0e-15_wp
+    factor = error + 1.0_wp ; ewasml = 0.0_wp ; ewalrg = 1.0e3_wp
     do while(factor > error)
-       scrfac = (ewasml + ewalrg) / 2.0
+       scrfac = (ewasml + ewalrg) / 2.0_wp
        factor = erfc(scrfac * elecut)
        if (scrtype == 'distance') factor = factor / elecut
        if (factor > ewtoler) then
@@ -531,28 +534,29 @@ contains
          OUTnrun, OUTntype, OUTnmol, OUTsite       ! from outside
     use mpiproc, only: halt_with_error
     use utility, only: itoa
+    use precision_kinds, only: wp
     implicit none
     ! only integer power is allowed as the initialization expression (7.1.6.1)
-    real, parameter :: sgmcnv = 1.7817974362806784 ! from Rmin/2 to sigma, 2.0**(5.0/6.0)
-    real, parameter :: lencnv = 10.0               ! from nm to Angstrom
-    real, parameter :: engcnv = 1.0 / 4.184        ! from kJ/mol to kcal/mol
+    real(wp), parameter :: sgmcnv = 1.7817974362806784_wp ! from Rmin/2 to sigma, 2.0**(5.0/6.0)
+    real(wp), parameter :: lencnv = 10.0_wp               ! from nm to Angstrom
+    real(wp), parameter :: engcnv = 1.0_wp / 4.184_wp        ! from kJ/mol to kcal/mol
     integer :: pti, stmax, maxsite, uvtype, cmin, cmax, sid, i, ati, m
     integer :: solute_index, cur_solvent, prev_solvent_type, cur_atom
-    real :: factor, xst(3)
-    real,    allocatable :: sitemass_temp(:), charge_temp(:)
+    real(wp) :: factor, xst(3)
+    real(wp),    allocatable :: sitemass_temp(:), charge_temp(:)
     integer, allocatable :: ljtype_temp(:)
-    real,    allocatable :: ljlen_temp(:), ljene_temp(:)
-    real,    allocatable :: ljlen_temp_table(:), ljene_temp_table(:)
+    real(wp),    allocatable :: ljlen_temp(:), ljene_temp(:)
+    real(wp),    allocatable :: ljlen_temp_table(:), ljene_temp_table(:)
     integer :: ljtype_found
     logical :: lj_is_new
     integer, allocatable :: pttype(:), ptcnt(:), ptsite(:)
-    real,    allocatable :: psite(:,:)
+    real(wp),    allocatable :: psite(:,:)
     character(len=8) :: atmname
     character(len=12) :: atmtype
     character(len=80) :: molfile
     character(len=120) :: linebuf
     integer :: ierr
-    real :: mass
+    real(wp) :: mass
 
     call OUTinitial                ! initialization of OUTname module
     call iniparam                  ! initialization of parameters
@@ -853,13 +857,14 @@ contains
                        PT_SOLVENT, PT_SOLUTE
     use OUTname, only: OUTconfig                     ! from outside
     use mpiproc
+    use precision_kinds, only: wp
     implicit none
     integer, intent(in) :: maxread
     integer, intent(out) :: actual_read
     
-    real, allocatable :: OUTpos(:,:), OUTcell(:,:), readpos(:,:)
-    real :: readcell(3, 3)
-    real :: weight, readweight
+    real(wp), allocatable :: OUTpos(:,:), OUTcell(:,:), readpos(:,:)
+    real(wp) :: readcell(3, 3)
+    real(wp) :: weight, readweight
     integer :: i, OUTatm, iproc, nread
     integer, save :: system_mpikind
 
@@ -988,13 +993,14 @@ contains
   subroutine read_weight(weight)
     use engmain, only: wgtsys, syswgt_file, syswgt_io, stdout, YES
     use mpiproc, only: mpi_setup
+    use precision_kinds, only: wp
     implicit none
-    real, intent(out) :: weight
+    real(wp), intent(out) :: weight
     integer :: dummy, ioerr    
     logical, save :: file_opened = .false.
 
     if (wgtsys /= YES) then
-       weight = 1.0
+       weight = 1.0_wp
        return
     endif
 
@@ -1014,31 +1020,32 @@ contains
 
 
   subroutine getmass(stmass, atmtype)
+    use precision_kinds, only: wp
     implicit none
-    real, parameter :: massM = 0.0              ! dummy atom
-    real, parameter :: massH = 1.00794          ! atomic weight (hydrogen)
-    real, parameter :: massD = 2.014102         ! atomic weight (deuterium)
-    real, parameter :: massC = 12.0107          ! atomic weight (carbon)
-    real, parameter :: massO = 15.9994          ! atomic weight (oxygen)
-    real, parameter :: massN = 14.00674         ! atomic weight (nitrogen)
-    real, parameter :: massS = 32.066           ! atomic weight (sulfur)
-    real, parameter :: massP = 30.973761        ! atomic weight (phosphorus)
-    real, parameter :: massHe = 4.0026          ! atomic weight (helium)
-    real, parameter :: massB = 10.811           ! atomic weight (boron)
-    real, parameter :: massSi = 28.0855         ! atomic weight (silicon)
-    real, parameter :: massLi = 6.941           ! atomic weight (lithium)
-    real, parameter :: massNa = 22.989770       ! atomic weight (sodium)
-    real, parameter :: massK = 39.0983          ! atomic weight (potassium)
-    real, parameter :: massF = 18.9984032       ! atomic weight (fluorine)
-    real, parameter :: massCl = 35.4527         ! atomic weight (chlorine)
-    real, parameter :: massBr = 79.904          ! atomic weight (bromine)
-    real, parameter :: massI =  126.90447       ! atomic weight (iodine)
-    real, parameter :: massCa = 40.078          ! atomic weight (calcium)
-    real, parameter :: massZn = 65.409          ! atomic weight (zinc)
-    real, parameter :: massFe = 55.845          ! atomic weight (iron)
-    real, parameter :: massCu = 63.546          ! atomic weight (copper)
+    real(wp), parameter :: massM = 0.0_wp              ! dummy atom
+    real(wp), parameter :: massH = 1.00794_wp          ! atomic weight (hydrogen)
+    real(wp), parameter :: massD = 2.014102_wp         ! atomic weight (deuterium)
+    real(wp), parameter :: massC = 12.0107_wp          ! atomic weight (carbon)
+    real(wp), parameter :: massO = 15.9994_wp          ! atomic weight (oxygen)
+    real(wp), parameter :: massN = 14.00674_wp         ! atomic weight (nitrogen)
+    real(wp), parameter :: massS = 32.066_wp           ! atomic weight (sulfur)
+    real(wp), parameter :: massP = 30.973761_wp        ! atomic weight (phosphorus)
+    real(wp), parameter :: massHe = 4.0026_wp          ! atomic weight (helium)
+    real(wp), parameter :: massB = 10.811_wp           ! atomic weight (boron)
+    real(wp), parameter :: massSi = 28.0855_wp         ! atomic weight (silicon)
+    real(wp), parameter :: massLi = 6.941_wp           ! atomic weight (lithium)
+    real(wp), parameter :: massNa = 22.989770_wp       ! atomic weight (sodium)
+    real(wp), parameter :: massK = 39.0983_wp          ! atomic weight (potassium)
+    real(wp), parameter :: massF = 18.9984032_wp       ! atomic weight (fluorine)
+    real(wp), parameter :: massCl = 35.4527_wp         ! atomic weight (chlorine)
+    real(wp), parameter :: massBr = 79.904_wp          ! atomic weight (bromine)
+    real(wp), parameter :: massI =  126.90447_wp       ! atomic weight (iodine)
+    real(wp), parameter :: massCa = 40.078_wp          ! atomic weight (calcium)
+    real(wp), parameter :: massZn = 65.409_wp          ! atomic weight (zinc)
+    real(wp), parameter :: massFe = 55.845_wp          ! atomic weight (iron)
+    real(wp), parameter :: massCu = 63.546_wp          ! atomic weight (copper)
 
-    real, intent(out) :: stmass
+    real(wp), intent(out) :: stmass
     character(len=5), intent(in) :: atmtype
     character(len=1) :: eltp1
     character(len=2) :: eltp2

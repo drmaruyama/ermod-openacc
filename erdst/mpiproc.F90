@@ -23,6 +23,7 @@ module mpiproc
   ! MPI
   use mpi
 #endif
+  use precision_kinds, only: wp
   implicit none
 
 #ifndef MPI
@@ -111,8 +112,8 @@ contains
   subroutine mympi_reduce_real_array(data, data_size, operation, rootrank)
     implicit none
     integer, intent(in) :: data_size, operation, rootrank
-    real, intent(inout) :: data(data_size)
-    real, allocatable :: buf(:)
+    real(wp), intent(inout) :: data(data_size)
+    real(wp), allocatable :: buf(:)
     integer :: mympi_realkind
 #ifdef MPI
     allocate( buf(data_size) )
@@ -139,8 +140,8 @@ contains
   subroutine mympi_reduce_real_scalar(data, operation, rootrank)
     implicit none
     integer, intent(in) :: operation, rootrank
-    real, intent(inout) :: data
-    real :: buf
+    real(wp), intent(inout) :: data
+    real(wp) :: buf
     integer :: mympi_realkind
 #ifdef MPI
     call get_mympi_realkind(kind(data), mympi_realkind)

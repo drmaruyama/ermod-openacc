@@ -45,42 +45,14 @@ AC_ARG_ENABLE([double],
     [enable_double=yes],
     [enable_double=no])
 
-AC_DEFUN([MY_FC_REAL_DOUBLE],[
-AC_CACHE_CHECK([how to read real as real(8) as default],
-my_fc_real_double_cv_flag,
-[AC_LANG_PUSH(Fortran)
-save_FCFLAGS=$FCFLAGS
-# for default, gfortran, ifort, xlf, Fujitsu f90, Fujitsu f90 (old), Portland, Cray
-for flag in "" "-fdefault-real-8 -fdefault-double-8" "-fdefault-real-8" "-autodouble" "-qrealsize=8" "-CcdRR8" "-Ad" "-Mr8" "-s default64"; do
-FCFLAGS="$save_FCFLAGS $flag"
-# This is very tricky indeed...
-  AC_COMPILE_IFELSE(
-    [AC_LANG_PROGRAM([], [dnl
-      implicit none
-      real :: a
-      integer, parameter :: len = kind(a)
-      integer, parameter :: x(len) = (/ 1, 2, 3, 4, 5, 6, 7, 8 /)
-      print *, "Success"
-])], [my_check_realasdouble=yes], [my_check_realasdouble=no])
-  if test $my_check_realasdouble = yes; then
-    break
-  fi
-done
-if test $my_check_realasdouble = no; then
-  AC_MSG_ERROR([unable to find compiler flag to read real as real(8)])
-fi
-FCFLAGS="$save_FCFLAGS $flag"
-if test "x$flag" = x; then
-  echo -n "(none)"
-else
-  echo -n $flag
-fi
-AC_LANG_POP(Fortran)
-])])
-
+# Precision (single vs. double) is selected entirely by the -DDP
+# preprocessor definition, consumed by precision.F90's "wp" kind
+# parameter. Unlike before, no compiler flag that redefines what a
+# bare "real" means (e.g. nvfortran's -Mr8) is needed anymore, since
+# every real/complex declaration in the source spells out "real(wp)"
+# explicitly.
 AS_IF([test "x$enable_double" = "xyes"],
-      [MY_FC_REAL_DOUBLE
-       FCFLAGS="$FCFLAGS -DDP"])
+      [FCFLAGS="$FCFLAGS -DDP"])
 
 ################################
 

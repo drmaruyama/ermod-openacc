@@ -17,14 +17,15 @@
 ! Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 module realcal
+  use precision_kinds, only: wp
   implicit none
   
   ! "straight" coordinate system
-  real, allocatable :: sitepos_normal(:, :)
-  real :: cell_normal(3, 3), invcell_normal(3), cell_len_normal(3)
+  real(wp), allocatable :: sitepos_normal(:, :)
+  real(wp) :: cell_normal(3, 3), invcell_normal(3), cell_len_normal(3)
   logical :: is_cuboid
-  real, parameter :: check_rotate = 1e-8, cuboid_thres = 1e-8
-  real, parameter :: cutoff_thres = 1e-4
+  real(wp), parameter :: check_rotate = 1e-8_wp, cuboid_thres = 1e-8_wp
+  real(wp), parameter :: cutoff_thres = 1e-4_wp
 
 contains
   subroutine realcal_prepare
@@ -56,26 +57,26 @@ contains
          LJSWT_POT_CHM, LJSWT_POT_GMX, LJSWT_FRC_CHM, LJSWT_FRC_GMX
     implicit none
     integer, intent(in) :: tagslt, tagpt(:), slvmax, cnt
-    real, intent(inout) :: uvengy(:, :)
+    real(wp), intent(inout) :: uvengy(:, :)
 
     integer :: i, k, is, js, ismax, jsmax, ati, atj
-    real :: reelcut, pairep, rst, dis2, invr2, invr3, invr6
-    real :: eplj, epcl, xst(3), half_cell(3)
-    real :: lwljcut2, upljcut2
-    real, save :: lwljcut3, upljcut3, lwljcut6, upljcut6
-    real :: ljeps, ljsgm2, ljsgm3, ljsgm6, vdwa, vdwb, swth, swfac
-    real, save :: repA, repB, repC, attA, attB, attC
+    real(wp) :: reelcut, pairep, rst, dis2, invr2, invr3, invr6
+    real(wp) :: eplj, epcl, xst(3), half_cell(3)
+    real(wp) :: lwljcut2, upljcut2
+    real(wp), save :: lwljcut3, upljcut3, lwljcut6, upljcut6
+    real(wp) :: ljeps, ljsgm2, ljsgm3, ljsgm6, vdwa, vdwb, swth, swfac
+    real(wp), save :: repA, repB, repC, attA, attB, attC
     integer :: ljtype_i, ljtype_j
     logical, save :: initialized = .false.
-    real, parameter :: infty = huge(infty)      ! essentially equal to infinity
+    real(wp), parameter :: infty = huge(infty)      ! essentially equal to infinity
     !
     if (boxshp == SYS_NONPERIODIC) reelcut = infty
     if (boxshp == SYS_PERIODIC) then
        reelcut = elecut
-       half_cell(:) = 0.5 * cell_len_normal(:)
+       half_cell(:) = 0.5_wp * cell_len_normal(:)
     else
        ! suppress warnings
-       half_cell(:) = 0.0
+       half_cell(:) = 0.0_wp
     endif
 
     if (.not. initialized) then
@@ -212,26 +213,26 @@ contains
          LJSWT_POT_CHM, LJSWT_POT_GMX, LJSWT_FRC_CHM, LJSWT_FRC_GMX
     implicit none
     integer, intent(in) :: tagslt, maxdst, slvmax
-    real, intent(inout) :: uvengy(:, :)
+    real(wp), intent(inout) :: uvengy(:, :)
 
     integer :: i, k, is, js, ismax, jsmax, ati, ati_ext, atj, cnt
-    real :: reelcut, pairep, rst, dis2, invr2, invr3, invr6
-    real :: eplj, epcl, xst(3), half_cell(3)
-    real :: lwljcut2, upljcut2
-    real, save :: lwljcut3, upljcut3, lwljcut6, upljcut6
-    real :: ljeps, ljsgm2, ljsgm3, ljsgm6, vdwa, vdwb, swth, swfac
-    real, save :: repA, repB, repC, attA, attB, attC
+    real(wp) :: reelcut, pairep, rst, dis2, invr2, invr3, invr6
+    real(wp) :: eplj, epcl, xst(3), half_cell(3)
+    real(wp) :: lwljcut2, upljcut2
+    real(wp), save :: lwljcut3, upljcut3, lwljcut6, upljcut6
+    real(wp) :: ljeps, ljsgm2, ljsgm3, ljsgm6, vdwa, vdwb, swth, swfac
+    real(wp), save :: repA, repB, repC, attA, attB, attC
     integer :: ljtype_i, ljtype_j
     logical, save :: initialized = .false.
-    real, parameter :: infty = huge(infty)      ! essentially equal to infinity
+    real(wp), parameter :: infty = huge(infty)      ! essentially equal to infinity
     !
     if (boxshp == SYS_NONPERIODIC) reelcut = infty
     if (boxshp == SYS_PERIODIC) then
        reelcut = elecut
-       half_cell(:) = 0.5 * cell_len_normal(:)
+       half_cell(:) = 0.5_wp * cell_len_normal(:)
     else
        ! suppress warnings
-       half_cell(:) = 0.0
+       half_cell(:) = 0.0_wp
     endif
 
     if (.not. initialized) then
@@ -372,26 +373,26 @@ contains
          LJSWT_POT_CHM, LJSWT_POT_GMX, LJSWT_FRC_CHM, LJSWT_FRC_GMX
     implicit none
     integer, intent(in) :: tagslt, tagpt(:), slvmax, cnt
-    real, intent(inout) :: uvengy(:, :)
+    real(wp), intent(inout) :: uvengy(:, :)
 
     integer :: i, k, is, js, ismax, jsmax, ati, atj
-    real :: reelcut, pairep, rst, dis2, invr2, invr3, invr6
-    real :: eplj, epcl, xst(3), half_cell(3)
-    real :: lwljcut2, upljcut2, lwljcut3, upljcut3, lwljcut6, upljcut6
-    real :: ljeps, ljsgm2, ljsgm3, ljsgm6, vdwa, vdwb, swth, swfac
-    real :: repA, repB, repC, attA, attB, attC
+    real(wp) :: reelcut, pairep, rst, dis2, invr2, invr3, invr6
+    real(wp) :: eplj, epcl, xst(3), half_cell(3)
+    real(wp) :: lwljcut2, upljcut2, lwljcut3, upljcut3, lwljcut6, upljcut6
+    real(wp) :: ljeps, ljsgm2, ljsgm3, ljsgm6, vdwa, vdwb, swth, swfac
+    real(wp) :: repA, repB, repC, attA, attB, attC
     integer :: ljtype_i, ljtype_j
-    real, parameter :: infty = huge(infty)      ! essentially equal to infinity
+    real(wp), parameter :: infty = huge(infty)      ! essentially equal to infinity
     !
     if (cltype /= EL_COULOMB) stop "cannot happen: realcal_bare is called only when cltype is 'bare coulomb'."
 
     if (boxshp == SYS_NONPERIODIC) reelcut=infty
     if (boxshp == SYS_PERIODIC) then
        reelcut = elecut
-       half_cell(:) = 0.5 * cell_len_normal(:)
+       half_cell(:) = 0.5_wp * cell_len_normal(:)
     else
        ! suppress warnings
-       half_cell(:) = 0.0
+       half_cell(:) = 0.0_wp
     endif
 
     if (ljswitch == LJSWT_FRC_CHM) then       ! force switch (CHARMM type)
@@ -519,26 +520,26 @@ contains
          LJSWT_POT_CHM, LJSWT_POT_GMX, LJSWT_FRC_CHM, LJSWT_FRC_GMX
     implicit none
     integer, intent(in) :: tagslt, maxdst, slvmax
-    real, intent(inout) :: uvengy(:, :)
+    real(wp), intent(inout) :: uvengy(:, :)
 
     integer :: i, k, is, js, ismax, jsmax, ati, ati_ext, atj, cnt
-    real :: reelcut, pairep, rst, dis2, invr2, invr3, invr6
-    real :: eplj, epcl, xst(3), half_cell(3)
-    real :: lwljcut2, upljcut2, lwljcut3, upljcut3, lwljcut6, upljcut6
-    real :: ljeps, ljsgm2, ljsgm3, ljsgm6, vdwa, vdwb, swth, swfac
-    real :: repA, repB, repC, attA, attB, attC
+    real(wp) :: reelcut, pairep, rst, dis2, invr2, invr3, invr6
+    real(wp) :: eplj, epcl, xst(3), half_cell(3)
+    real(wp) :: lwljcut2, upljcut2, lwljcut3, upljcut3, lwljcut6, upljcut6
+    real(wp) :: ljeps, ljsgm2, ljsgm3, ljsgm6, vdwa, vdwb, swth, swfac
+    real(wp) :: repA, repB, repC, attA, attB, attC
     integer :: ljtype_i, ljtype_j
-    real, parameter :: infty = huge(infty)      ! essentially equal to infinity
+    real(wp), parameter :: infty = huge(infty)      ! essentially equal to infinity
     !
     if (cltype /= EL_COULOMB) stop "cannot happen: realcal_bare is called only when cltype is 'bare coulomb'."
 
     if (boxshp == SYS_NONPERIODIC) reelcut=infty
     if (boxshp == SYS_PERIODIC) then
        reelcut = elecut
-       half_cell(:) = 0.5 * cell_len_normal(:)
+       half_cell(:) = 0.5_wp * cell_len_normal(:)
     else
        ! suppress warnings
-       half_cell(:) = 0.0
+       half_cell(:) = 0.0_wp
     endif
 
     if (ljswitch == LJSWT_FRC_CHM) then       ! force switch (CHARMM type)
@@ -667,14 +668,14 @@ contains
                        EL_COULOMB, PI
     implicit none
     integer, intent(in) :: i
-    real, intent(inout) :: pairep
+    real(wp), intent(inout) :: pairep
     integer :: is, js, ismax, ati, atj
-    real :: rst, dis2, epcl, xst(3), half_cell(3)
+    real(wp) :: rst, dis2, epcl, xst(3), half_cell(3)
 
     pairep = 0.0
     if (cltype == EL_COULOMB) return
 
-    half_cell(:) = 0.5 * cell_len_normal(:)
+    half_cell(:) = 0.5_wp * cell_len_normal(:)
 
     ismax = numsite(i)
 
@@ -718,14 +719,14 @@ contains
                        EL_COULOMB, PI
     implicit none
     integer, intent(in) :: i, cnt
-    real, intent(inout) :: pairep
+    real(wp), intent(inout) :: pairep
     integer :: is, js, ismax, ati, ati_ext, atj, atj_ext
-    real :: rst, dis2, epcl, xst(3), half_cell(3)
+    real(wp) :: rst, dis2, epcl, xst(3), half_cell(3)
 
     pairep = 0.0
     if (cltype == EL_COULOMB) return
 
-    half_cell(:) = 0.5 * cell_len_normal(:)
+    half_cell(:) = 0.5_wp * cell_len_normal(:)
 
     ismax = numsite(i)
 
@@ -774,10 +775,10 @@ contains
     use mpiproc, only: warning
     implicit none
 
-    real :: q(3,3), r(3, 3), temp(3, 3), axis_len
+    real(wp) :: q(3,3), r(3, 3), temp(3, 3), axis_len
     integer :: i, j
 
-    if (cell(2, 1) == 0.0 .and. cell(3, 1) == 0.0 .and. cell(3, 2) == 0.0) then
+    if (cell(2, 1) == 0.0_wp .and. cell(3, 1) == 0.0_wp .and. cell(3, 2) == 0.0_wp) then
        ! already upper triangular
        ! As long as we use modern MD software the program shall go this path.
        cell_normal(:, :) = cell(:, :)
@@ -788,8 +789,8 @@ contains
     call warning("cell")
 
     ! modified Gram-Schmidt
-    q(:, :) = 0.0
-    r(:, :) = 0.0
+    q(:, :) = 0.0_wp
+    r(:, :) = 0.0_wp
     temp(:, :) = cell(:, :)
     do i = 1, 3
        axis_len = sqrt(dot_product(temp(:, 1), temp(:, 1)))
@@ -817,26 +818,26 @@ contains
     use engmain, only: elecut, upljcut
     use mpiproc, only: warning
     integer :: i
-    real :: cutoff
+    real(wp) :: cutoff
 
     do i = 1, 3
-       if (cell_normal(1, 1) < 0.0) then
+       if (cell_normal(1, 1) < 0.0_wp) then
           cell_normal(:, i) = -cell_normal(:, i)
        end if
     end do
 
     ! check cell size restrictions
-    if (abs(cell_normal(1, 2)) > 0.5 * cell_normal(1, 1) + cutoff_thres) then
+    if (abs(cell_normal(1, 2)) > 0.5_wp * cell_normal(1, 1) + cutoff_thres) then
        call warning("cel2")
        cell_normal(:, 2) = cell_normal(:, 2) - &
             cell_normal(:, 1) * anint(cell_normal(1, 2) * invcell_normal(1))
     end if
-    if (abs(cell_normal(1, 3)) > 0.5 * cell_normal(1, 1) + cutoff_thres) then
+    if (abs(cell_normal(1, 3)) > 0.5_wp * cell_normal(1, 1) + cutoff_thres) then
        call warning("cel2")
        cell_normal(:, 3) = cell_normal(:, 3) - &
             cell_normal(:, 1) * anint(cell_normal(1, 3) * invcell_normal(1))
     end if
-    if (abs(cell_normal(2, 3)) > 0.5 * cell_normal(2, 2) + cutoff_thres) then
+    if (abs(cell_normal(2, 3)) > 0.5_wp * cell_normal(2, 2) + cutoff_thres) then
        call warning("cel2")
        cell_normal(:, 3) = cell_normal(:, 3) - &
             cell_normal(:, 2) * anint(cell_normal(2, 3) * invcell_normal(2))
@@ -845,7 +846,7 @@ contains
     cutoff = min(elecut, upljcut)
     ! check cutoff restrictions
     do i = 1, 3
-       if (cutoff > cell_normal(i, i) * 0.5) then
+       if (cutoff > cell_normal(i, i) * 0.5_wp) then
           stop "One of axis in periodic cell is too small. This is either the box is too small compared to the cell, " // &
                "or the periodic cell is too skewed."
        endif
@@ -895,18 +896,18 @@ contains
   subroutine calc_gmx_switching_force_params(pow, lwljcut, upljcut, coeffA, coeffB, coeffC)
     implicit none
     integer, intent(in) :: pow
-    real, intent(in) :: lwljcut, upljcut
-    real, intent(out) :: coeffA, coeffB, coeffC
-    real :: dfljcut
+    real(wp), intent(in) :: lwljcut, upljcut
+    real(wp), intent(out) :: coeffA, coeffB, coeffC
+    real(wp) :: dfljcut
 
     dfljcut = upljcut - lwljcut
-    coeffA = - real(pow) * (real(pow + 4) * upljcut                   &
-                          - real(pow + 1) * lwljcut)                  &
-           / ((upljcut ** (pow + 2)) * (dfljcut ** 2)) / 3.0
-    coeffB =   real(pow) * (real(pow + 3) * upljcut                   &
-                          - real(pow + 1) * lwljcut)                  &
-           / ((upljcut ** (pow + 2)) * (dfljcut ** 3)) / 4.0
-    coeffC = 1.0 / (upljcut ** pow) - coeffA * (dfljcut ** 3)         &
+    coeffA = - real(pow, wp) * (real(pow + 4, wp) * upljcut                   &
+                          - real(pow + 1, wp) * lwljcut)                  &
+           / ((upljcut ** (pow + 2)) * (dfljcut ** 2)) / 3.0_wp
+    coeffB =   real(pow, wp) * (real(pow + 3, wp) * upljcut                   &
+                          - real(pow + 1, wp) * lwljcut)                  &
+           / ((upljcut ** (pow + 2)) * (dfljcut ** 3)) / 4.0_wp
+    coeffC = 1.0_wp / (upljcut ** pow) - coeffA * (dfljcut ** 3)         &
                                     - coeffB * (dfljcut ** 4)
   end subroutine calc_gmx_switching_force_params
 

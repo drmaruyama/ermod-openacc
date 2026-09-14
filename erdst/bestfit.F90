@@ -28,28 +28,29 @@
 !----------------
 
 module quaternion
+  use precision_kinds, only: wp
   implicit none
 contains
   subroutine array_of_quaternion(q, a) 
     implicit none
-    real, intent(in)  :: q(0:3)
-    real, intent(out) :: a(3)
+    real(wp), intent(in)  :: q(0:3)
+    real(wp), intent(out) :: a(3)
     a = q(1:3)
   end subroutine array_of_quaternion
   
   subroutine quaternion_of_array(a, q)
     implicit none
-    real, intent(in)  :: a(3)
-    real, intent(out) :: q(0:3)
-    q(0) = 0.
+    real(wp), intent(in)  :: a(3)
+    real(wp), intent(out) :: q(0:3)
+    q(0) = 0._wp
     q(1:3) = a
   end subroutine quaternion_of_array
 
   subroutine prod(q1, q2, p)
     implicit none
-    real, intent(in)  :: q1(0:3), q2(0:3)
-    real, intent(out) :: p(0:3)
-    real :: temp(3)
+    real(wp), intent(in)  :: q1(0:3), q2(0:3)
+    real(wp), intent(out) :: p(0:3)
+    real(wp) :: temp(3)
     p(0) = q1(0) * q2(0) - dot_product(q1(1:3), q2(1:3))
     call cross_product(q1(1:3), q2(1:3), temp)
     p(1:3) = temp + q1(0) * q2(1:3) + q2(0) * q1(1:3)
@@ -57,27 +58,27 @@ contains
   contains
     subroutine cross_product(u, v, r)
       implicit none
-      real, intent(in) :: u(3), v(3)
-      real, intent(out) :: r(3)
+      real(wp), intent(in) :: u(3), v(3)
+      real(wp), intent(out) :: r(3)
       r = cshift(u, 1) * cshift(v, -1) - cshift(u, -1) * cshift(v, 1)
     end subroutine cross_product
   end subroutine prod
   
   subroutine conjugate(q, r)
     implicit none
-    real, intent(in)  :: q(0:3)
-    real, intent(out) :: r(0:3)
+    real(wp), intent(in)  :: q(0:3)
+    real(wp), intent(out) :: r(0:3)
     r(0)   =  q(0)
     r(1:3) = -q(1:3)
   end subroutine conjugate
 
   subroutine rotate(q, r, res)
     implicit none
-    real, intent(in)  :: q(1:3), r(0:3)
-    real, intent(out) :: res(1:3)
-    real :: t(0:3), cj(0:3)
-    real :: q2(0:3), res2(0:3)
-    q2(0) = 0.
+    real(wp), intent(in)  :: q(1:3), r(0:3)
+    real(wp), intent(out) :: res(1:3)
+    real(wp) :: t(0:3), cj(0:3)
+    real(wp) :: q2(0:3), res2(0:3)
+    q2(0) = 0._wp
     q2(1:3) = q(:)
     call conjugate(r, cj)
     call prod(r, q2,  t)
@@ -88,10 +89,10 @@ contains
   subroutine rotate_inplace(n, coord, rot_quaternion)
     implicit none
     integer, intent(in) :: n
-    real, intent(in) :: rot_quaternion(0:3)
-    real, intent(inout) :: coord(3, n)
+    real(wp), intent(in) :: rot_quaternion(0:3)
+    real(wp), intent(inout) :: coord(3, n)
     integer :: i
-    real :: temp(3)
+    real(wp) :: temp(3)
     do i = 1, n
        call rotate(coord(:, i), rot_quaternion, temp)
        coord(:, i) = temp(:)
@@ -100,6 +101,7 @@ contains
 end module quaternion
 
 module bestfit
+  use precision_kinds, only: wp
   implicit none
 contains
   subroutine swap(a, b)
@@ -202,9 +204,9 @@ contains
   subroutine find_rotation_quaternion(n, refPt, movedPt, masses, rotation)
     implicit none
     integer :: n, info
-    real, intent(in) :: refPt(3, n), movedPt(3, n), masses(n)
-    real, intent(out) :: rotation(0:3)
-    real :: inner_prod(3, 3)
+    real(wp), intent(in) :: refPt(3, n), movedPt(3, n), masses(n)
+    real(wp), intent(out) :: rotation(0:3)
+    real(wp) :: inner_prod(3, 3)
     real(kind=8) :: matmax(4, 4)
     real(kind=8) :: eigenvalue(4)
     integer, parameter :: lwork = 256
@@ -253,9 +255,9 @@ contains
     use mpiproc, only: halt_with_error
     implicit none
     integer, intent(in) :: n
-    real, intent(in) :: points(3, n), masses(n)
-    real, intent(out) :: center(3)
-    real :: sumOfMasses
+    real(wp), intent(in) :: points(3, n), masses(n)
+    real(wp), intent(out) :: center(3)
+    real(wp) :: sumOfMasses
     integer :: i
     
     sumOfMasses = sum(masses)
@@ -268,10 +270,10 @@ contains
   subroutine com_shift(n, points, masses, center)
     implicit none
     integer, intent(in) :: n
-    real, intent(inout) :: points(3, n)
-    real, intent(in) :: masses(n)
-    real, intent(out) :: center(3)
-    real :: com(3)
+    real(wp), intent(inout) :: points(3, n)
+    real(wp), intent(in) :: masses(n)
+    real(wp), intent(out) :: center(3)
+    real(wp) :: com(3)
     integer :: i
 
     call center_of_mass(n, points, masses, com)
@@ -286,9 +288,9 @@ contains
   subroutine com_unshift(n, points, masses, center)
     implicit none
     integer, intent(in) :: n
-    real, intent(inout) :: points(3, n)
-    real, intent(in) :: masses(n)
-    real, intent(in) :: center(3)
+    real(wp), intent(inout) :: points(3, n)
+    real(wp), intent(in) :: masses(n)
+    real(wp), intent(in) :: center(3)
     integer :: i
 
     do i = 1, n
@@ -300,8 +302,8 @@ contains
   subroutine fit(n, refcoord, coord, masses, outcoord)
     implicit none
     integer, intent(in) :: n
-    real, intent(in) :: refcoord(3, n), coord(3, n), masses(n)
-    real, intent(out) :: outcoord(3, n)
+    real(wp), intent(in) :: refcoord(3, n), coord(3, n), masses(n)
+    real(wp), intent(out) :: outcoord(3, n)
     call fit_a_rotate_b(n, refcoord, coord, masses, n, coord, outcoord)
   end subroutine fit
 
@@ -310,14 +312,14 @@ contains
     use quaternion, only: rotate
     implicit none
     integer, intent(in) :: na, nb
-    real, intent(in) :: refa(3, na), a(3, na), massa(na)
-    real, intent(in) :: b(3, nb)
-    real, intent(out) :: bout(3, nb)
+    real(wp), intent(in) :: refa(3, na), a(3, na), massa(na)
+    real(wp), intent(in) :: b(3, nb)
+    real(wp), intent(out) :: bout(3, nb)
     
-    real :: workref(3, na), work(3, na)
-    real :: com_refa(3), com_a(3)
-    real :: bcrd(3), bcrdr(3)
-    real :: rotation(0:3)
+    real(wp) :: workref(3, na), work(3, na)
+    real(wp) :: com_refa(3), com_a(3)
+    real(wp) :: bcrd(3), bcrdr(3)
+    real(wp) :: rotation(0:3)
     integer :: i
     
     ! copy coordinate & align com
@@ -336,26 +338,26 @@ contains
   end subroutine fit_a_rotate_b
 
   ! RMSD calculation with best-fit
-  real function rmsd_bestfit(n, refcoord, coord, masses)
+  real(wp) function rmsd_bestfit(n, refcoord, coord, masses)
     implicit none
     integer, intent(in) :: n
-    real, intent(in) :: refcoord(3, n), coord(3, n), masses(n)
-    real :: fitted_coord(3, n)
+    real(wp), intent(in) :: refcoord(3, n), coord(3, n), masses(n)
+    real(wp) :: fitted_coord(3, n)
     call fit(n, refcoord, coord, masses, fitted_coord)
     rmsd_bestfit = rmsd_nofit(n, refcoord, fitted_coord, masses)
   end function rmsd_bestfit
 
   ! RMSD calculation without any fitting procedure
-  real function rmsd_nofit(n, crdA, crdB, masses)
+  real(wp) function rmsd_nofit(n, crdA, crdB, masses)
     use mpiproc, only: halt_with_error
     implicit none
     integer, intent(in) :: n
-    real, intent(in) :: crdA(3, n), crdB(3, n), masses(n)
+    real(wp), intent(in) :: crdA(3, n), crdB(3, n), masses(n)
     integer :: i
-    real :: sumOfMasses, disp, dx(3)
+    real(wp) :: sumOfMasses, disp, dx(3)
     sumOfMasses = sum(masses)
     if (sumOfMasses == 0) call halt_with_error('bst_zrw')
-    disp = 0.0
+    disp = 0.0_wp
     do i = 1, n
        dx(1:3) = crdB(1:3, i) - crdA(1:3, i)
        disp = disp + masses(i) * sum( dx(1:3) ** 2 )

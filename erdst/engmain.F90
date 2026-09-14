@@ -243,11 +243,12 @@
 !
 module engmain
 !
+  use precision_kinds, only: wp
   implicit none
   ! Note for optimization: any major compilers shall inline expand "parameter"s
   ! mathematical & physical constants
-  real, parameter :: PI = 3.1415926535897932
-  real, parameter :: cal_per_joule = 4.1840   ! thermochemical cal / J
+  real(wp), parameter :: PI = 3.1415926535897932_wp
+  real(wp), parameter :: cal_per_joule = 4.1840_wp   ! thermochemical cal / J
 !
   integer :: numtype, nummol, numatm, maxcnf, engdiv, skpcnf, corrcal, selfcal
   integer :: numatm_ext
@@ -256,7 +257,7 @@ module engmain
   integer :: sltspec, hostspec(max_for_spec), refspec(max_for_spec)
   integer :: insorigin, insposition, insorient, insstructure
   integer :: sltpick, refpick, inscnd, inscfg           ! deprecated
-  real :: lwreg, upreg, lwstr, upstr
+  real(wp) :: lwreg, upreg, lwstr, upstr
   integer :: ljformat, ljswitch, iseed
   real(kind=8) :: inptemp, temp
   integer :: ermax_limit
@@ -312,21 +313,21 @@ module engmain
 
 
   integer, allocatable :: moltype(:), numsite(:), sluvid(:)
-  real,    allocatable :: bfcoord(:,:)
-  real,    allocatable :: sitemass(:), charge(:), ljene(:), ljlen(:)
+  real(wp),    allocatable :: bfcoord(:,:)
+  real(wp),    allocatable :: sitemass(:), charge(:), ljene(:), ljlen(:)
 
   integer              :: ljtype_max
   integer, allocatable :: ljtype(:)
-  real,    allocatable :: ljlensq_mat(:,:), ljene_mat(:,:)
+  real(wp),    allocatable :: ljlensq_mat(:,:), ljene_mat(:,:)
   
-  real,    allocatable :: sitepos(:,:)
-  real,    allocatable :: mol_charge(:)
+  real(wp),    allocatable :: sitepos(:,:)
+  real(wp),    allocatable :: mol_charge(:)
   integer, allocatable :: mol_begin_index(:), belong_to(:)
-  real                 :: cell(3,3), invcl(3,3)
-  real                 :: celllen(3)
-  real                 :: volume
+  real(wp)                 :: cell(3,3), invcl(3,3)
+  real(wp)                 :: celllen(3)
+  real(wp)                 :: volume
 
-  real :: elecut, lwljcut, upljcut, screen, ewtoler
+  real(wp) :: elecut, lwljcut, upljcut, screen, ewtoler
   character(len=8) :: scrtype
   integer :: intprm, cmbrule, cltype, splodr
   integer :: ew1max, ew2max, ew3max, ms1max, ms2max, ms3max
@@ -336,14 +337,14 @@ module engmain
   real(kind=8), allocatable :: uvcrd(:), edens(:)
   real(kind=8), allocatable :: ecorr(:,:)
   real(kind=8), allocatable :: escrd(:), eself(:)
-  real,         allocatable :: aveuv(:,:)
-  real,         allocatable :: slnuv(:)
+  real(wp),     allocatable :: aveuv(:,:)
+  real(wp),     allocatable :: slnuv(:)
   real(kind=8), allocatable :: avediv(:,:)
   real(kind=8)                       :: avslf
-  real,         allocatable :: minuv(:), maxuv(:)
+  real(wp),     allocatable :: minuv(:), maxuv(:)
   integer                            :: numslt
   integer,      allocatable :: sltlist(:)
-  real :: stat_weight_system
+  real(wp) :: stat_weight_system
   real(kind=8) :: engnorm, engsmpl, voffset
   logical :: voffset_initialized = .false.
 

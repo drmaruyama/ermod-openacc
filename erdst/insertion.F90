@@ -18,8 +18,9 @@
 
 module ptinsrt
   ! test particle insertion of the solute
+  use precision_kinds, only: wp
   implicit none
-  real, save :: unrn
+  real(wp), save :: unrn
   !
   ! insertion against reference structure
   !   insorigin = INSORG_REFSTR: solvent species as superposition reference
@@ -30,9 +31,9 @@ module ptinsrt
   ! variables for reference structure
   integer              :: refhost_natom,      refslt_natom
   integer, allocatable :: refhost_specatm(:), refslt_specatm(:)
-  real,    allocatable :: refhost_crd(:,:),   refslt_crd(:,:)
-  real,    allocatable :: refhost_weight(:),  refslt_weight(:)
-  real,    allocatable ::                     refslt_bestfit(:,:)
+  real(wp),    allocatable :: refhost_crd(:,:),   refslt_crd(:,:)
+  real(wp),    allocatable :: refhost_weight(:),  refslt_weight(:)
+  real(wp),    allocatable ::                     refslt_bestfit(:,:)
   !
 contains
   subroutine instslt(caltype, cntdst, stat_weight_solute)
@@ -41,7 +42,7 @@ contains
     implicit none
     character(len=4),  intent(in) :: caltype
     integer, optional, intent(in) :: cntdst
-    real,    optional, intent(out) :: stat_weight_solute
+    real(wp),    optional, intent(out) :: stat_weight_solute
     integer, save :: insml
     logical :: reject
     
@@ -104,7 +105,7 @@ contains
     implicit none
     integer, intent(in) :: insml, cntdst
     integer :: molb, mole, molb_ext, mole_ext, nsite
-    real :: syscen(3)
+    real(wp) :: syscen(3)
 
     nsite = numsite(insml)
     molb = mol_begin_index(insml)
@@ -142,11 +143,11 @@ contains
     use bestfit, only: center_of_mass
     implicit none
     integer, intent(in) :: insml, cntdst
-    real, intent(inout) :: weight
+    real(wp), intent(inout) :: weight
     
     integer :: i, insb, inse, insb_ext, inse_ext
-    real :: com(3), syscen(3), r(3), norm, dir, t, maxdis, dst, movmax
-    real, parameter :: margin_factor = 3.0   ! see below for explanation
+    real(wp) :: com(3), syscen(3), r(3), norm, dir, t, maxdis, dst, movmax
+    real(wp), parameter :: margin_factor = 3.0_wp   ! see below for explanation
 
     select case(insposition)
     case(INSPOS_RANDOM)
@@ -239,7 +240,7 @@ contains
       use engmain, only: numsite, mol_begin_index, mol_end_index, sitepos
       implicit none
       integer, intent(in) :: insml, cntdst
-      real, intent(in) :: com(3)
+      real(wp), intent(in) :: com(3)
       integer :: insb, inse, m
       insb = mol_begin_index(insml)
       inse = mol_end_index(insml)
@@ -255,16 +256,16 @@ contains
       use mpiproc, only: myrank
       use engmain, only: PI, celllen, upreg
       implicit none
-      real, intent(out) :: com(3)
-      real, intent(inout) :: weight
+      real(wp), intent(out) :: com(3)
+      real(wp), intent(inout) :: weight
 
-      real, parameter :: uniform_ratio = 0.5
+      real(wp), parameter :: uniform_ratio = 0.5_wp
 
       integer :: i
-      real :: scaled_coord(3), sqsum
-      real :: r
+      real(wp) :: scaled_coord(3), sqsum
+      real(wp) :: r
 
-      real, save :: l_of_sigma(3), z0, z1
+      real(wp), save :: l_of_sigma(3), z0, z1
       logical, save :: use_uniform = .false.
       logical, save :: first_time = .true.
 
@@ -310,9 +311,9 @@ contains
     use bestfit, only: com_shift, com_unshift
     implicit none
     integer, intent(in) :: insml, cntdst
-    real, intent(in) :: com(3)
+    real(wp), intent(in) :: com(3)
     integer :: insb, inse, insb_ext, inse_ext, i, n
-    real :: tempcom(3)
+    real(wp) :: tempcom(3)
     
     n = numsite(insml)
     insb = mol_begin_index(insml)
@@ -336,7 +337,7 @@ contains
     implicit none
     integer, intent(in) :: insml, cntdst
     integer :: insb, inse, insb_ext, inse_ext, i, n
-    real :: com(3), randq(0:3)
+    real(wp) :: com(3), randq(0:3)
     
     n = numsite(insml)
     insb = mol_begin_index(insml)
@@ -403,18 +404,18 @@ contains
     character(len=4),  intent(in) :: caltype
     integer,           intent(in) :: insml
     integer, optional, intent(in) :: cntdst
-    real,    optional, intent(out) :: stat_weight
+    real(wp),    optional, intent(out) :: stat_weight
     logical, save :: read_weight
     logical, save :: consecutive_read = .false.  ! .true. for special purpose
     integer, save :: stmax, readmax
     integer, save :: solute_mpikind
-    real, allocatable, save :: solute_crd(:,:,:)
-    real, allocatable, save :: solute_wgt(:)
-    real, allocatable :: read_crd(:,:,:)
-    real, allocatable :: read_wgt(:)
-    real, allocatable :: psite(:,:)
+    real(wp), allocatable, save :: solute_crd(:,:,:)
+    real(wp), allocatable, save :: solute_wgt(:)
+    real(wp), allocatable :: read_crd(:,:,:)
+    real(wp), allocatable :: read_wgt(:)
+    real(wp), allocatable :: psite(:,:)
     integer :: dumint, readcnt, iproc, ioerr
-    real :: dumcl(3, 3), weight, rmsd
+    real(wp) :: dumcl(3, 3), weight, rmsd
     logical :: reject
  
     if (slttype /= SLT_REFS_FLEX) call halt_with_error('ins_bug')
@@ -548,16 +549,16 @@ contains
   ! (which is included in fortran 95 standards)
   subroutine urand(rndm)          ! uniform random number generator
     implicit none
-    real, intent(out) :: rndm
+    real(wp), intent(out) :: rndm
     call random_number(rndm)
   end subroutine urand
 
   ! Normal random variable N(0,1)
   ! uses Box-Muller method
-  real function nrand()
+  real(wp) function nrand()
     use engmain, only: PI
     implicit none
-    real :: r1, r2
+    real(wp) :: r1, r2
     call urand(r1)
     call urand(r2)
     ! get (0,1] instead of [0, 1)
@@ -589,9 +590,9 @@ contains
                        mol_begin_index, mol_end_index, sitemass, sitepos
     use bestfit, only: center_of_mass
     implicit none
-    real, intent(out) :: aggregate_center(3)
-    real, allocatable :: agg_mass(:)
-    real, allocatable :: agg_site(:,:)
+    real(wp), intent(out) :: aggregate_center(3)
+    real(wp), allocatable :: agg_mass(:)
+    real(wp), allocatable :: agg_site(:,:)
     integer :: num_aggsite, molb, mole, nsite, cnt, i
     num_aggsite = 0
     do i = 1, nummol
@@ -624,7 +625,7 @@ contains
     integer, intent(in) :: insml
     logical, intent(inout) :: out_of_range
     integer :: ptb, pte
-    real :: rmsd
+    real(wp) :: rmsd
     if (out_of_range) return
     if (insorigin == INSORG_REFSTR) then
        if ((insposition /= INSPOS_RMSD) .and. (insposition /= INSPOS_GAUSS)) then
@@ -649,7 +650,7 @@ contains
     implicit none
     integer :: i
     logical, save :: first_time = .true.
-    real, allocatable :: hostcrd(:,:), fit_sltcrd(:,:)
+    real(wp), allocatable :: hostcrd(:,:), fit_sltcrd(:,:)
     if (first_time) then
        allocate( refslt_bestfit(3, refslt_natom) )
        first_time = .false.
@@ -679,7 +680,7 @@ contains
     use mpiproc, only: halt_with_error
     implicit none
     integer :: sltmol, atom_count, i, sid, stat
-    real :: crd(3), wgt
+    real(wp) :: crd(3), wgt
     character(len=6) :: header
 
     refhost_natom = 0
@@ -739,9 +740,9 @@ contains
       use engmain, only: sitemass
       implicit none
       integer, intent(in) :: ati
-      real, intent(out) :: crd(3), wgt
-      real, parameter :: massHe = 4.0026          ! atomic weight (helium)
-      real :: refindex
+      real(wp), intent(out) :: crd(3), wgt
+      real(wp), parameter :: massHe = 4.0026_wp          ! atomic weight (helium)
+      real(wp) :: refindex
       character(len=6) :: header
       do                       ! skip until ATOM/HETATM lines
          read(refstr_io, '(A6)', advance='no') header
@@ -749,8 +750,8 @@ contains
          read(refstr_io, *)
       end do
       read(refstr_io, '(24X, 3F8.3, F6.2)') crd(1:3), refindex
-      if (refindex == 0.0) then ! not counted as an atom in reference structure
-         wgt = 0.0
+      if (refindex == 0.0_wp) then ! not counted as an atom in reference structure
+         wgt = 0.0_wp
       else                      ! atom in reference with a weight given below
          ! initialize the weight as the atomic mass
          wgt = sitemass(ati)
@@ -758,11 +759,11 @@ contains
          ! user can implement his own special selection rule to mask fitting
          ! (e.g. by using B-factor, etc.)
          ! default: hydrogen is masked and the others have the same weight
-         if (wgt > 0.95 * massHe) then    ! non-hydrogen
+         if (wgt > 0.95_wp * massHe) then    ! non-hydrogen
             ! wgt >= massHe, actually, where massHe is the helium atomic weight
-            wgt = 1.0
+            wgt = 1.0_wp
          else                            ! hydrogen
-            wgt = 0.0
+            wgt = 0.0_wp
          endif
          !
          ! comment out the following line if the mass weight is to be used

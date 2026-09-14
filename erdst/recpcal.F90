@@ -17,22 +17,23 @@
 ! Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 module reciprocal
+  use precision_kinds, only: wp
   use fft_iface, only: fft_handle
   implicit none
   integer :: rc1min, rc1max, rc2min, rc2max, rc3min, rc3max
   integer :: ccesize, ccemax
   integer, allocatable :: slvtag(:)
-  real,    allocatable :: engfac(:,:,:)
-  real,    allocatable :: gf_b(:)
-  complex, allocatable :: rcpslt(:,:,:)
-  real,    allocatable :: splslv(:,:,:)
+  real(wp),    allocatable :: engfac(:,:,:)
+  real(wp),    allocatable :: gf_b(:)
+  complex(wp), allocatable :: rcpslt(:,:,:)
+  real(wp),    allocatable :: splslv(:,:,:)
   integer, allocatable :: grdslv(:,:)
-  real,    allocatable :: cnvslt(:,:,:), cnvslt_r(:,:,:,:)
-  real,    allocatable :: splfc1(:), splfc2(:), splfc3(:)
-  complex, allocatable :: fft_buf(:, :, :)
+  real(wp),    allocatable :: cnvslt(:,:,:), cnvslt_r(:,:,:,:)
+  real(wp),    allocatable :: splfc1(:), splfc2(:), splfc3(:)
+  complex(wp), allocatable :: fft_buf(:, :, :)
 
-  real,    allocatable :: solute_self_energy_refs(:)
-  real :: solute_self_energy
+  real(wp),    allocatable :: solute_self_energy_refs(:)
+  real(wp) :: solute_self_energy
 
   type(fft_handle) :: handle_c2r, handle_r2c
 
@@ -99,21 +100,21 @@ contains
     use spline, only: spline_value
     implicit none
     integer, intent(in) :: imin, imax
-    real, intent(out) :: splfc(imin:imax)
-    real :: chr, factor, rtp2
-    real :: cosk, sink
-    complex :: rcpi
+    real(wp), intent(out) :: splfc(imin:imax)
+    real(wp) :: chr, factor, rtp2
+    real(wp) :: cosk, sink
+    complex(wp) :: rcpi
     integer :: rci, spi
     do rci = imin, imax
-       rcpi = (0.0, 0.0)
+       rcpi = (0.0_wp, 0.0_wp)
        do spi = 0, splodr - 2
-          chr = spline_value(real(spi + 1))
-          rtp2 = 2.0 * PI * real(spi * rci) / real(imax + 1)
+          chr = spline_value(real(spi + 1, wp))
+          rtp2 = 2.0_wp * PI * real(spi * rci, wp) / real(imax + 1, wp)
           cosk = chr * cos(rtp2)
           sink = chr * sin(rtp2)
-          rcpi = rcpi + cmplx(cosk, sink)
+          rcpi = rcpi + cmplx(cosk, sink, wp)
        end do
-       factor = real(rcpi * conjg(rcpi))
+       factor = real(rcpi * conjg(rcpi), wp)
        splfc(rci) = factor
     end do
   end subroutine init_spline_axis
@@ -122,12 +123,12 @@ contains
     use engmain, only: invcl, ms1max, ms2max, ms3max, splodr, volume, screen, PI
     implicit none
     integer :: rc1, rc2, rc3, rci, m, rcimax
-    real :: factor, rtp2, chr
-    real :: inm(3), xst(3)
+    real(wp) :: factor, rtp2, chr
+    real(wp) :: inm(3), xst(3)
     do rc3 = rc3min, rc3max
        do rc2 = rc2min, rc2max
           do rc1 = rc1min, ccemax
-             factor = 0.0
+             factor = 0.0_wp
              if (rc1 == 0 .and. rc2 == 0 .and. rc3 == 0) cycle
              do m = 1, 3
                 if (m == 1) rci = rc1
@@ -140,9 +141,9 @@ contains
 
                 if ((mod(splodr, 2) == 1) .and. (2*abs(rci) == rcimax)) goto 3219
                 if (rci <= rcimax / 2) then
-                   inm(m) = real(rci)
+                   inm(m) = real(rci, wp)
                 else
-                   inm(m) = real(rci - rcimax)
+                   inm(m) = real(rci - rcimax, wp)
                 endif
              end do
              do m = 1, 3
@@ -181,7 +182,7 @@ contains
     use engmain, only: splodr
     implicit none
     integer :: l, m
-    real :: gaminv
+    real(wp) :: gaminv
 
     gf_b(2:splodr) = 0.
     gf_b(1) = 1.
@@ -201,10 +202,10 @@ contains
   function gf_denom(x,y,z) result(denom)
     use engmain, only: splodr
     implicit none
-    real, intent(in) :: x, y, z
-    real :: s(3), denom
+    real(wp), intent(in) :: x, y, z
+    real(wp) :: s(3), denom
     integer :: l
-    s(1:3) = 0.
+    s(1:3) = 0._wp
     do l = splodr, 1, -1
        s(1) = gf_b(l) + s(1) * x
        s(2) = gf_b(l) + s(2) * y
@@ -220,11 +221,11 @@ contains
     implicit none
     integer :: rc1, rc2, rc3, i
     integer :: mx, my, mz, mx_max, my_max, mz_max, mN(3)
-    real :: factor
-    real :: inm(3) ! folded rc1, rc2 or rc3
-    real :: k(3), sin2kh2(3), k2, sum_dru2, tmp, kmk(3), km(3)
-    real :: gam(3), m_max(3), ukm(3)
-    real,parameter :: EPS_HOC = 0.0000001 ! this value is adopted in LAMMPS 10Feb15
+    real(wp) :: factor
+    real(wp) :: inm(3) ! folded rc1, rc2 or rc3
+    real(wp) :: k(3), sin2kh2(3), k2, sum_dru2, tmp, kmk(3), km(3)
+    real(wp) :: gam(3), m_max(3), ukm(3)
+    real(wp),parameter :: EPS_HOC = 0.0000001_wp ! this value is adopted in LAMMPS 10Feb15
     m_max(1) = screen/(PI*ms1max)*((-log(EPS_HOC))**0.25) ! LAMMPS' form
     m_max(2) = screen/(PI*ms2max)*((-log(EPS_HOC))**0.25)
     m_max(3) = screen/(PI*ms3max)*((-log(EPS_HOC))**0.25)
@@ -363,8 +364,8 @@ contains
     integer, intent(in) :: tagslt
     integer :: i, j, k
     integer :: rc1, rc2, rc3, sid, ati, cg1, cg2, cg3, stmax
-    real :: factor, chr
-    real, allocatable, save :: splval(:,:,:)
+    real(wp) :: factor, chr
+    real(wp), allocatable, save :: splval(:,:,:)
     integer, allocatable, save :: grdval(:,:)
     logical, save :: initialized = .false.
 
@@ -375,7 +376,7 @@ contains
     end if
     call calc_spline_molecule(tagslt, stmax, splval(:,:,1:stmax), grdval(:,1:stmax))
     !$acc parallel present(cnvslt)
-    cnvslt = 0.0
+    cnvslt = 0.0_wp
     !$acc end parallel
     !$acc parallel loop present(mol_begin_index, charge, cnvslt, rcpslt)
     do sid = 1, stmax
@@ -407,13 +408,13 @@ contains
     ! Here we use symmetry of engfac to calculate efficiently
     if (mod(ms1max, 2) == 0) then
        solute_self_energy = &
-            sum(engfac(1:(ccemax-1), :, :) * real(rcpslt(1:(ccemax-1), :, :) * conjg(rcpslt(1:(ccemax-1), :, :)))) + &
-            0.5 * sum(engfac(0,      :, :) * real(rcpslt(0,      :, :) * conjg(rcpslt(0,      :, :)))) + &
-            0.5 * sum(engfac(ccemax, :, :) * real(rcpslt(ccemax, :, :) * conjg(rcpslt(ccemax, :, :))))
+            sum(engfac(1:(ccemax-1), :, :) * real(rcpslt(1:(ccemax-1), :, :) * conjg(rcpslt(1:(ccemax-1), :, :)), wp)) + &
+            0.5_wp * sum(engfac(0,      :, :) * real(rcpslt(0,      :, :) * conjg(rcpslt(0,      :, :)), wp)) + &
+            0.5_wp * sum(engfac(ccemax, :, :) * real(rcpslt(ccemax, :, :) * conjg(rcpslt(ccemax, :, :)), wp))
     else
        solute_self_energy = &
-            sum(engfac(1:ccemax, :, :) * real(rcpslt(1:ccemax, :, :) * conjg(rcpslt(1:ccemax, :, :)))) + &
-            0.5 * sum(engfac(0,      :, :) * real(rcpslt(0,      :, :) * conjg(rcpslt(0,      :, :))))
+            sum(engfac(1:ccemax, :, :) * real(rcpslt(1:ccemax, :, :) * conjg(rcpslt(1:ccemax, :, :)), wp)) + &
+            0.5_wp * sum(engfac(0,      :, :) * real(rcpslt(0,      :, :) * conjg(rcpslt(0,      :, :)), wp))
     endif
 
     ! NOTE: this used to be written as a triple "do concurrent" under
@@ -448,8 +449,8 @@ contains
     integer, intent(in) :: tagslt, maxdst
     integer :: i, j, k, cnt
     integer :: rc1, rc2, rc3, sid, ati, cg1, cg2, cg3, stmax
-    real :: factor, chr
-    real, allocatable, save :: splval(:,:,:)
+    real(wp) :: factor, chr
+    real(wp), allocatable, save :: splval(:,:,:)
     integer, allocatable, save :: grdval(:,:)
     logical, save :: initialized = .false.
 
@@ -496,13 +497,13 @@ contains
        ! Here we use symmetry of engfac to calculate efficiently
        if (mod(ms1max, 2) == 0) then
           solute_self_energy_refs(cnt) = &
-               sum(engfac(1:(ccemax-1), :, :) * real(rcpslt(1:(ccemax-1), :, :) * conjg(rcpslt(1:(ccemax-1), :, :)))) + &
-               0.5 * sum(engfac(0,      :, :) * real(rcpslt(0,      :, :) * conjg(rcpslt(0,      :, :)))) + &
-               0.5 * sum(engfac(ccemax, :, :) * real(rcpslt(ccemax, :, :) * conjg(rcpslt(ccemax, :, :))))
+               sum(engfac(1:(ccemax-1), :, :) * real(rcpslt(1:(ccemax-1), :, :) * conjg(rcpslt(1:(ccemax-1), :, :)), wp)) + &
+               0.5_wp * sum(engfac(0,      :, :) * real(rcpslt(0,      :, :) * conjg(rcpslt(0,      :, :)), wp)) + &
+               0.5_wp * sum(engfac(ccemax, :, :) * real(rcpslt(ccemax, :, :) * conjg(rcpslt(ccemax, :, :)), wp))
        else
           solute_self_energy_refs(cnt) = &
-               sum(engfac(1:ccemax, :, :) * real(rcpslt(1:ccemax, :, :) * conjg(rcpslt(1:ccemax, :, :)))) + &
-               0.5 * sum(engfac(0,      :, :) * real(rcpslt(0,      :, :) * conjg(rcpslt(0,      :, :))))
+               sum(engfac(1:ccemax, :, :) * real(rcpslt(1:ccemax, :, :) * conjg(rcpslt(1:ccemax, :, :)), wp)) + &
+               0.5_wp * sum(engfac(0,      :, :) * real(rcpslt(0,      :, :) * conjg(rcpslt(0,      :, :)), wp))
        endif
 
        ! see the comment at the equivalent loop in recpcal_prepare_solute
@@ -527,12 +528,12 @@ contains
     implicit none
 
     integer, intent(in) :: imol, stmax
-    real, intent(out) :: store_spline(0:splodr-1, 3, 1:stmax)
+    real(wp), intent(out) :: store_spline(0:splodr-1, 3, 1:stmax)
     integer, intent(out) :: store_grid(3, 1:stmax)
     
     integer :: sid, ati, rcimax, m, k, rci, spi
-    real :: xst(3), inm(3)
-    real :: factor, rtp2
+    real(wp) :: xst(3), inm(3)
+    real(wp) :: factor, rtp2
 
     do sid = 1, stmax
        ati = specatm(sid, imol)
@@ -546,10 +547,10 @@ contains
           if (m == 1) rcimax = ms1max
           if (m == 2) rcimax = ms2max
           if (m == 3) rcimax = ms3max
-          factor = inm(m) * real(rcimax)
+          factor = inm(m) * real(rcimax, wp)
           rci = int(factor)
           do spi = 0, splodr - 1
-             rtp2 = factor - real(rci - spi)
+             rtp2 = factor - real(rci - spi, wp)
              store_spline(spi, m, sid) = spline_value(rtp2)
           end do
           store_grid(m, sid) = rci
@@ -563,12 +564,12 @@ contains
     implicit none
 
     integer, intent(in) :: imol, cntdst, stmax
-    real, intent(out) :: store_spline(0:splodr-1, 3, 1:stmax)
+    real(wp), intent(out) :: store_spline(0:splodr-1, 3, 1:stmax)
     integer, intent(out) :: store_grid(3, 1:stmax)
 
     integer :: sid, ati, ati_ext, rcimax, m, k, rci, spi
-    real :: xst(3), inm(3)
-    real :: factor, rtp2
+    real(wp) :: xst(3), inm(3)
+    real(wp) :: factor, rtp2
 
     do sid = 1, stmax
        ati = specatm(sid, imol)
@@ -583,10 +584,10 @@ contains
           if (m == 1) rcimax = ms1max
           if (m == 2) rcimax = ms2max
           if (m == 3) rcimax = ms3max
-          factor = inm(m) * real(rcimax)
+          factor = inm(m) * real(rcimax, wp)
           rci = int(factor)
           do spi = 0, splodr - 1
-             rtp2 = factor - real(rci - spi)
+             rtp2 = factor - real(rci - spi, wp)
              store_spline(spi, m, sid) = spline_value(rtp2)
           end do
           store_grid(m, sid) = rci
@@ -596,7 +597,7 @@ contains
 
   function recpcal_self_energy() result(pairep)
     implicit none
-    real :: pairep
+    real(wp) :: pairep
 
     pairep = solute_self_energy
   end function recpcal_self_energy
@@ -604,7 +605,7 @@ contains
   function recpcal_self_energy_refs(cnt) result(pairep)
     implicit none
     integer, intent(in) :: cnt
-    real :: pairep
+    real(wp) :: pairep
 
     pairep = solute_self_energy_refs(cnt)
   end function recpcal_self_energy_refs
@@ -614,14 +615,14 @@ contains
     use mpiproc, only: halt_with_error
     implicit none
     integer, intent(in) :: tagslt, tagpt(:), slvmax, cnt
-    real, intent(inout) :: uvengy(:, :)
+    real(wp), intent(inout) :: uvengy(:, :)
 
-    real :: pairep
+    real(wp) :: pairep
     integer :: cg1, cg2, cg3, i, k
     integer :: rc1, rc2, rc3, ptrnk, sid, ati, svi, stmax
-    real :: fac1, fac2, fac3, chr
+    real(wp) :: fac1, fac2, fac3, chr
     integer :: grid1
-    complex :: rcpt
+    complex(wp) :: rcpt
 
     if (sluvid(tagslt) == 0) stop  ! call halt_with_error('rcp_fst')
 
@@ -630,7 +631,7 @@ contains
        i = tagpt(k)
        if (i == tagslt) cycle
 
-       pairep = 0.0
+       pairep = 0.0_wp
        svi = slvtag(i)
        if (svi <= 0) stop  ! call halt_with_error('rcp_cns')
        stmax = numsite(i)
@@ -650,14 +651,14 @@ contains
                    do cg1 = 0, splodr - 1
                       fac3 = fac2 * splslv(cg1, 1, ptrnk)
                       rc1 = grid1 - cg1
-                      pairep = pairep + fac3 * real(cnvslt(rc1, rc2, rc3))
+                      pairep = pairep + fac3 * cnvslt(rc1, rc2, rc3)
                    enddo
                 else
                    !$acc loop seq
                    do cg1 = 0, splodr - 1
                       fac3 = fac2 * splslv(cg1, 1, ptrnk)
                       rc1 = mod(grid1 + ms1max - cg1, ms1max) ! speedhack
-                      pairep = pairep + fac3 * real(cnvslt(rc1, rc2, rc3))
+                      pairep = pairep + fac3 * cnvslt(rc1, rc2, rc3)
                    end do
                 endif
              end do
@@ -673,14 +674,14 @@ contains
     use mpiproc, only: halt_with_error
     implicit none
     integer, intent(in) :: tagslt, maxdst, slvmax
-    real, intent(inout) :: uvengy(:, :)
+    real(wp), intent(inout) :: uvengy(:, :)
 
-    real :: pairep
+    real(wp) :: pairep
     integer :: cg1, cg2, cg3, i, k, cnt
     integer :: rc1, rc2, rc3, ptrnk, sid, ati, svi, stmax
-    real :: fac1, fac2, fac3, chr
+    real(wp) :: fac1, fac2, fac3, chr
     integer :: grid1
-    complex :: rcpt
+    complex(wp) :: rcpt
 
     if (sluvid(tagslt) == 0) stop  ! call halt_with_error('rcp_fst')
 
@@ -688,7 +689,7 @@ contains
     do cnt = 1, maxdst
     do i = 1, slvmax
 
-       pairep = 0.0
+       pairep = 0.0_wp
        svi = slvtag(i)
        if (svi <= 0) stop  ! call halt_with_error('rcp_cns')
        stmax = numsite(i)
@@ -709,7 +710,7 @@ contains
                       fac3 = fac2 * splslv(cg1, 1, ptrnk)
                       rc1 = grid1 - cg1
                       pairep = pairep &
-                           + fac3 * real(cnvslt_r(rc1, rc2, rc3, cnt))
+                           + fac3 * cnvslt_r(rc1, rc2, rc3, cnt)
                    enddo
                 else
                    !$acc loop seq
@@ -717,7 +718,7 @@ contains
                       fac3 = fac2 * splslv(cg1, 1, ptrnk)
                       rc1 = mod(grid1 + ms1max - cg1, ms1max) ! speedhack
                       pairep = pairep &
-                           + fac3 * real(cnvslt_r(rc1, rc2, rc3, cnt))
+                           + fac3 * cnvslt_r(rc1, rc2, rc3, cnt)
                    end do
                 endif
              end do

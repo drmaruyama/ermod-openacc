@@ -17,24 +17,25 @@
 ! Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 module spline
+  use precision_kinds, only: wp
   implicit none
-  real, allocatable :: coeff(:)
+  real(wp), allocatable :: coeff(:)
   integer :: order
 contains
 
   subroutine spline_init(spline_order)
     integer, intent(in) :: spline_order
     integer :: i, k
-    real :: factor
+    real(wp) :: factor
     order = spline_order
     allocate( coeff(0:order) )
     do i = 0, order
-       factor = 1.0
+       factor = 1.0_wp
        do k = 1, i ! pass thru when i == 0
-          factor = factor * real(k)
+          factor = factor * real(k, wp)
        end do
        do k = 1, order - i ! pass thru when i == order
-          factor = factor * real(k)
+          factor = factor * real(k, wp)
        end do
        factor = order / factor
        if (mod(i,2) == 1) factor = -factor
@@ -43,12 +44,12 @@ contains
   end subroutine spline_init
 
   ! FIXME: speed it up
-  real function spline_value(rst)
-    real, intent(in) :: rst
+  real(wp) function spline_value(rst)
+    real(wp), intent(in) :: rst
     integer :: i, k
-    real :: f
-    f = 0.0
-    if ((rst > 0.0) .and. (rst < order)) then
+    real(wp) :: f
+    f = 0.0_wp
+    if ((rst > 0.0_wp) .and. (rst < order)) then
        k = int(rst)
        do i = 0, k
           f = f + coeff(i) * ((rst-i)**(order-1))

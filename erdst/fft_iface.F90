@@ -17,6 +17,7 @@
 ! Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 module fft_iface
+  use precision_kinds, only: wp
   use cufft
   implicit none
 
@@ -85,8 +86,8 @@ contains
   
   subroutine fft_init_rtc(handle, in, out)
     type(fft_handle), intent(out) :: handle
-    real, intent(in) :: in(fftsize(1), fftsize(2), fftsize(3))
-    complex, intent(out) :: out(fftsize(1)/2+1, fftsize(2), fftsize(3))
+    real(wp), intent(in) :: in(fftsize(1), fftsize(2), fftsize(3))
+    complex(wp), intent(out) :: out(fftsize(1)/2+1, fftsize(2), fftsize(3))
     integer :: stat
 #ifdef DP
     stat = cufftPlan3D(handle%plan, fftsize(1), fftsize(2), fftsize(3), &
@@ -100,8 +101,8 @@ contains
 
   subroutine fft_init_ctr(handle, in, out)
     type(fft_handle), intent(out) :: handle
-    complex, intent(in) :: in(fftsize(1)/2+1, fftsize(2), fftsize(3))
-    real, intent(out) :: out(fftsize(1), fftsize(2), fftsize(3))
+    complex(wp), intent(in) :: in(fftsize(1)/2+1, fftsize(2), fftsize(3))
+    real(wp), intent(out) :: out(fftsize(1), fftsize(2), fftsize(3))
     integer :: stat
 #ifdef DP
     stat = cufftPlan3D(handle%plan, fftsize(1), fftsize(2), fftsize(3), &
@@ -117,8 +118,8 @@ contains
     use openacc
     use cufft
     type(fft_handle), intent(in) :: handle
-    real, intent(in) :: in(fftsize(1), fftsize(2), fftsize(3))
-    complex, intent(out) :: out(fftsize(1)/2+1, fftsize(2), fftsize(3))
+    real(wp), intent(in) :: in(fftsize(1), fftsize(2), fftsize(3))
+    complex(wp), intent(out) :: out(fftsize(1)/2+1, fftsize(2), fftsize(3))
     integer :: stat
     !$acc data present(in, out)
     !$acc host_data use_device(in, out)
@@ -134,8 +135,8 @@ contains
 
   subroutine fft_ctr(handle, in, out)
     type(fft_handle), intent(in) :: handle
-    complex, intent(in) :: in(fftsize(1)/2+1, fftsize(2), fftsize(3))
-    real, intent(out) :: out(fftsize(1), fftsize(2), fftsize(3))
+    complex(wp), intent(in) :: in(fftsize(1)/2+1, fftsize(2), fftsize(3))
+    real(wp), intent(out) :: out(fftsize(1), fftsize(2), fftsize(3))
     integer :: stat
     !$acc data present(in, out)
     !$acc host_data use_device(in, out)

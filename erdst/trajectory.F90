@@ -20,6 +20,7 @@
 
 module trajectory
   use, intrinsic :: iso_c_binding, only: c_ptr, c_null_ptr, c_char, c_float, c_int
+  use precision_kinds, only: wp
   implicit none
 
   type handle
@@ -118,8 +119,8 @@ contains
     type(handle), intent(in) :: htraj
     integer, intent(in) :: natom
     logical, intent(in) :: is_periodic
-    real, intent(out) :: crd(3, natom)
-    real, intent(out) :: cell(3, 3)
+    real(wp), intent(out) :: crd(3, natom)
+    real(wp), intent(out) :: cell(3, 3)
     integer, intent(out) :: status
 
     ! The VMD plugin ABI (vmdfio.c) always speaks single precision,

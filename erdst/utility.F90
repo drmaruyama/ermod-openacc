@@ -26,6 +26,7 @@
 module utility
   use, intrinsic :: iso_c_binding, only: c_int, c_int64_t, c_ptr, c_loc
   use, intrinsic :: iso_fortran_env, only: real32, real64, int64
+  use precision_kinds, only: wp
   implicit none
 
 #ifndef HAVE_TRANSFER
@@ -39,14 +40,14 @@ module utility
   ! real(c_double)/real(c_float). hash() below is called at several
   ! sites (see engproc.F90) by passing a 2D array section into a 1D
   ! explicit-shape dummy via sequence association; that means hash()
-  ! itself has to stay a single, non-generic procedure taking a plain
-  ! "real" of whichever kind the build uses. If the two C entry points
-  ! were declared with explicit real(c_double)/real(c_float) dummies,
-  ! the *textual* call to whichever one doesn't match the build's real
-  ! kind would fail to compile, even though it is never executed.
-  ! Routing through type(c_ptr) sidesteps that: both calls type-check
-  ! unconditionally, and the correct one is chosen at run time exactly
-  ! as before.
+  ! itself has to stay a single, non-generic procedure taking a
+  ! real(wp) array (wp being ERmod's single build-wide precision, see
+  ! precision.F90). If the two C entry points were declared with
+  ! explicit real(c_double)/real(c_float) dummies, the *textual* call
+  ! to whichever one doesn't match wp would fail to compile, even
+  ! though it is never executed. Routing through type(c_ptr) sidesteps
+  ! that: both calls type-check unconditionally, and the correct one
+  ! is chosen at run time exactly as before.
   interface
      subroutine hash_double_c(v, elms, hash_out) bind(c, name="hash_double_")
        import :: c_ptr, c_int, c_int64_t
@@ -68,7 +69,7 @@ contains
 
   integer(int64) function hash(arr, n) result(hash_out)
     integer, intent(in) :: n
-    real, intent(in) :: arr(n)
+    real(wp), intent(in) :: arr(n)
 #ifdef HAVE_TRANSFER
     integer(int64) :: ret
     integer :: i
@@ -79,7 +80,7 @@ contains
     end do
     hash_out = ret
 #else
-    real, target :: local_arr(n)
+    real(wp), target :: local_arr(n)
     integer(c_int64_t) :: ret
 
     local_arr = arr

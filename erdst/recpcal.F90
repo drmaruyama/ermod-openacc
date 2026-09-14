@@ -125,11 +125,13 @@ contains
     integer :: rc1, rc2, rc3, rci, m, rcimax
     real(wp) :: factor, rtp2, chr
     real(wp) :: inm(3), xst(3)
+    logical :: at_nyquist
     do rc3 = rc3min, rc3max
        do rc2 = rc2min, rc2max
           do rc1 = rc1min, ccemax
              factor = 0.0_wp
              if (rc1 == 0 .and. rc2 == 0 .and. rc3 == 0) cycle
+             at_nyquist = .false.
              do m = 1, 3
                 if (m == 1) rci = rc1
                 if (m == 2) rci = rc2
@@ -139,22 +141,27 @@ contains
                 if (m == 2) rcimax = ms2max
                 if (m == 3) rcimax = ms3max
 
-                if ((mod(splodr, 2) == 1) .and. (2*abs(rci) == rcimax)) goto 3219
+                if ((mod(splodr, 2) == 1) .and. (2*abs(rci) == rcimax)) then
+                   ! at the Nyquist frequency along this axis: leave factor at 0
+                   at_nyquist = .true.
+                   exit
+                end if
                 if (rci <= rcimax / 2) then
                    inm(m) = real(rci, wp)
                 else
                    inm(m) = real(rci - rcimax, wp)
                 endif
              end do
-             do m = 1, 3
-                xst(m) = dot_product(invcl(:, m), inm(:))
-             end do
-             rtp2 = sum(xst(1:3) ** 2)
-             chr = (PI ** 2) * rtp2 / (screen ** 2 )
-             factor = exp(-chr) / rtp2 / PI / volume
-             rtp2 = splfc1(rc1) * splfc2(rc2) * splfc3(rc3)
-             factor = factor / rtp2
-3219         continue
+             if (.not. at_nyquist) then
+                do m = 1, 3
+                   xst(m) = dot_product(invcl(:, m), inm(:))
+                end do
+                rtp2 = sum(xst(1:3) ** 2)
+                chr = (PI ** 2) * rtp2 / (screen ** 2 )
+                factor = exp(-chr) / rtp2 / PI / volume
+                rtp2 = splfc1(rc1) * splfc2(rc2) * splfc3(rc3)
+                factor = factor / rtp2
+             end if
              engfac(rc1, rc2, rc3) = factor
           end do
        end do

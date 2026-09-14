@@ -96,38 +96,6 @@ contains
 #endif
   end function hash
 
-  ! The following function is a snippet from Fortran wiki and in public domain.
-  ! 
-  ! This is a simple function to search for an available unit.
-  ! LUN_MIN and LUN_MAX define the range of possible LUNs to check.
-  ! The UNIT value is returned by the function, and also by the optional
-  ! argument. This allows the function to be used directly in an OPEN
-  ! statement, and optionally save the result in a local variable.
-  ! If no units are available, -1 is returned.
-  !
-  ! NOTE: modern compilers implement OPEN(..., newunit=lun, ...) natively
-  ! (Fortran 2008); this hand-rolled routine is kept only for source
-  ! compatibility with existing OPEN statements elsewhere and can be
-  ! retired once those call sites are migrated to newunit=.
-  integer function newunit(unit)
-    implicit none
-    integer, intent(out), optional :: unit
-    ! local
-    integer, parameter :: LUN_MIN=100, LUN_MAX=110
-    logical :: opened
-    integer :: lun
-    ! begin
-    newunit=-1
-    do lun=LUN_MIN,LUN_MAX
-       inquire(unit=lun,opened=opened)
-       if (.not. opened) then
-          newunit=lun
-          exit
-       end if
-    end do
-    if (present(unit)) unit=newunit
-  end function newunit
-
   ! convert cell-length & (alpha, beta, gamma) to cell vectors
   subroutine angles_to_cell_vector(cell_len, angles, out_cell_vectors)
     use engmain, only: PI

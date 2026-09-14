@@ -14,13 +14,12 @@ module trajectory
 contains
 
   subroutine init_trajectory()
-    use utility, only: newunit
     implicit none
     integer :: ioconf, ioerr
     
     ! default service name
     service_name = "ermod-trajio"
-    open(unit = newunit(ioconf), file = mpi_server_conffile, action = "READ", iostat = ioerr)
+    open(newunit = ioconf, file = mpi_server_conffile, action = "READ", iostat = ioerr)
     if(ioerr == 0) then ! if failed to open, use default
        do
           read(ioconf, iostat = ioerr) service_name

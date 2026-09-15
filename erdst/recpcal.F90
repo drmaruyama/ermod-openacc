@@ -557,16 +557,16 @@ contains
 
   subroutine calc_spline_molecule(imol, stmax, store_spline, store_grid)
     use engmain, only: ms1max, ms2max, ms3max, splodr, specatm, sitepos, invcl
-    use spline, only: spline_value
+    use spline, only: spline_values_all
     implicit none
 
     integer, intent(in) :: imol, stmax
     real(wp), intent(out) :: store_spline(0:splodr-1, 3, 1:stmax)
     integer, intent(out) :: store_grid(3, 1:stmax)
     
-    integer :: sid, ati, rcimax, m, k, rci, spi
+    integer :: sid, ati, rcimax, m, k, rci
     real(wp) :: xst(3), inm(3)
-    real(wp) :: factor, rtp2
+    real(wp) :: factor, u
 
     do sid = 1, stmax
        ati = specatm(sid, imol)
@@ -582,10 +582,8 @@ contains
           if (m == 3) rcimax = ms3max
           factor = inm(m) * real(rcimax, wp)
           rci = int(factor)
-          do spi = 0, splodr - 1
-             rtp2 = factor - real(rci - spi, wp)
-             store_spline(spi, m, sid) = spline_value(rtp2)
-          end do
+          u = factor - real(rci, wp)
+          call spline_values_all(u, store_spline(:, m, sid))
           store_grid(m, sid) = rci
        end do
     end do
@@ -593,16 +591,16 @@ contains
 
   subroutine calc_spline_molecule_refs(imol, cntdst, stmax, store_spline, store_grid)
     use engmain, only: ms1max, ms2max, ms3max, splodr, specatm, sitepos, invcl
-    use spline, only: spline_value
+    use spline, only: spline_values_all
     implicit none
 
     integer, intent(in) :: imol, cntdst, stmax
     real(wp), intent(out) :: store_spline(0:splodr-1, 3, 1:stmax)
     integer, intent(out) :: store_grid(3, 1:stmax)
 
-    integer :: sid, ati, ati_ext, rcimax, m, k, rci, spi
+    integer :: sid, ati, ati_ext, rcimax, m, k, rci
     real(wp) :: xst(3), inm(3)
-    real(wp) :: factor, rtp2
+    real(wp) :: factor, u
 
     do sid = 1, stmax
        ati = specatm(sid, imol)
@@ -619,10 +617,8 @@ contains
           if (m == 3) rcimax = ms3max
           factor = inm(m) * real(rcimax, wp)
           rci = int(factor)
-          do spi = 0, splodr - 1
-             rtp2 = factor - real(rci - spi, wp)
-             store_spline(spi, m, sid) = spline_value(rtp2)
-          end do
+          u = factor - real(rci, wp)
+          call spline_values_all(u, store_spline(:, m, sid))
           store_grid(m, sid) = rci
        end do
     end do

@@ -372,6 +372,7 @@ contains
     integer :: i, j, k
     integer :: rc1, rc2, rc3, sid, ati, cg1, cg2, cg3, stmax
     real(wp) :: factor, chr
+    logical :: ms1max_even
     real(wp), allocatable, save :: splval(:,:,:)
     integer, allocatable, save :: grdval(:,:)
     logical, save :: initialized = .false.
@@ -407,22 +408,37 @@ contains
     !$acc end parallel
 
     call fft_rtc(handle_r2c, cnvslt, rcpslt)                         ! 3D-FFT
-    !$acc update self(rcpslt)
 
+    ! Computed directly on the device via a reduction, instead of the
+    ! old "!$acc update self(rcpslt); solute_self_energy = sum(...)".
+    ! rcpslt/engfac stay device-resident throughout, avoiding a
+    ! device->host sync that (being inside the per-insertion-trial loop
+    ! in recpcal_prepare_solute_refs) was measured to cost far more than
+    ! the actual computation it was gating.
+    !
     ! original form is:
     ! 0.5 * sum(engfac(:, :, :) * real(rcpslt_c(:, :, :)) * conjg(rcpslt_c(:, :, :)))
     ! where rcpslt_c(rc1, rc2, rc3) = conjg(rcpslt_buf(ms1max - rc1, ms2max - rc2, ms3max - rc3))
-    ! Here we use symmetry of engfac to calculate efficiently
-    if (mod(ms1max, 2) == 0) then
-       solute_self_energy = &
-            sum(engfac(1:(ccemax-1), :, :) * real(rcpslt(1:(ccemax-1), :, :) * conjg(rcpslt(1:(ccemax-1), :, :)), wp)) + &
-            0.5_wp * sum(engfac(0,      :, :) * real(rcpslt(0,      :, :) * conjg(rcpslt(0,      :, :)), wp)) + &
-            0.5_wp * sum(engfac(ccemax, :, :) * real(rcpslt(ccemax, :, :) * conjg(rcpslt(ccemax, :, :)), wp))
-    else
-       solute_self_energy = &
-            sum(engfac(1:ccemax, :, :) * real(rcpslt(1:ccemax, :, :) * conjg(rcpslt(1:ccemax, :, :)), wp)) + &
-            0.5_wp * sum(engfac(0,      :, :) * real(rcpslt(0,      :, :) * conjg(rcpslt(0,      :, :)), wp))
-    endif
+    ! Here we use symmetry of engfac to calculate efficiently: every
+    ! plane gets full weight, except rc1==0 (and rc1==ccemax when
+    ! ms1max is even), which get half weight.
+    ms1max_even = (mod(ms1max, 2) == 0)
+    solute_self_energy = 0.0_wp
+    !$acc parallel loop collapse(3) reduction(+:solute_self_energy) present(engfac, rcpslt)
+    do k = rc3min, rc3max
+       do j = rc2min, rc2max
+          do i = rc1min, ccemax
+             if (i == 0 .or. (ms1max_even .and. i == ccemax)) then
+                solute_self_energy = solute_self_energy + &
+                     0.5_wp * engfac(i, j, k) * real(rcpslt(i, j, k) * conjg(rcpslt(i, j, k)), wp)
+             else
+                solute_self_energy = solute_self_energy + &
+                     engfac(i, j, k) * real(rcpslt(i, j, k) * conjg(rcpslt(i, j, k)), wp)
+             end if
+          end do
+       end do
+    end do
+    !$acc end parallel
 
     ! NOTE: this used to be written as a triple "do concurrent" under
     ! "!$acc parallel loop". With the "parallel" construct, nvfortran
@@ -457,6 +473,8 @@ contains
     integer :: i, j, k, cnt
     integer :: rc1, rc2, rc3, sid, ati, cg1, cg2, cg3, stmax
     real(wp) :: factor, chr
+    real(wp) :: self_energy
+    logical :: ms1max_even
     real(wp), allocatable, save :: splval(:,:,:)
     integer, allocatable, save :: grdval(:,:)
     logical, save :: initialized = .false.
@@ -466,6 +484,7 @@ contains
        allocate( splval(0:splodr-1, 3, stmax), grdval(3, stmax) )
        initialized = .true.
     end if
+    ms1max_even = (mod(ms1max, 2) == 0)
     !$acc parallel present(cnvslt_r)
     cnvslt_r = 0.0
     !$acc end parallel
@@ -496,22 +515,29 @@ contains
        !$acc end parallel
 
        call fft_rtc(handle_r2c, cnvslt_r(:,:,:,cnt), rcpslt)
-       !$acc update self(rcpslt)
 
-       ! original form is:
-       ! 0.5 * sum(engfac(:, :, :) * real(rcpslt_c(:, :, :)) * conjg(rcpslt_c(:, :, :)))
-       ! where rcpslt_c(rc1, rc2, rc3) = conjg(rcpslt_buf(ms1max - rc1, ms2max - rc2, ms3max - rc3))
-       ! Here we use symmetry of engfac to calculate efficiently
-       if (mod(ms1max, 2) == 0) then
-          solute_self_energy_refs(cnt) = &
-               sum(engfac(1:(ccemax-1), :, :) * real(rcpslt(1:(ccemax-1), :, :) * conjg(rcpslt(1:(ccemax-1), :, :)), wp)) + &
-               0.5_wp * sum(engfac(0,      :, :) * real(rcpslt(0,      :, :) * conjg(rcpslt(0,      :, :)), wp)) + &
-               0.5_wp * sum(engfac(ccemax, :, :) * real(rcpslt(ccemax, :, :) * conjg(rcpslt(ccemax, :, :)), wp))
-       else
-          solute_self_energy_refs(cnt) = &
-               sum(engfac(1:ccemax, :, :) * real(rcpslt(1:ccemax, :, :) * conjg(rcpslt(1:ccemax, :, :)), wp)) + &
-               0.5_wp * sum(engfac(0,      :, :) * real(rcpslt(0,      :, :) * conjg(rcpslt(0,      :, :)), wp))
-       endif
+       ! see the comment at the equivalent computation in
+       ! recpcal_prepare_solute: computed directly on the device via a
+       ! reduction so rcpslt/engfac never need to leave the GPU, instead
+       ! of syncing rcpslt back to the host on every one of the
+       ! (potentially thousands of) insertion trials in this loop.
+       self_energy = 0.0_wp
+       !$acc parallel loop collapse(3) reduction(+:self_energy) present(engfac, rcpslt)
+       do k = rc3min, rc3max
+          do j = rc2min, rc2max
+             do i = rc1min, ccemax
+                if (i == 0 .or. (ms1max_even .and. i == ccemax)) then
+                   self_energy = self_energy + &
+                        0.5_wp * engfac(i, j, k) * real(rcpslt(i, j, k) * conjg(rcpslt(i, j, k)), wp)
+                else
+                   self_energy = self_energy + &
+                        engfac(i, j, k) * real(rcpslt(i, j, k) * conjg(rcpslt(i, j, k)), wp)
+                end if
+             end do
+          end do
+       end do
+       !$acc end parallel
+       solute_self_energy_refs(cnt) = self_energy
 
        ! see the comment at the equivalent loop in recpcal_prepare_solute
        !$acc parallel loop collapse(3) gang vector present (engfac, rcpslt)

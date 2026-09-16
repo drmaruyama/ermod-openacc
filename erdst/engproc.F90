@@ -341,9 +341,11 @@ contains
     integer :: i, j
     edens(:) = 0.0
     if (corrcal == YES) then
-       !$acc parallel present(ecorr)
-       do concurrent (i = 1:ermax, j = 1:ermax)
-          ecorr(i,j) = 0.0
+       !$acc parallel loop collapse(2) gang vector present(ecorr)
+       do j = 1, ermax
+          do i = 1, ermax
+             ecorr(i,j) = 0.0
+          end do
        end do
        !$acc end parallel
     end if
@@ -379,7 +381,7 @@ contains
     use mpiproc                                                      ! MPI
     implicit none
     integer, intent(in) :: stnum
-    integer :: i, k, irank
+    integer :: i, j, k, irank
     real(wp) :: stat_weight_solute
     integer, allocatable, save :: tplst(:)
     real(wp), allocatable, save :: uvengy0(:)
@@ -455,8 +457,12 @@ contains
 
        ! cntdst is the pick-up no. of solute molecule from plural solutes (soln)
        ! cntdst is the iteration no. of insertion (refs)
-       !$acc parallel present(uvengy)
-       uvengy = 0.0
+       !$acc parallel loop collapse(2) gang vector present(uvengy)
+       do j = 1, maxdst
+          do i = 1, slvmax
+             uvengy(i, j) = 0.0
+          end do
+       end do
        !$acc end parallel
        if (slttype == SLT_SOLN) then
           call get_uv_energy_soln(stnum, stat_weight_solute, uvengy0, uvengy, skipcond)
@@ -582,9 +588,11 @@ contains
        if (slttype == SLT_SOLN) slnuv(:) = slnuv(:) * voffset_scale
        edens(:) = edens(:) * voffset_scale
        if (corrcal == YES) then
-          !$acc parallel present(ecorr)
-          do concurrent (i = 1:ermax, j = 1:ermax)
-             ecorr(i, j) = ecorr(i, j) * voffset_scale
+          !$acc parallel loop collapse(2) gang vector present(ecorr)
+          do j = 1, ermax
+             do i = 1, ermax
+                ecorr(i, j) = ecorr(i, j) * voffset_scale
+             end do
           end do
           !$acc end parallel
        end if
@@ -624,9 +632,11 @@ contains
 
     edens(:) = edens(:) / engnorm
     if (corrcal == YES) then
-       !$acc parallel present(ecorr)
-       do concurrent (i = 1:ermax, j = 1:ermax)
-          ecorr(i, j) = ecorr(i, j) / engnorm
+       !$acc parallel loop collapse(2) gang vector present(ecorr)
+       do j = 1, ermax
+          do i = 1, ermax
+             ecorr(i, j) = ecorr(i, j) / engnorm
+          end do
        end do
        !$acc end parallel
     end if

@@ -28,12 +28,16 @@ module reciprocal
   complex(wp), allocatable :: rcpslt(:,:,:)
   real(wp),    allocatable :: splslv(:,:,:)
   integer, allocatable :: grdslv(:,:)
-  real(wp),    allocatable :: cnvslt(:,:,:,:), cnvslt_r(:,:,:,:)
+  real(wp),    allocatable :: cnvslt(:,:,:,:)
   real(wp),    allocatable :: splfc1(:), splfc2(:), splfc3(:)
   complex(wp), allocatable :: fft_buf(:, :, :)
 
-  real(wp),    allocatable :: solute_self_energy_soln(:)
-  real(wp),    allocatable :: solute_self_energy_refs(:)
+  ! One reciprocal-space grid, and one self-energy value, per "slot":
+  ! either per solute molecule (SLT_SOLN) or per insertion trial
+  ! (SLT_REFS_*). slttype is fixed for the whole run, so exactly one of
+  ! these two uses is ever active -- there is no need for separate
+  ! cnvslt/cnvslt_r or solute_self_energy/_refs arrays.
+  real(wp),    allocatable :: solute_self_energy(:)
 
   type(fft_handle) :: handle_c2r, handle_r2c
 
@@ -68,18 +72,18 @@ contains
     call spline_init(splodr)
     allocate(splslv(0:splodr-1, 3, ptrnk), grdslv(3, ptrnk))
     !$acc enter data create(splslv, grdslv)
+    ! One reciprocal-space grid per "slot" (solute molecule for
+    ! SLT_SOLN, insertion trial for SLT_REFS_*), so each can be
+    ! spread/FFT'd/evaluated without clobbering the others (see
+    ! recpcal_prepare_solute).
     if (slttype == SLT_SOLN) then
-       ! one reciprocal-space grid per solute molecule, so all numslt
-       ! molecules can be spread/FFT'd/evaluated without clobbering
-       ! each other (see recpcal_prepare_solute)
-       allocate(solute_self_energy_soln(numslt))
+       allocate(solute_self_energy(numslt))
        allocate(cnvslt(rc1min:rc1max, rc2min:rc2max, rc3min:rc3max, numslt))
-       !$acc enter data create(cnvslt)
     else
-       allocate(solute_self_energy_refs(maxins))
-       allocate(cnvslt_r(rc1min:rc1max, rc2min:rc2max, rc3min:rc3max, maxins))
-       !$acc enter data create(cnvslt_r)
+       allocate(solute_self_energy(maxins))
+       allocate(cnvslt(rc1min:rc1max, rc2min:rc2max, rc3min:rc3max, maxins))
     end if
+    !$acc enter data create(cnvslt)
     ! initialize spline table for all axes
     allocate( splfc1(rc1min: rc1max) )
     allocate( splfc2(rc2min: rc2max) )
@@ -95,13 +99,8 @@ contains
     allocate( rcpslt(rc1min:ccemax, rc2min:rc2max, rc3min:rc3max) )
     !$acc enter data create(engfac, rcpslt)
     ! init fft (each grid slice has the same shape; slice 1 always exists)
-    if (slttype == SLT_SOLN) then
-       call fft_init_rtc(handle_r2c, cnvslt(:,:,:,1), rcpslt)
-       call fft_init_ctr(handle_c2r, rcpslt, cnvslt(:,:,:,1))
-    else
-       call fft_init_rtc(handle_r2c, cnvslt_r(:,:,:,1), rcpslt)
-       call fft_init_ctr(handle_c2r, rcpslt, cnvslt_r(:,:,:,1))
-    end if
+    call fft_init_rtc(handle_r2c, cnvslt(:,:,:,1), rcpslt)
+    call fft_init_ctr(handle_c2r, rcpslt, cnvslt(:,:,:,1))
   end subroutine recpcal_init
 
   subroutine init_spline_axis(imin, imax, splfc)
@@ -396,8 +395,16 @@ contains
        initialized = .true.
     end if
     ms1max_even = (mod(ms1max, 2) == 0)
-    !$acc parallel present(cnvslt)
-    cnvslt = 0.0_wp
+    !$acc parallel loop collapse(4) gang vector present(cnvslt)
+    do cnt = 1, maxdst
+       do k = rc3min, rc3max
+          do j = rc2min, rc2max
+             do i = rc1min, rc1max
+                cnvslt(i, j, k, cnt) = 0.0_wp
+             end do
+          end do
+       end do
+    end do
     !$acc end parallel
     do cnt = 1, maxdst
        tagslt = sltlist(cnt)
@@ -452,7 +459,7 @@ contains
           end do
        end do
        !$acc end parallel
-       solute_self_energy_soln(cnt) = self_energy
+       solute_self_energy(cnt) = self_energy
 
        ! NOTE: this used to be written as a triple "do concurrent" under
        ! "!$acc parallel loop". With the "parallel" construct, nvfortran
@@ -500,14 +507,22 @@ contains
        initialized = .true.
     end if
     ms1max_even = (mod(ms1max, 2) == 0)
-    !$acc parallel present(cnvslt_r)
-    cnvslt_r = 0.0
+    !$acc parallel loop collapse(4) gang vector present(cnvslt)
+    do cnt = 1, maxdst
+       do k = rc3min, rc3max
+          do j = rc2min, rc2max
+             do i = rc1min, rc1max
+                cnvslt(i, j, k, cnt) = 0.0_wp
+             end do
+          end do
+       end do
+    end do
     !$acc end parallel
     do cnt = 1, maxdst
 
        call calc_spline_molecule_refs(tagslt, cnt, stmax, &
             splval(:,:,1:stmax), grdval(:,1:stmax))
-       !$acc parallel loop present(mol_begin_index, charge, cnvslt_r, rcpslt)
+       !$acc parallel loop present(mol_begin_index, charge, cnvslt, rcpslt)
        do sid = 1, stmax
           ! ati = specatm(sid, tagslt)
           ati = mol_begin_index(tagslt) + (sid - 1)
@@ -521,15 +536,15 @@ contains
                    factor = chr * splval(cg1, 1, sid) * splval(cg2, 2, sid) &
                         * splval(cg3, 3, sid)
                    !$acc atomic update
-                   cnvslt_r(rc1, rc2, rc3, cnt) = &
-                        cnvslt_r(rc1, rc2, rc3, cnt) + factor
+                   cnvslt(rc1, rc2, rc3, cnt) = &
+                        cnvslt(rc1, rc2, rc3, cnt) + factor
                 end do
              end do
           end do
        end do
        !$acc end parallel
 
-       call fft_rtc(handle_r2c, cnvslt_r(:,:,:,cnt), rcpslt)
+       call fft_rtc(handle_r2c, cnvslt(:,:,:,cnt), rcpslt)
 
        ! see the comment at the equivalent computation in
        ! recpcal_prepare_solute: computed directly on the device via a
@@ -552,7 +567,7 @@ contains
           end do
        end do
        !$acc end parallel
-       solute_self_energy_refs(cnt) = self_energy
+       solute_self_energy(cnt) = self_energy
 
        ! see the comment at the equivalent loop in recpcal_prepare_solute
        !$acc parallel loop collapse(3) gang vector present (engfac, rcpslt)
@@ -565,7 +580,7 @@ contains
        end do
        !$acc end parallel
 
-       call fft_ctr(handle_c2r, rcpslt, cnvslt_r(:,:,:,cnt))
+       call fft_ctr(handle_c2r, rcpslt, cnvslt(:,:,:,cnt))
 
     end do
   end subroutine recpcal_prepare_solute_refs
@@ -644,7 +659,7 @@ contains
     integer, intent(in) :: cnt
     real(wp) :: pairep
 
-    pairep = solute_self_energy_soln(cnt)
+    pairep = solute_self_energy(cnt)
   end function recpcal_self_energy
 
   function recpcal_self_energy_refs(cnt) result(pairep)
@@ -652,7 +667,7 @@ contains
     integer, intent(in) :: cnt
     real(wp) :: pairep
 
-    pairep = solute_self_energy_refs(cnt)
+    pairep = solute_self_energy(cnt)
   end function recpcal_self_energy_refs
 
   subroutine recpcal_energy_soln(sltlist, maxdst, tagpt, slvmax, uvengy)
@@ -755,7 +770,7 @@ contains
                       fac3 = fac2 * splslv(cg1, 1, ptrnk)
                       rc1 = grid1 - cg1
                       pairep = pairep &
-                           + fac3 * cnvslt_r(rc1, rc2, rc3, cnt)
+                           + fac3 * cnvslt(rc1, rc2, rc3, cnt)
                    enddo
                 else
                    !$acc loop seq
@@ -763,7 +778,7 @@ contains
                       fac3 = fac2 * splslv(cg1, 1, ptrnk)
                       rc1 = mod(grid1 + ms1max - cg1, ms1max) ! speedhack
                       pairep = pairep &
-                           + fac3 * cnvslt_r(rc1, rc2, rc3, cnt)
+                           + fac3 * cnvslt(rc1, rc2, rc3, cnt)
                    end do
                 endif
              end do

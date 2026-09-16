@@ -95,6 +95,8 @@ contains
     !
     allocate( sltlist(numslt) )
     sltlist(1:numslt) = tplst(1:numslt)   ! list of solute molecules
+    !$acc enter data create(sltlist)
+    !$acc update device(sltlist)
     deallocate( tplst )
     !
     ! solute needs to be the last particle in reference system
@@ -763,6 +765,17 @@ contains
 
     out_of_range(:) = .false.
 
+    ! Real-space (LJ + Ewald real-space) part for every solute molecule
+    ! at once, replacing what used to be maxdst separate per-molecule
+    ! kernel launches (see realcal::realcal_soln). Molecules that turn
+    ! out to be out_of_range below are harmless to compute here too:
+    ! their uvengy(:,cntdst) is never read downstream (the caller skips
+    ! update_histogram for any cntdst with out_of_range/skipcond set).
+    if (cltype == EL_PME .or. cltype == EL_PPPM) then
+       call realcal_prepare
+       call realcal_soln(sltlist, maxdst, tagpt, slvmax, uvengy)
+    endif
+
     do cntdst = 1, maxdst
 
        ! determine / pick solute structure
@@ -776,7 +789,6 @@ contains
 
        ! Calculate system-wide values
        if (cltype == EL_PME .or. cltype == EL_PPPM) then
-          call realcal_soln(tagslt, tagpt, slvmax, uvengy, cntdst)
           if (solute_charge_is_zero) then
              ! The solute's charge is provably zero (see
              ! setconf::setparam), so spreading it onto the PME grid and

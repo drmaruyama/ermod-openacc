@@ -762,18 +762,33 @@ contains
     real(wp) :: pairep
     real(wp) :: residual, factor, uvrecp
     logical, save :: initialized = .false.
+    logical :: do_recp
 
     out_of_range(:) = .false.
 
-    ! Real-space (LJ + Ewald real-space) part for every solute molecule
-    ! at once, replacing what used to be maxdst separate per-molecule
-    ! kernel launches (see realcal::realcal_soln). Molecules that turn
-    ! out to be out_of_range below are harmless to compute here too:
-    ! their uvengy(:,cntdst) is never read downstream (the caller skips
-    ! update_histogram for any cntdst with out_of_range/skipcond set).
+    do_recp = (cltype == EL_PME .or. cltype == EL_PPPM) .and. .not. solute_charge_is_zero
+
+    ! Real-space (LJ + Ewald real-space) and, when applicable,
+    ! reciprocal-space (PME/PPPM) parts for every solute molecule at
+    ! once, replacing what used to be maxdst separate per-molecule
+    ! kernel launches (see realcal::realcal_soln and
+    ! reciprocal::recpcal_prepare_solute/recpcal_energy_soln).
+    ! Molecules that turn out to be out_of_range below are harmless to
+    ! compute here too: their uvengy(:,cntdst) is never read downstream
+    ! (the caller skips update_histogram for any cntdst with
+    ! out_of_range/skipcond set).
     if (cltype == EL_PME .or. cltype == EL_PPPM) then
        call realcal_prepare
        call realcal_soln(sltlist, maxdst, tagpt, slvmax, uvengy)
+       if (do_recp) then
+          call recpcal_prepare_solute(sltlist, maxdst)
+          call recpcal_energy_soln(sltlist, maxdst, tagpt, slvmax, uvengy)
+          call residual_ene(sltlist, maxdst, tagpt, slvmax, uvengy)
+       end if
+       ! else: the solute's charge is provably zero (see
+       ! setconf::setparam), so spreading it onto the PME grid and
+       ! transforming it can only produce zero: skip the
+       ! reciprocal-space calculation entirely.
     endif
 
     do cntdst = 1, maxdst
@@ -789,17 +804,10 @@ contains
 
        ! Calculate system-wide values
        if (cltype == EL_PME .or. cltype == EL_PPPM) then
-          if (solute_charge_is_zero) then
-             ! The solute's charge is provably zero (see
-             ! setconf::setparam), so spreading it onto the PME grid and
-             ! transforming it can only produce zero: skip the
-             ! reciprocal-space calculation entirely.
-             uvrecp = 0.0_wp
+          if (do_recp) then
+             uvrecp = recpcal_self_energy(cntdst)
           else
-             call recpcal_prepare_solute(tagslt)
-             call recpcal_energy_soln(tagslt, tagpt, slvmax, uvengy, cntdst)
-             call residual_ene(tagslt, cntdst, tagpt, slvmax, uvengy)
-             uvrecp = recpcal_self_energy()
+             uvrecp = 0.0_wp
           end if
        else
           call realcal_bare(tagslt, tagpt, slvmax, uvengy, cntdst)
@@ -1028,25 +1036,28 @@ contains
     pairep = pairep - epcl
   end subroutine residual_self_ene
   !
-  subroutine residual_ene(tagslt, cnt, tagpt, slvmax, uvengy)
+  subroutine residual_ene(sltlist, maxdst, tagpt, slvmax, uvengy)
     use engmain, only: screen, volume, mol_charge, cltype, EL_COULOMB, PI
     implicit none
-    integer, intent(in) :: tagslt, cnt, tagpt(:), slvmax
+    integer, intent(in) :: sltlist(:), maxdst, tagpt(:), slvmax
     real(wp), intent(inout) :: uvengy(:, :)
 
-    integer :: i, k
+    integer :: i, k, cnt, tagslt
     real(wp) :: epcl
 
     ! called only when PME or PPPM, non-self interaction
-    !$acc parallel loop gang vector present(uvengy, mol_charge)
-    do k = 1, slvmax
-       i = tagpt(k)
-       if (i == tagslt) cycle
+    !$acc parallel loop collapse(2) gang vector present(uvengy, mol_charge, tagpt, sltlist)
+    do cnt = 1, maxdst
+       do k = 1, slvmax
+          tagslt = sltlist(cnt)
+          i = tagpt(k)
+          if (i == tagslt) cycle
 
-       epcl = PI * mol_charge(tagslt) * mol_charge(i) &
-            / screen / screen / volume
-       !$acc atomic update
-       uvengy(k, cnt) = uvengy(k, cnt) - epcl
+          epcl = PI * mol_charge(tagslt) * mol_charge(i) &
+               / screen / screen / volume
+          !$acc atomic update
+          uvengy(k, cnt) = uvengy(k, cnt) - epcl
+       end do
     end do
   end subroutine residual_ene
 

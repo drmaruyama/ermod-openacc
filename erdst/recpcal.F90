@@ -28,19 +28,19 @@ module reciprocal
   complex(wp), allocatable :: rcpslt(:,:,:)
   real(wp),    allocatable :: splslv(:,:,:)
   integer, allocatable :: grdslv(:,:)
-  real(wp),    allocatable :: cnvslt(:,:,:), cnvslt_r(:,:,:,:)
+  real(wp),    allocatable :: cnvslt(:,:,:,:), cnvslt_r(:,:,:,:)
   real(wp),    allocatable :: splfc1(:), splfc2(:), splfc3(:)
   complex(wp), allocatable :: fft_buf(:, :, :)
 
+  real(wp),    allocatable :: solute_self_energy_soln(:)
   real(wp),    allocatable :: solute_self_energy_refs(:)
-  real(wp) :: solute_self_energy
 
   type(fft_handle) :: handle_c2r, handle_r2c
 
 contains
   subroutine recpcal_init(slvmax, tagpt)
     use engmain, only:  nummol, numsite, splodr, ms1max, ms2max, ms3max, &
-         maxins, slttype, SLT_SOLN
+         maxins, slttype, SLT_SOLN, numslt
     use spline, only: spline_init
     use fft_iface, only: fft_init_ctr, fft_init_rtc, fft_set_size
     implicit none
@@ -69,7 +69,11 @@ contains
     allocate(splslv(0:splodr-1, 3, ptrnk), grdslv(3, ptrnk))
     !$acc enter data create(splslv, grdslv)
     if (slttype == SLT_SOLN) then
-       allocate(cnvslt(rc1min:rc1max, rc2min:rc2max, rc3min:rc3max))
+       ! one reciprocal-space grid per solute molecule, so all numslt
+       ! molecules can be spread/FFT'd/evaluated without clobbering
+       ! each other (see recpcal_prepare_solute)
+       allocate(solute_self_energy_soln(numslt))
+       allocate(cnvslt(rc1min:rc1max, rc2min:rc2max, rc3min:rc3max, numslt))
        !$acc enter data create(cnvslt)
     else
        allocate(solute_self_energy_refs(maxins))
@@ -90,9 +94,14 @@ contains
     allocate( engfac(rc1min:ccemax, rc2min:rc2max, rc3min:rc3max) )
     allocate( rcpslt(rc1min:ccemax, rc2min:rc2max, rc3min:rc3max) )
     !$acc enter data create(engfac, rcpslt)
-    ! init fft
-    call fft_init_rtc(handle_r2c, cnvslt, rcpslt)
-    call fft_init_ctr(handle_c2r, rcpslt, cnvslt)
+    ! init fft (each grid slice has the same shape; slice 1 always exists)
+    if (slttype == SLT_SOLN) then
+       call fft_init_rtc(handle_r2c, cnvslt(:,:,:,1), rcpslt)
+       call fft_init_ctr(handle_c2r, rcpslt, cnvslt(:,:,:,1))
+    else
+       call fft_init_rtc(handle_r2c, cnvslt_r(:,:,:,1), rcpslt)
+       call fft_init_ctr(handle_c2r, rcpslt, cnvslt_r(:,:,:,1))
+    end if
   end subroutine recpcal_init
 
   subroutine init_spline_axis(imin, imax, splfc)
@@ -364,105 +373,111 @@ contains
     !$acc update device(splslv, grdslv)
   end subroutine recpcal_prepare_solvent
 
-  subroutine recpcal_prepare_solute(tagslt)
+  subroutine recpcal_prepare_solute(sltlist, maxdst)
     use engmain, only: ms1max, ms2max, ms3max, sitepos, invcl, numsite, splodr, charge, mol_begin_index
     use fft_iface, only: fft_ctr, fft_rtc
     implicit none
-    integer, intent(in) :: tagslt
-    integer :: i, j, k
+    integer, intent(in) :: sltlist(:), maxdst
+    integer :: i, j, k, cnt, tagslt
     integer :: rc1, rc2, rc3, sid, ati, cg1, cg2, cg3, stmax
     real(wp) :: factor, chr
+    real(wp) :: self_energy
     logical :: ms1max_even
     real(wp), allocatable, save :: splval(:,:,:)
     integer, allocatable, save :: grdval(:,:)
     logical, save :: initialized = .false.
 
-    stmax = numsite(tagslt)
+    ! SLT_SOLN only ever tracks one solute species, so every molecule
+    ! in sltlist(1:maxdst) shares the same topology (stmax does not
+    ! vary with cnt).
+    stmax = numsite(sltlist(1))
     if(.not. initialized) then
        allocate( splval(0:splodr-1, 3, stmax), grdval(3, stmax) )
        initialized = .true.
     end if
-    call calc_spline_molecule(tagslt, stmax, splval(:,:,1:stmax), grdval(:,1:stmax))
+    ms1max_even = (mod(ms1max, 2) == 0)
     !$acc parallel present(cnvslt)
     cnvslt = 0.0_wp
     !$acc end parallel
-    !$acc parallel loop present(mol_begin_index, charge, cnvslt, rcpslt)
-    do sid = 1, stmax
-!       ati = specatm(sid, tagslt)
-       ati = mol_begin_index(tagslt) + (sid - 1)
-       chr = charge(ati)
-       do cg3 = 0, splodr - 1
-          do cg2 = 0, splodr - 1
-             do cg1 = 0, splodr - 1
-                rc1 = modulo(grdval(1, sid) - cg1, ms1max)
-                rc2 = modulo(grdval(2, sid) - cg2, ms2max)
-                rc3 = modulo(grdval(3, sid) - cg3, ms3max)
-                factor = chr * splval(cg1, 1, sid) * splval(cg2, 2, sid) &
-                     * splval(cg3, 3, sid)
-                !$acc atomic update
-                cnvslt(rc1, rc2, rc3) = cnvslt(rc1, rc2, rc3) + factor
+    do cnt = 1, maxdst
+       tagslt = sltlist(cnt)
+
+       call calc_spline_molecule(tagslt, stmax, splval(:,:,1:stmax), grdval(:,1:stmax))
+       !$acc parallel loop present(mol_begin_index, charge, cnvslt, rcpslt)
+       do sid = 1, stmax
+!         ati = specatm(sid, tagslt)
+          ati = mol_begin_index(tagslt) + (sid - 1)
+          chr = charge(ati)
+          do cg3 = 0, splodr - 1
+             do cg2 = 0, splodr - 1
+                do cg1 = 0, splodr - 1
+                   rc1 = modulo(grdval(1, sid) - cg1, ms1max)
+                   rc2 = modulo(grdval(2, sid) - cg2, ms2max)
+                   rc3 = modulo(grdval(3, sid) - cg3, ms3max)
+                   factor = chr * splval(cg1, 1, sid) * splval(cg2, 2, sid) &
+                        * splval(cg3, 3, sid)
+                   !$acc atomic update
+                   cnvslt(rc1, rc2, rc3, cnt) = cnvslt(rc1, rc2, rc3, cnt) + factor
+                end do
              end do
           end do
        end do
-    end do
-    !$acc end parallel
+       !$acc end parallel
 
-    call fft_rtc(handle_r2c, cnvslt, rcpslt)                         ! 3D-FFT
+       call fft_rtc(handle_r2c, cnvslt(:,:,:,cnt), rcpslt)                 ! 3D-FFT
 
-    ! Computed directly on the device via a reduction, instead of the
-    ! old "!$acc update self(rcpslt); solute_self_energy = sum(...)".
-    ! rcpslt/engfac stay device-resident throughout, avoiding a
-    ! device->host sync that (being inside the per-insertion-trial loop
-    ! in recpcal_prepare_solute_refs) was measured to cost far more than
-    ! the actual computation it was gating.
-    !
-    ! original form is:
-    ! 0.5 * sum(engfac(:, :, :) * real(rcpslt_c(:, :, :)) * conjg(rcpslt_c(:, :, :)))
-    ! where rcpslt_c(rc1, rc2, rc3) = conjg(rcpslt_buf(ms1max - rc1, ms2max - rc2, ms3max - rc3))
-    ! Here we use symmetry of engfac to calculate efficiently: every
-    ! plane gets full weight, except rc1==0 (and rc1==ccemax when
-    ! ms1max is even), which get half weight.
-    ms1max_even = (mod(ms1max, 2) == 0)
-    solute_self_energy = 0.0_wp
-    !$acc parallel loop collapse(3) reduction(+:solute_self_energy) present(engfac, rcpslt)
-    do k = rc3min, rc3max
-       do j = rc2min, rc2max
-          do i = rc1min, ccemax
-             if (i == 0 .or. (ms1max_even .and. i == ccemax)) then
-                solute_self_energy = solute_self_energy + &
-                     0.5_wp * engfac(i, j, k) * real(rcpslt(i, j, k) * conjg(rcpslt(i, j, k)), wp)
-             else
-                solute_self_energy = solute_self_energy + &
-                     engfac(i, j, k) * real(rcpslt(i, j, k) * conjg(rcpslt(i, j, k)), wp)
-             end if
+       ! see the comment at the equivalent computation in
+       ! recpcal_prepare_solute_refs: computed directly on the device
+       ! via a reduction so rcpslt/engfac never need to leave the GPU.
+       !
+       ! original form is:
+       ! 0.5 * sum(engfac(:, :, :) * real(rcpslt_c(:, :, :)) * conjg(rcpslt_c(:, :, :)))
+       ! where rcpslt_c(rc1, rc2, rc3) = conjg(rcpslt_buf(ms1max - rc1, ms2max - rc2, ms3max - rc3))
+       ! Here we use symmetry of engfac to calculate efficiently: every
+       ! plane gets full weight, except rc1==0 (and rc1==ccemax when
+       ! ms1max is even), which get half weight.
+       self_energy = 0.0_wp
+       !$acc parallel loop collapse(3) reduction(+:self_energy) present(engfac, rcpslt)
+       do k = rc3min, rc3max
+          do j = rc2min, rc2max
+             do i = rc1min, ccemax
+                if (i == 0 .or. (ms1max_even .and. i == ccemax)) then
+                   self_energy = self_energy + &
+                        0.5_wp * engfac(i, j, k) * real(rcpslt(i, j, k) * conjg(rcpslt(i, j, k)), wp)
+                else
+                   self_energy = self_energy + &
+                        engfac(i, j, k) * real(rcpslt(i, j, k) * conjg(rcpslt(i, j, k)), wp)
+                end if
+             end do
           end do
        end do
-    end do
-    !$acc end parallel
+       !$acc end parallel
+       solute_self_energy_soln(cnt) = self_energy
 
-    ! NOTE: this used to be written as a triple "do concurrent" under
-    ! "!$acc parallel loop". With the "parallel" construct, nvfortran
-    ! does not distribute a multi-index do-concurrent across gangs; it
-    ! only vectorizes one of the three indices and runs the other two
-    ! sequentially inside each vector lane (confirmed against nvfortran
-    ! 26.1; see NVIDIA developer forum thread 361662). That silently
-    ! collapses the whole ccemax x rc2 x rc3 volume onto a single
-    ! thread block, which is a severe (if easy to miss) slowdown, not
-    ! a correctness problem. Explicit nested loops with an explicit
-    ! collapse/gang/vector clause -- the same style used elsewhere in
-    ! this file -- get full gang+vector parallelism instead.
-    !$acc parallel loop collapse(3) gang vector present (engfac, rcpslt)
-    do k = rc3min, rc3max
-       do j = rc2min, rc2max
-          do i = rc1min, ccemax
-             rcpslt(i, j, k) = engfac(i, j, k) * rcpslt(i, j, k)
+       ! NOTE: this used to be written as a triple "do concurrent" under
+       ! "!$acc parallel loop". With the "parallel" construct, nvfortran
+       ! does not distribute a multi-index do-concurrent across gangs; it
+       ! only vectorizes one of the three indices and runs the other two
+       ! sequentially inside each vector lane (confirmed against nvfortran
+       ! 26.1; see NVIDIA developer forum thread 361662). That silently
+       ! collapses the whole ccemax x rc2 x rc3 volume onto a single
+       ! thread block, which is a severe (if easy to miss) slowdown, not
+       ! a correctness problem. Explicit nested loops with an explicit
+       ! collapse/gang/vector clause -- the same style used elsewhere in
+       ! this file -- get full gang+vector parallelism instead.
+       !$acc parallel loop collapse(3) gang vector present (engfac, rcpslt)
+       do k = rc3min, rc3max
+          do j = rc2min, rc2max
+             do i = rc1min, ccemax
+                rcpslt(i, j, k) = engfac(i, j, k) * rcpslt(i, j, k)
+             end do
           end do
        end do
+       !$acc end parallel
+
+       call fft_ctr(handle_c2r, rcpslt, cnvslt(:,:,:,cnt))                    ! 3D-FFT
+
     end do
-    !$acc end parallel
-
-    call fft_ctr(handle_c2r, rcpslt, cnvslt)                    ! 3D-FFT
-
   end subroutine recpcal_prepare_solute
 
   subroutine recpcal_prepare_solute_refs(tagslt, maxdst)
@@ -624,11 +639,12 @@ contains
     end do
   end subroutine calc_spline_molecule_refs
 
-  function recpcal_self_energy() result(pairep)
+  function recpcal_self_energy(cnt) result(pairep)
     implicit none
+    integer, intent(in) :: cnt
     real(wp) :: pairep
 
-    pairep = solute_self_energy
+    pairep = solute_self_energy_soln(cnt)
   end function recpcal_self_energy
 
   function recpcal_self_energy_refs(cnt) result(pairep)
@@ -639,24 +655,23 @@ contains
     pairep = solute_self_energy_refs(cnt)
   end function recpcal_self_energy_refs
 
-  subroutine recpcal_energy_soln(tagslt, tagpt, slvmax, uvengy, cnt)
+  subroutine recpcal_energy_soln(sltlist, maxdst, tagpt, slvmax, uvengy)
     use engmain, only: ms1max, ms2max, ms3max, splodr, numsite, sluvid, charge, mol_begin_index
     use mpiproc, only: halt_with_error
     implicit none
-    integer, intent(in) :: tagslt, tagpt(:), slvmax, cnt
+    integer, intent(in) :: sltlist(:), maxdst, tagpt(:), slvmax
     real(wp), intent(inout) :: uvengy(:, :)
 
     real(wp) :: pairep
-    integer :: cg1, cg2, cg3, i, k
+    integer :: cg1, cg2, cg3, i, k, cnt, tagslt
     integer :: rc1, rc2, rc3, ptrnk, sid, ati, svi, stmax
     real(wp) :: fac1, fac2, fac3, chr
     integer :: grid1
-    complex(wp) :: rcpt
 
-    if (sluvid(tagslt) == 0) stop  ! call halt_with_error('rcp_fst')
-
-    !$acc parallel loop present(uvengy, mol_begin_index, tagpt, charge, numsite, sluvid, slvtag, splslv, grdslv, cnvslt)
+    !$acc parallel loop collapse(2) present(uvengy, mol_begin_index, tagpt, sltlist, charge, numsite, sluvid, slvtag, splslv, grdslv, cnvslt)
+    do cnt = 1, maxdst
     do k = 1, slvmax
+       tagslt = sltlist(cnt)
        i = tagpt(k)
        if (i == tagslt) cycle
 
@@ -680,20 +695,21 @@ contains
                    do cg1 = 0, splodr - 1
                       fac3 = fac2 * splslv(cg1, 1, ptrnk)
                       rc1 = grid1 - cg1
-                      pairep = pairep + fac3 * cnvslt(rc1, rc2, rc3)
+                      pairep = pairep + fac3 * cnvslt(rc1, rc2, rc3, cnt)
                    enddo
                 else
                    !$acc loop seq
                    do cg1 = 0, splodr - 1
                       fac3 = fac2 * splslv(cg1, 1, ptrnk)
                       rc1 = mod(grid1 + ms1max - cg1, ms1max) ! speedhack
-                      pairep = pairep + fac3 * cnvslt(rc1, rc2, rc3)
+                      pairep = pairep + fac3 * cnvslt(rc1, rc2, rc3, cnt)
                    end do
                 endif
              end do
           end do
        end do
        uvengy(k, cnt) = uvengy(k, cnt) + pairep
+    end do
     end do
     !$acc end parallel
   end subroutine recpcal_energy_soln

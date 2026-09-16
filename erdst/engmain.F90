@@ -350,6 +350,22 @@ module engmain
   integer :: ermax, numslv, esmax, maxins
   integer,      allocatable :: uvmax(:), uvsoft(:), uvspec(:)
   real(kind=8), allocatable :: uvcrd(:), edens(:)
+
+  ! Per-species region metadata for getiduv's O(1) direct bin lookup
+  ! (see engproc::enginit / engproc::direct_bin_lookup). uvcrd/escrd are
+  ! built out of up to 5 linearly-spaced regions plus one optional
+  ! geometrically-spaced "core" region (indices 0:6, matching enginit's
+  ! rglmax=5); hist_region_idx(regn, pti) is the bin-index boundary of
+  ! region "regn" for species "pti" (species 0 = solute self-energy,
+  ! 1..numslv = solvent species). hist_region_pecore(pti) is that
+  ! species' pecore (0 => no region 6). hist_regular_structure is
+  ! .false. whenever any species used "meshread" to read its bin
+  ! boundaries directly from EcdMesh instead of the regular
+  ! region-based construction, in which case getiduv falls back to
+  ! binsearch unconditionally (this metadata does not apply).
+  integer, allocatable :: hist_region_idx(:,:)   ! (0:6, 0:numslv)
+  integer, allocatable :: hist_region_pecore(:)  ! (0:numslv)
+  logical :: hist_regular_structure = .true.
   real(kind=8), allocatable :: ecorr(:,:)
   real(kind=8), allocatable :: escrd(:), eself(:)
   real(wp),     allocatable :: aveuv(:,:)

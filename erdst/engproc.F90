@@ -43,6 +43,7 @@ contains
          aveuv, slnuv, avediv, minuv, maxuv, numslt, sltlist, &
          ene_confname, io_paramfile, io_flcuv, &
          ecdinfo_file, ecdinfo_io, ecdmesh_file, ecdmesh_io, &
+         hist_region_idx, hist_region_pecore, hist_regular_structure, &
          SLT_SOLN, SLT_REFS_RIGID, SLT_REFS_FLEX, PT_SOLVENT, NO, YES, &
          ermax_limit
     use mpiproc, only: halt_with_error, warning, myrank
@@ -120,6 +121,8 @@ contains
     if (numslv /= maxval(uvspec(:))) call halt_with_error('eng_bug')
     !
     allocate( uvmax(numslv), uvsoft(numslv), ercrd(large, 0:numslv) )
+    allocate( hist_region_idx(0:rglmax+1, 0:numslv), hist_region_pecore(0:numslv) )
+    hist_regular_structure = .true.
     !
     peread = NO                           ! deprecated
     ecprread = NO
@@ -201,6 +204,12 @@ contains
        uprgcd(rglmax + 1) = pemax
        ercrd(uprgcd(0:(rglmax + 1)), pti) = cdrgvl(0:(rglmax + 1))
 
+       ! stash this species' region boundaries for getiduv's O(1) direct
+       ! lookup; invalidated below if meshread overwrites ercrd with an
+       ! arbitrary (non-regularly-spaced) mesh instead.
+       hist_region_idx(0:(rglmax + 1), pti) = uprgcd(0:(rglmax + 1))
+       hist_region_pecore(pti) = pecore
+
        if (pemax > large) call halt_with_error('eng_siz')
 
        if (pecore == 0) i = rglmax         ! no core region
@@ -228,6 +237,10 @@ contains
 
        ! read coordinate meshes from EcdMesh
        if (meshread == YES) then
+          ! An arbitrary, explicitly-supplied mesh does not follow the
+          ! regular region structure assumed by the O(1) direct lookup;
+          ! fall back to binsearch unconditionally in getiduv.
+          hist_regular_structure = .false.
           open(unit = ecdmesh_io, file = ecdmesh_file, action = 'read', iostat = param_err)
           if (param_err /= 0) call halt_with_error('eng_ecm')
           start_line = .true.
@@ -1134,10 +1147,79 @@ contains
     ret = rmin - 1
   end subroutine binsearch
 
+  ! O(1) equivalent of binsearch(), exploiting the fact that coord(1:n)
+  ! is built (see enginit) out of up to 5 linearly-spaced regions plus
+  ! one optional geometrically-spaced "core" region, whose bin-index
+  ! boundaries are ridx(0:6) (ridx(6) unused unless has_pecore). Only
+  ! valid when hist_regular_structure is .true. -- see enginit and its
+  ! "meshread" branch.
+  integer function direct_bin_lookup(coord, n, v, ridx, has_pecore) result(ret)
+    implicit none
+    real(kind=8), intent(in) :: coord(n)
+    integer, intent(in) :: n
+    real(wp), intent(in) :: v
+    integer, intent(in) :: ridx(0:6)
+    logical, intent(in) :: has_pecore
+    integer :: regn, nregions, minrg, maxrg
+    real(kind=8) :: vv, lo, hi, pos
+
+    if (v < coord(1)) then
+       ret = 0
+       return
+    endif
+    if (v > coord(n)) then
+       ret = n
+       return
+    endif
+
+    vv = real(v, kind=8)
+    nregions = merge(6, 5, has_pecore)
+
+    do regn = 1, nregions
+       minrg = ridx(regn - 1)
+       maxrg = ridx(regn)
+       if (maxrg <= minrg) cycle          ! degenerate/empty region
+       if (vv <= coord(maxrg) .or. regn == nregions) then
+          lo = coord(minrg)
+          hi = coord(maxrg)
+          if (regn <= 5) then             ! linearly-spaced region
+             pos = real(minrg, 8) + (vv - lo) / (hi - lo) * real(maxrg - minrg, 8)
+          else                            ! geometrically-spaced "core" region
+             pos = real(minrg, 8) + log(vv / lo) / log(hi / lo) * real(maxrg - minrg, 8)
+          endif
+          ret = min(max(int(pos), minrg), maxrg - 1)
+          return
+       endif
+    enddo
+    ret = n   ! not reached: v <= coord(n) is guaranteed above
+  end function direct_bin_lookup
+
+  ! Looks up the bin index for v within coord(1:n): uses the O(1)
+  ! direct_bin_lookup() when the regular region structure applies,
+  ! falling back to binsearch() unconditionally otherwise (see
+  ! hist_regular_structure in enginit). Cross-validated against
+  ! binsearch() on real SOLN and REFS runs before removing the check.
+  subroutine lookup_bin(coord, n, v, ridx, has_pecore, idpti)
+    use engmain, only: hist_regular_structure
+    implicit none
+    real(kind=8), intent(in) :: coord(n)
+    integer, intent(in) :: n
+    real(wp), intent(in) :: v
+    integer, intent(in) :: ridx(0:6)
+    logical, intent(in) :: has_pecore
+    integer, intent(out) :: idpti
+
+    if (hist_regular_structure) then
+       idpti = direct_bin_lookup(coord, n, v, ridx, has_pecore)
+    else
+       call binsearch(coord, n, v, idpti)
+    endif
+  end subroutine lookup_bin
+
   ! returns the position of the bin corresponding to energy coordinate value
   subroutine getiduv(pti, engval, iduv)
     use engmain, only: slttype, uvmax, uvsoft, uvcrd, esmax, escrd, &
-                       stdout, SLT_SOLN
+                       stdout, SLT_SOLN, hist_region_idx, hist_region_pecore
     use mpiproc, only: halt_with_error, warning
     implicit none
     integer, intent(in) :: pti
@@ -1156,11 +1238,13 @@ contains
           call halt_with_error('eng_bug')
        endif
        idnum = uvmax(pti)
-       call binsearch(uvcrd((idmin + 1):(idmin + idnum)), idnum, engval, idpti)
+       call lookup_bin(uvcrd((idmin + 1):(idmin + idnum)), idnum, engval, &
+            hist_region_idx(:, pti), hist_region_pecore(pti) > 0, idpti)
     elseif (pti == 0) then        ! solute self-energy
        idmin = 0
        idnum = esmax
-       call binsearch(escrd(1:idnum), idnum, engval, idpti)
+       call lookup_bin(escrd(1:idnum), idnum, engval, &
+            hist_region_idx(:, 0), hist_region_pecore(0) > 0, idpti)
     else                         ! bug --- pti must be non-negative
        call halt_with_error('eng_bug')
     endif
@@ -1412,4 +1496,5 @@ contains
        end if
     endif
   end subroutine representative_bin_info
+
 end module engproc

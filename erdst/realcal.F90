@@ -527,7 +527,7 @@ contains
     integer, intent(in) :: tagslt, maxdst, slvmax
     real(wp), intent(inout) :: uvengy(:, :)
 
-    integer :: i, k, is, js, ismax, jsmax, ati, ati_ext, atj, cnt
+    integer :: i, is, js, ismax, jsmax, ati, ati_ext, atj, cnt
     real(wp) :: reelcut, pairep, rst, dis2, invr2, invr3, invr6
     real(wp) :: eplj, epcl, xst(3), half_cell(3)
     real(wp) :: lwljcut2, upljcut2, lwljcut3, upljcut3, lwljcut6, upljcut6
@@ -660,7 +660,7 @@ contains
                 pairep = pairep + eplj + epcl
              end do
              !$acc atomic update
-             uvengy(k, cnt) = uvengy(k, cnt) + pairep
+             uvengy(i, cnt) = uvengy(i, cnt) + pairep
           end do
        end do
     end do

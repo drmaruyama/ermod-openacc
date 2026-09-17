@@ -143,7 +143,7 @@ contains
 !         do j = i + 1, n
        do j = 2, n
           do i = 1, j - 1
-             if (abs(a(i, j) > amax)) amax = abs(a(i, j))
+             if (abs(a(i, j)) > amax) amax = abs(a(i, j))
           end do
        end do
        if (amax < tol) then

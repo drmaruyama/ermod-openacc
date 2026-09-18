@@ -17,7 +17,7 @@ nobase_pkgdata_SCRIPTS = \
 
 dist_pkglibexec_SCRIPTS = $(top_srcdir)/../vmdplugins/libexec/*.so
 
-ersources = precision.F90 enganal.F90 engmain.F90 realcal.F90 spline.F90 fft_iface.F90 mpiproc.F90 engproc.F90 recpcal.F90 insertion.F90 setconf.F90 trajectory.F90 utility.F90 bestfit.F90
+ersources = precision.F90 randgen.F90 enganal.F90 engmain.F90 realcal.F90 spline.F90 fft_iface.F90 mpiproc.F90 engproc.F90 recpcal.F90 insertion.F90 setconf.F90 trajectory.F90 utility.F90 bestfit.F90
 
 EXTRA_DIST = ../parameters_er.example ../parameters_fe.example
 EXTRA_DIST += ../extensions/*
@@ -83,11 +83,13 @@ $(top_builddir)/fft_iface.$(OBJEXT): $(top_srcdir)/fft_iface.F90 \
 $(top_builddir)/spline.$(OBJEXT): $(top_srcdir)/spline.F90 \
     $(top_builddir)/precision.$(OBJEXT)
 $(top_builddir)/insertion.$(OBJEXT): $(top_srcdir)/insertion.F90 \
+    $(top_builddir)/randgen.$(OBJEXT) \
     $(top_builddir)/setconf.$(OBJEXT) \
     $(top_builddir)/bestfit.$(OBJEXT) \
     $(top_builddir)/trajectory.$(OBJEXT) \
     $(top_builddir)/mpiproc.$(OBJEXT) \
     $(top_builddir)/engmain.$(OBJEXT)
+$(top_builddir)/randgen.$(OBJEXT): $(top_srcdir)/randgen.F90
 $(top_builddir)/setconf.$(OBJEXT): $(top_srcdir)/setconf.F90 \
     $(top_builddir)/utility.$(OBJEXT) \
     $(top_builddir)/trajectory.$(OBJEXT) \

@@ -19,8 +19,11 @@
 module ptinsrt
   ! test particle insertion of the solute
   use precision_kinds, only: wp
+  use randgen, only: randstate
   implicit none
   real(wp), save :: unrn
+  ! random number generator state (xoshiro256**, see randgen.F90).
+  type(randstate), save :: randst
   !
   ! insertion against reference structure
   !   insorigin = INSORG_REFSTR: solvent species as superposition reference
@@ -545,12 +548,10 @@ contains
 
 
   ! returns random value from [0,1)
-  ! Any sane compiler implements random_number
-  ! (which is included in fortran 95 standards)
   subroutine urand(rndm)          ! uniform random number generator
     implicit none
     real(wp), intent(out) :: rndm
-    call random_number(rndm)
+    rndm = real(randst%next_double(), wp)
   end subroutine urand
 
   ! Normal random variable N(0,1)
@@ -567,21 +568,40 @@ contains
   end function nrand
 
   subroutine urand_init(seed)
-    use mpiproc, only: myrank
+    use precision_kinds, only: wp
+    use mpiproc, only: myrank, mpi_comm_activeprocs
+#ifdef MPI
+    use mpi
+#endif
     implicit none
     integer, intent(in) :: seed
-    integer :: seedsize
-    integer, allocatable :: seedarray(:)
+    integer(8) :: seed_in
+    integer :: i
+#ifdef MPI
+    integer(8) :: buf
+    integer :: ierr
+#endif
 
-    call random_seed(size = seedsize)
-    allocate(seedarray(seedsize))
-    seedarray(:) = 1
+    if (seed == 0) then
+       call system_clock(count = seed_in)
+    else
+       seed_in = int(seed, 8)
+    end if
+#ifdef MPI
+    if (myrank /= 0) then
+       seed_in = 0
+    end if
+    call mpi_allreduce(seed_in, buf, 1, mpi_integer8, mpi_sum, mpi_comm_activeprocs, ierr)
+    if (ierr /= 0) stop "Allreduce failed"
+    seed_in = buf
+#endif
 
-    seedarray(1) = myrank + seed
-    if (seed == 0) call system_clock(count = seedarray(1))
+    call randst%init(seed_in)
 
-    call random_seed(put = seedarray)
-    deallocate(seedarray)
+    ! Each MPI process must have completely different state
+    do i = 1, myrank
+       call randst%long_jump()
+    end do
   end subroutine urand_init
 
 
